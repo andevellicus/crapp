@@ -2,7 +2,6 @@ package handlers
 
 import (
 	"encoding/json"
-	"log"
 	"net/http"
 	"strconv"
 
@@ -10,21 +9,22 @@ import (
 	"github.com/andevellicus/crapp/internal/repository"
 	"github.com/andevellicus/crapp/internal/utils"
 	"github.com/gorilla/mux"
+	"go.uber.org/zap"
 )
 
 // APIHandler handles API endpoints
 type APIHandler struct {
 	repo           *repository.Repository
 	questionLoader *utils.QuestionLoader
-	logger         *log.Logger
+	log            *zap.SugaredLogger
 }
 
 // NewAPIHandler creates a new API handler
-func NewAPIHandler(repo *repository.Repository, questionLoader *utils.QuestionLoader, logger *log.Logger) *APIHandler {
+func NewAPIHandler(repo *repository.Repository, questionLoader *utils.QuestionLoader, log *zap.SugaredLogger) *APIHandler {
 	return &APIHandler{
 		repo:           repo,
 		questionLoader: questionLoader,
-		logger:         logger,
+		log:            log.Named("api"),
 	}
 }
 
@@ -47,19 +47,19 @@ func (h *APIHandler) SubmitAssessment(w http.ResponseWriter, r *http.Request) {
 	// Parse the request body
 	decoder := json.NewDecoder(r.Body)
 	if err := decoder.Decode(&submission); err != nil {
-		h.logger.Printf("Error decoding submission: %v", err)
+		h.log.Errorw("Error decoding submission", "error", err)
 		respondWithError(w, http.StatusBadRequest, "Invalid request payload")
 		return
 	}
 	defer r.Body.Close()
 
 	// Log submission
-	h.logger.Printf("Received assessment submission from user %s", submission.UserID)
+	h.log.Infow("Received assessment submission", "user_id", submission.UserID)
 
 	// Save to database
 	assessmentID, err := h.repo.CreateAssessment(&submission)
 	if err != nil {
-		h.logger.Printf("Error processing submission: %v", err)
+		h.log.Errorw("Error processing submission", "error", err, "user_id", submission.UserID)
 		respondWithError(w, http.StatusInternalServerError, "Error processing assessment submission")
 		return
 	}
@@ -95,7 +95,7 @@ func (h *APIHandler) GetUserAssessments(w http.ResponseWriter, r *http.Request) 
 	// Get assessments from database
 	assessments, err := h.repo.GetAssessmentsByUser(userID, skip, limit)
 	if err != nil {
-		h.logger.Printf("Error retrieving assessments: %v", err)
+		h.log.Errorw("Error retrieving assessments", "error", err, "user_id", userID)
 		respondWithError(w, http.StatusInternalServerError, "Error retrieving assessments")
 		return
 	}

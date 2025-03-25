@@ -1,52 +1,63 @@
 package main
 
 import (
-	"io"
-	"log"
+	"fmt"
 	"net/http"
 	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/andevellicus/crapp/internal/handlers"
+	"github.com/andevellicus/crapp/internal/logger"
+	"github.com/andevellicus/crapp/internal/middleware"
 	"github.com/andevellicus/crapp/internal/models"
 	"github.com/andevellicus/crapp/internal/repository"
 	"github.com/andevellicus/crapp/internal/utils"
 	"github.com/gorilla/mux"
-	"github.com/rs/cors"
+	"go.uber.org/zap"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 	gormlogger "gorm.io/gorm/logger"
 )
 
 func main() {
-	// Setup logging
-	var logWriter io.Writer = os.Stdout
-	logFile, err := os.OpenFile("crapp.log", os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
-	if err == nil {
-		logWriter = io.MultiWriter(os.Stdout, logFile)
-		defer logFile.Close()
-	} else {
-		log.Printf("Failed to open log file: %v", err)
+	// Create logs directory if it doesn't exist
+	logsDir := "logs"
+	if err := os.MkdirAll(logsDir, 0755); err != nil {
+		panic(fmt.Sprintf("Failed to create logs directory: %v", err))
 	}
-	fileLogger := log.New(logWriter, "[CRAPP] ", log.LstdFlags)
+
+	// Create log filename with current timestamp
+	timestamp := time.Now().Format("2006-01-02_15-04-05")
+	logFile := filepath.Join(logsDir, fmt.Sprintf("crapp_%s.log", timestamp))
+
+	// Initialize Zap logger with the timestamped file in logs directory
+	err := logger.InitLogger(logFile, false)
+	if err != nil {
+		panic("Failed to initialize logger: " + err.Error())
+	}
+	defer logger.Sync()
+
+	log := logger.Sugar
+	log.Info("Starting CRAPP server")
 
 	// Initialize YAML question loader
 	questionLoader, err := utils.NewQuestionLoader("questions.yaml")
 	if err != nil {
-		fileLogger.Fatalf("Failed to load questions: %v", err)
+		log.Fatalf("Failed to load questions: %v", err)
 	}
 
 	// Setup database
-	db, err := setupDatabase(logWriter)
+	db, err := setupDatabase()
 	if err != nil {
-		fileLogger.Fatalf("Failed to connect to database: %v", err)
+		log.Fatalf("Failed to connect to database: %v", err)
 	}
 
 	// Create repository
-	repo := repository.NewRepository(db)
+	repo := repository.NewRepository(db, log)
 
 	// Initialize handlers
-	apiHandler := handlers.NewAPIHandler(repo, questionLoader, fileLogger)
+	apiHandler := handlers.NewAPIHandler(repo, questionLoader, log)
 	viewHandler := handlers.NewViewHandler("static")
 
 	// Setup router
@@ -65,39 +76,37 @@ func main() {
 	// Static files
 	viewHandler.ServeStatic(router)
 
-	// Setup CORS
-	corsMiddleware := cors.New(cors.Options{
-		AllowedOrigins:   []string{"*"},
-		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
-		AllowedHeaders:   []string{"*"},
-		AllowCredentials: true,
-	})
+	// Apply middleware
+	handler := middleware.Setup(router, log)
 
 	// Create HTTP server
 	srv := &http.Server{
-		Handler:      corsMiddleware.Handler(router),
+		Handler:      handler,
 		Addr:         "0.0.0.0:5000",
 		WriteTimeout: 15 * time.Second,
 		ReadTimeout:  15 * time.Second,
 	}
 
 	// Start server
-	fileLogger.Printf("Starting server on %s", srv.Addr)
-	fileLogger.Fatal(srv.ListenAndServe())
+	log.Infof("Starting server on %s", srv.Addr)
+	log.Fatal(srv.ListenAndServe())
 }
 
 // setupDatabase initializes the database connection
-func setupDatabase(logWriter io.Writer) (*gorm.DB, error) {
+func setupDatabase() (*gorm.DB, error) {
 	// Get database URL from environment variable or use default SQLite database
 	dbURL := os.Getenv("DATABASE_URL")
 	if dbURL == "" {
 		dbURL = "crapp.db"
 	}
 
+	// Get a logger for GORM
+	dbLogger := logger.GetLogger("gorm")
+
 	// Configure GORM logger
 	gormConfig := &gorm.Config{
 		Logger: gormlogger.New(
-			log.New(logWriter, "[GORM] ", log.LstdFlags),
+			&GormLogAdapter{zapLogger: dbLogger},
 			gormlogger.Config{
 				SlowThreshold:             time.Second,
 				LogLevel:                  gormlogger.Error,
@@ -120,4 +129,14 @@ func setupDatabase(logWriter io.Writer) (*gorm.DB, error) {
 	}
 
 	return db, nil
+}
+
+// GormLogAdapter adapts zap logger to gorm logger interface
+type GormLogAdapter struct {
+	zapLogger *zap.Logger
+}
+
+// Printf implements GORM's logger interface
+func (l *GormLogAdapter) Printf(format string, args ...interface{}) {
+	l.zapLogger.Sugar().Infof(format, args...)
 }

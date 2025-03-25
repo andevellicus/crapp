@@ -6,17 +6,22 @@ import (
 	"time"
 
 	"github.com/andevellicus/crapp/internal/models"
+	"go.uber.org/zap"
 	"gorm.io/gorm"
 )
 
 // Repository handles all database operations
 type Repository struct {
-	db *gorm.DB
+	db  *gorm.DB
+	log *zap.SugaredLogger
 }
 
 // NewRepository creates a new repository with the given database connection
-func NewRepository(db *gorm.DB) *Repository {
-	return &Repository{db: db}
+func NewRepository(db *gorm.DB, log *zap.SugaredLogger) *Repository {
+	return &Repository{
+		db:  db,
+		log: log.Named("repository"),
+	}
 }
 
 // GetUser retrieves a user by ID

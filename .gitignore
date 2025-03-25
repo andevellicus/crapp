@@ -15,7 +15,7 @@ go.work
 crapp.db
 
 # Log files
-crapp.log
+logs/
 
 # Data directory
 data/
