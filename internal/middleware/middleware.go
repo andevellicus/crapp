@@ -4,51 +4,97 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/gorilla/mux"
-	"github.com/rs/cors"
+	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
 )
 
-// Setup configures and attaches all middleware to the router
-func Setup(router *mux.Router, log *zap.SugaredLogger) http.Handler {
-	// Create a new CORS handler
-	corsMiddleware := cors.New(cors.Options{
-		AllowedOrigins:   []string{"*"},
-		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
-		AllowedHeaders:   []string{"*"},
-		AllowCredentials: true,
-		MaxAge:           300, // Maximum value not usually needed
-	})
+// GinLogger returns a Gin middleware for Zap logging
+func GinLogger(log *zap.SugaredLogger) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		// Start timer
+		start := time.Now()
+		path := c.Request.URL.Path
+		raw := c.Request.URL.RawQuery
 
-	// Apply middlewares in order (outside -> in):
-	// 1. CORS handling
-	handler := corsMiddleware.Handler(router)
+		// Process request
+		c.Next()
 
-	// 2. Logging (comes after CORS to not log preflight requests)
-	// handler = Logging(log)(handler)
+		// Calculate latency
+		latency := time.Since(start)
 
-	// 3. Recovery (should be one of the first to ensure panics are caught)
-	// handler = Recovery(log)(handler)
+		// Get status code and client IP
+		statusCode := c.Writer.Status()
+		clientIP := c.ClientIP()
+		method := c.Request.Method
+		errorMessage := c.Errors.String()
 
-	// 4. Request timeout
-	handler = TimeoutMiddleware(30 * time.Second)(handler)
+		if raw != "" {
+			path = path + "?" + raw
+		}
 
-	// Return the final wrapped handler
-	return handler
+		// Log based on status code
+		switch {
+		case statusCode >= 500:
+			log.Errorw("Server error",
+				"status", statusCode,
+				"latency", latency,
+				"client", clientIP,
+				"method", method,
+				"path", path,
+				"error", errorMessage,
+			)
+		case statusCode >= 400:
+			log.Warnw("Client error",
+				"status", statusCode,
+				"latency", latency,
+				"client", clientIP,
+				"method", method,
+				"path", path,
+			)
+		default:
+			log.Infow("Request completed",
+				"status", statusCode,
+				"latency", latency,
+				"client", clientIP,
+				"method", method,
+				"path", path,
+			)
+		}
+	}
 }
 
-// TimeoutMiddleware adds a timeout to the request context
-func TimeoutMiddleware(timeout time.Duration) func(http.Handler) http.Handler {
-	return func(next http.Handler) http.Handler {
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			// Create a timeout context
-			ctx := r.Context()
-			// Uncomment and import "context" if needed
-			// ctx, cancel := context.WithTimeout(ctx, timeout)
-			// defer cancel()
+// GinAuth returns a Gin middleware for basic authentication
+// This is a placeholder for future auth implementation
+func GinAuth() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		// Skip authentication for public paths
+		publicPaths := map[string]bool{
+			"/":          true,
+			"/visualize": true,
+			"/static/":   true,
+		}
 
-			// Continue with the request
-			next.ServeHTTP(w, r.WithContext(ctx))
-		})
+		path := c.Request.URL.Path
+
+		// Check if path is public
+		for publicPath := range publicPaths {
+			if len(publicPath) <= len(path) && path[:len(publicPath)] == publicPath {
+				c.Next()
+				return
+			}
+		}
+
+		// For API routes, check for user_id parameter
+		// This is very basic and should be replaced with proper auth
+		userID := c.Query("user_id")
+		if userID == "" {
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+			return
+		}
+
+		// Set user ID in context for later use
+		c.Set("user_id", userID)
+
+		c.Next()
 	}
 }

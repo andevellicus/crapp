@@ -12,7 +12,7 @@ type User struct {
 	ID        string    `json:"id" gorm:"primaryKey"`
 	Email     string    `json:"email,omitempty" gorm:"uniqueIndex"`
 	CreatedAt time.Time `json:"created_at"`
-	LastLogin time.Time `json:"last_login,omitempty"`
+	LastLogin time.Time `json:"last_login"`
 
 	// Relationships
 	Assessments []Assessment `json:"assessments,omitempty" gorm:"foreignKey:UserID"`
@@ -43,7 +43,7 @@ type Assessment struct {
 }
 
 // JSON is a custom type for handling JSON data in the database
-type JSON map[string]interface{}
+type JSON map[string]any
 
 // Value implements the driver.Valuer interface for JSON
 func (j JSON) Value() (driver.Value, error) {
@@ -56,7 +56,7 @@ func (j JSON) Value() (driver.Value, error) {
 }
 
 // Scan implements the sql.Scanner interface for JSON
-func (j *JSON) Scan(value interface{}) error {
+func (j *JSON) Scan(value any) error {
 	var bytes []byte
 
 	switch v := value.(type) {

@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"net/http"
 	"os"
 	"path/filepath"
 	"time"
@@ -13,7 +12,7 @@ import (
 	"github.com/andevellicus/crapp/internal/models"
 	"github.com/andevellicus/crapp/internal/repository"
 	"github.com/andevellicus/crapp/internal/utils"
-	"github.com/gorilla/mux"
+	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
@@ -31,7 +30,7 @@ func main() {
 	timestamp := time.Now().Format("2006-01-02_15-04-05")
 	logFile := filepath.Join(logsDir, fmt.Sprintf("crapp_%s.log", timestamp))
 
-	// Initialize Zap logger with the timestamped file in logs directory
+	// Initialize Zap logger
 	err := logger.InitLogger(logFile, false)
 	if err != nil {
 		panic("Failed to initialize logger: " + err.Error())
@@ -39,7 +38,14 @@ func main() {
 	defer logger.Sync()
 
 	log := logger.Sugar
-	log.Info("Starting CRAPP server")
+	log.Info("Starting CRAPP server with Gin")
+
+	// Set Gin mode based on environment
+	if os.Getenv("GIN_MODE") == "release" {
+		gin.SetMode(gin.ReleaseMode)
+	} else {
+		gin.SetMode(gin.DebugMode)
+	}
 
 	// Initialize YAML question loader
 	questionLoader, err := utils.NewQuestionLoader("questions.yaml")
@@ -57,39 +63,38 @@ func main() {
 	repo := repository.NewRepository(db, log)
 
 	// Initialize handlers
-	apiHandler := handlers.NewAPIHandler(repo, questionLoader, log)
-	viewHandler := handlers.NewViewHandler("static")
+	apiHandler := handlers.NewGinAPIHandler(repo, questionLoader, log)
+	viewHandler := handlers.NewGinViewHandler("static")
 
-	// Setup router
-	router := mux.NewRouter()
-
-	// API routes
-	router.HandleFunc("/api/questions", apiHandler.GetQuestions).Methods("GET")
-	router.HandleFunc("/api/questions/symptoms", apiHandler.GetSymptomQuestions).Methods("GET")
-	router.HandleFunc("/api/submit", apiHandler.SubmitAssessment).Methods("POST")
-	router.HandleFunc("/api/assessments/{user_id}", apiHandler.GetUserAssessments).Methods("GET")
-
-	// View routes
-	router.HandleFunc("/", viewHandler.ServeIndex).Methods("GET")
-	router.HandleFunc("/visualize", viewHandler.ServeVisualize).Methods("GET")
-
-	// Static files
-	viewHandler.ServeStatic(router)
+	// Create Gin router
+	router := gin.New()
 
 	// Apply middleware
-	handler := middleware.Setup(router, log)
+	router.Use(gin.Recovery())
+	router.Use(middleware.GinLogger(log))
 
-	// Create HTTP server
-	srv := &http.Server{
-		Handler:      handler,
-		Addr:         "0.0.0.0:5000",
-		WriteTimeout: 15 * time.Second,
-		ReadTimeout:  15 * time.Second,
+	// Static files
+	router.Static("/static", "./static")
+
+	// View routes
+	router.GET("/", viewHandler.ServeIndex)
+	router.GET("/visualize", viewHandler.ServeVisualize)
+
+	// API routes
+	api := router.Group("/api")
+	{
+		api.GET("/questions", apiHandler.GetQuestions)
+		api.GET("/questions/symptoms", apiHandler.GetSymptomQuestions)
+		api.POST("/submit", apiHandler.SubmitAssessment)
+		api.GET("/assessments/:user_id", apiHandler.GetUserAssessments)
 	}
 
 	// Start server
-	log.Infof("Starting server on %s", srv.Addr)
-	log.Fatal(srv.ListenAndServe())
+	addr := "0.0.0.0:5000"
+	log.Infof("Starting server on %s", addr)
+	if err := router.Run(addr); err != nil {
+		log.Fatalf("Failed to start server: %v", err)
+	}
 }
 
 // setupDatabase initializes the database connection
