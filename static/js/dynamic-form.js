@@ -1,0 +1,394 @@
+// static/js/dynamic-form.js
+// Handles loading and rendering questions dynamically from YAML definitions
+
+document.addEventListener('DOMContentLoaded', function() {
+    let questions = [];
+
+    const formContainer = document.getElementById('symptom-form');
+    const messageDiv = document.getElementById('message');
+    
+    // Generate a simple user ID (persist in local storage if possible)
+    const storedUserId = localStorage.getItem('crappUserId');
+    const userId = storedUserId || 'user_' + Math.random().toString(36).substring(2, 10);
+    
+    // Save user ID to local storage for future sessions
+    if (!storedUserId) {
+        localStorage.setItem('crappUserId', userId);
+    }
+    
+    // Load and render questions
+    async function loadQuestions() {
+        try {
+            const response = await fetch('/api/questions');
+            if (!response.ok) {
+                throw new Error('Failed to load questions');
+            }
+            
+            questions = await response.json();
+            renderQuestions(questions);
+            setupFormSubmission();
+        } catch (error) {
+            console.error('Error loading questions:', error);
+            messageDiv.className = 'message error';
+            messageDiv.innerHTML = '<h3>Error</h3><p>Failed to load questions. Please try again later.</p>';
+            messageDiv.style.display = 'block';
+        }
+    }
+    
+    // Render questions based on their type
+    function renderQuestions(questions) {
+        // Clear form
+        formContainer.innerHTML = '';
+        
+        // Add each question
+        questions.forEach(question => {
+            const questionDiv = document.createElement('div');
+            questionDiv.className = 'form-group';
+            questionDiv.dataset.questionId = question.id;
+            
+            // Add question title and description
+            const titleEl = document.createElement('h3');
+            titleEl.textContent = question.title;
+            questionDiv.appendChild(titleEl);
+            
+            if (question.description) {
+                const descEl = document.createElement('p');
+                descEl.textContent = question.description;
+                questionDiv.appendChild(descEl);
+            }
+            
+            // Render appropriate input based on type
+            switch (question.type) {
+                case 'radio':
+                    renderRadioOptions(questionDiv, question);
+                    break;
+                case 'dropdown':
+                    renderDropdown(questionDiv, question);
+                    break;
+                case 'text':
+                    renderTextInput(questionDiv, question);
+                    break;
+                default:
+                    console.warn(`Unknown question type: ${question.type}`);
+            }
+            
+            formContainer.appendChild(questionDiv);
+        });
+        
+        // Add submit button
+        const submitBtn = document.createElement('button');
+        submitBtn.type = 'submit';
+        submitBtn.textContent = 'Submit';
+        formContainer.appendChild(submitBtn);
+    }
+    
+    // Render radio button options
+    function renderRadioOptions(container, question) {
+        const optionsDiv = document.createElement('div');
+        optionsDiv.className = 'symptom-scale';
+        
+        question.options.forEach(option => {
+            const label = document.createElement('label');
+            label.className = 'option-label';
+            
+            const input = document.createElement('input');
+            input.type = 'radio';
+            input.name = question.id;
+            input.value = option.value;
+            if (question.required) {
+                input.required = true;
+            }
+            
+            const textDiv = document.createElement('div');
+            textDiv.className = 'option-text';
+            
+            const strong = document.createElement('strong');
+            strong.textContent = option.label;
+            textDiv.appendChild(strong);
+            
+            if (option.description) {
+                textDiv.appendChild(document.createElement('br'));
+                textDiv.appendChild(document.createTextNode(option.description));
+            }
+            
+            label.appendChild(input);
+            label.appendChild(textDiv);
+            optionsDiv.appendChild(label);
+        });
+        
+        container.appendChild(optionsDiv);
+    }
+    
+    // Render dropdown select
+    function renderDropdown(container, question) {
+        const select = document.createElement('select');
+        select.name = question.id;
+        select.id = question.id;
+        
+        if (question.required) {
+            select.required = true;
+        }
+        
+        question.options.forEach(option => {
+            const optionEl = document.createElement('option');
+            optionEl.value = option.value;
+            optionEl.textContent = option.label;
+            
+            // Set default option if specified
+            if (question.default_option && question.default_option === option.value) {
+                optionEl.selected = true;
+            }
+            
+            select.appendChild(optionEl);
+        });
+        
+        container.appendChild(select);
+    }
+    
+    // Render text input
+    function renderTextInput(container, question) {
+        const input = document.createElement('textarea');
+        input.name = question.id;
+        input.id = question.id;
+        input.className = 'text-input';
+        
+        if (question.placeholder) {
+            input.placeholder = question.placeholder;
+        }
+        
+        if (question.max_length) {
+            input.maxLength = question.max_length;
+        }
+        
+        if (question.required) {
+            input.required = true;
+        }
+        
+        container.appendChild(input);
+    }
+    
+    // Set up form submission handler
+    function setupFormSubmission() {
+        formContainer.addEventListener('submit', function(event) {
+            event.preventDefault();
+            
+            // Get interaction data from the tracker
+            const interactionData = window.interactionTracker ? window.interactionTracker.getData() : {};
+                            
+            // Collect form data
+            const formData = new FormData(formContainer);
+            
+            // Build submission data
+            const data = {
+                user_id: userId,
+                responses: {},
+                metadata: {
+                    user_agent: navigator.userAgent,
+                    screen_size: {
+                        width: window.innerWidth,
+                        height: window.innerHeight
+                    },
+                    timestamp: new Date().toISOString()
+                }
+            };
+            
+            // Add all form values to responses object
+            formData.forEach((value, key) => {
+                const question = questions.find(q => q.id === key);
+                if (question && question.type === 'radio') {
+                    data.responses[key] = parseInt(value);
+                } else {
+                    data.responses[key] = value;
+                }
+            });
+            
+            // Add interaction metrics if available
+            if (interactionData.metrics) {
+                data.metadata.interaction_metrics = interactionData.metrics;
+            }
+            
+            // Add question-specific metrics if available
+            if (interactionData.questionMetrics) {
+                data.metadata.question_metrics = {};
+                
+                // Manually extract metrics from the interactions directly
+                // This bypasses any potential issues in the tracker's metric calculation
+                const questionIds = Object.keys(interactionData.questionMetrics);
+                
+                // Process each question that has interactions
+                for (const questionId of questionIds) {
+                    const qData = interactionData.questionMetrics[questionId];
+                    const interactions = qData.interactions || [];
+                    
+                    // Only process questions with actual interactions
+                    if (interactions.length > 0) {                       
+                        // Calculate metrics directly from interactions
+                        const clickPrecision = calculateClickPrecision(interactions);
+                        const pathEfficiency = calculatePathEfficiency(interactions);
+                        const overShootRate = calculateOvershootRate(interactions);
+                        const velocityData = calculateVelocity(qData.movements || []);
+                        
+                        // Store calculated metrics for this question
+                        data.metadata.question_metrics[questionId] = {
+                            clickPrecision: clickPrecision,
+                            pathEfficiency: pathEfficiency,
+                            overShootRate: overShootRate,
+                            averageVelocity: velocityData.averageVelocity,
+                            velocityVariability: velocityData.variability
+                        };
+                    }
+                }
+            }
+            
+            // Limit data size
+            if (interactionData.interactions) {
+                data.metadata.mouse_interactions = limitInteractions(interactionData.interactions);
+            }
+            if (interactionData.movements) {
+                data.metadata.mouse_movements = limitMovements(interactionData.movements);
+            }
+            
+            fetch('/api/submit', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(data)
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Network response was not ok');
+                }
+                return response.json();
+            })
+            .then(result => {                
+                // Show success message
+                messageDiv.className = 'message success';
+                messageDiv.innerHTML = '<h3>Thank You!</h3><p>Your report has been submitted successfully.</p><p><a href="/visualize">View your data visualization</a></p>';
+                messageDiv.style.display = 'block';
+                
+                // Reset tracker
+                if (window.interactionTracker) {
+                    window.interactionTracker.reset();
+                }
+                
+                // Reset form
+                formContainer.reset();
+                
+                // Hide message after 10 seconds
+                setTimeout(() => {
+                    messageDiv.style.display = 'none';
+                }, 10000);
+            })
+            .catch(error => {
+                // Show error message
+                messageDiv.className = 'message error';
+                messageDiv.innerHTML = '<h3>Error</h3><p>There was a problem submitting your report. Please try again later.</p>';
+                messageDiv.style.display = 'block';
+                console.error('Error:', error);
+            });
+        });
+    }
+    
+    // Calculate click precision from interactions
+    function calculateClickPrecision(interactions) {
+        if (interactions.length === 0) return 0;
+        
+        // Average normalized distance (0-1 where 0 is perfect)
+        const avgDistance = interactions.reduce((sum, i) => {
+            // Ensure normalizedDistance is between 0-1 (sometimes it's calculated wrong)
+            const normalizedDist = i.normalizedDistance > 1 ? 1 : i.normalizedDistance;
+            return sum + normalizedDist;
+        }, 0) / interactions.length;
+        
+        // Convert to precision (higher is better)
+        return 1 - (avgDistance > 1 ? 1 : avgDistance); 
+    }
+    
+    // Calculate path efficiency from interactions
+    function calculatePathEfficiency(interactions) {
+        const approachData = interactions.filter(i => i.approach !== null);
+        if (approachData.length === 0) return 0.7; // Default fallback
+        
+        const efficiency = approachData.reduce((sum, i) => {
+            return sum + (i.approach.efficiency || 0);
+        }, 0) / approachData.length;
+        
+        return efficiency > 1 ? 1 : efficiency; // Cap at 1
+    }
+    
+    // Calculate overshoot rate from interactions
+    function calculateOvershootRate(interactions) {
+        const approachData = interactions.filter(i => i.approach !== null);
+        if (approachData.length === 0) return 0.2; // Default fallback
+        
+        return approachData.filter(i => (i.approach.directionChanges || 0) > 0).length / approachData.length;
+    }
+    
+    // Calculate velocity metrics from movements
+    function calculateVelocity(movements) {
+        if (movements.length < 2) {
+            return {
+                averageVelocity: 400, // Default fallback
+                variability: 0.3     // Default fallback
+            };
+        }
+        
+        // Calculate velocities between consecutive points
+        const velocities = [];
+        for (let i = 1; i < movements.length; i++) {
+            const dx = movements[i].x - movements[i-1].x;
+            const dy = movements[i].y - movements[i-1].y;
+            const dt = (movements[i].timestamp - movements[i-1].timestamp) / 1000; // Convert to seconds
+            
+            if (dt > 0) {
+                const distance = Math.sqrt(dx*dx + dy*dy);
+                const velocity = distance / dt;
+                velocities.push(velocity);
+            }
+        }
+        
+        if (velocities.length === 0) {
+            return {
+                averageVelocity: 400, // Default fallback
+                variability: 0.3     // Default fallback
+            };
+        }
+        
+        // Calculate average velocity
+        const avgVelocity = velocities.reduce((sum, v) => sum + v, 0) / velocities.length;
+        
+        // Calculate velocity variability (coefficient of variation)
+        const variance = velocities.reduce((sum, v) => sum + Math.pow(v - avgVelocity, 2), 0) / velocities.length;
+        const stdDev = Math.sqrt(variance);
+        const variability = stdDev / avgVelocity;
+        
+        return {
+            averageVelocity: avgVelocity,
+            variability: variability
+        };
+    }
+    
+    // Function to limit interactions (take most recent N interactions)
+    function limitInteractions(interactions) {
+        if (interactions.length <= 100) return interactions;
+        return interactions.slice(-100);
+    }
+    
+    // Function to limit mouse movements (take every Nth point)
+    function limitMovements(movements) {
+        if (movements.length <= 200) return movements;
+        
+        const result = [];
+        const step = Math.floor(movements.length / 200);
+        
+        for (let i = 0; i < movements.length; i += step) {
+            result.push(movements[i]);
+        }
+        
+        return result;
+    }
+    
+    // Start loading questions
+    loadQuestions();
+});

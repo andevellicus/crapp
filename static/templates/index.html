@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CRAPP: Cognitive Reporting Application</title>
+    <link rel="stylesheet" href="/static/css/main.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>CRAPP</h1>
+            <h2>Cognitive Reporting Application</h2>
+        </header>
+        
+        <div id="message" class="message"></div>
+        
+        <form id="symptom-form">
+            <!-- Questions will be loaded dynamically from YAML -->
+        </form>
+        
+        <a href="/visualize" class="viz-link">View Your Data Visualization</a>
+        
+        <footer>
+            <p>© 2025 CRAPP - Daily Symptom Reporting</p>
+        </footer>
+    </div>
+    
+    <!-- Include scripts -->
+    <script src="/static/js/interaction-tracker.js"></script>
+    <script src="/static/js/dynamic-form.js"></script>
+</body>
+</html>
