@@ -444,8 +444,8 @@ document.addEventListener('DOMContentLoaded', function() {
             
             // Build submission data
             const data = {
-                user_email: window.authManager.currentUser.email,
-                device_id: window.authManager.deviceId,
+                user_email: window.authManager.getCurrentUser().email,
+                device_id: window.authManager.getDeviceId(),
                 responses: {},
                 metadata: {
                     user_agent: navigator.userAgent,
@@ -516,7 +516,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${window.authManager.token}`
+                    'Authorization': `Bearer ${window.authManager.getCurrentToken()}`
                 },
                 body: JSON.stringify(data)
             })

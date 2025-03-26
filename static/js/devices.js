@@ -28,7 +28,7 @@ async function loadUserDevices() {
     try {
         const response = await fetch('/api/devices', {
             headers: {
-                'Authorization': `Bearer ${window.authManager.token}`
+                'Authorization': `Bearer ${window.authManager.getCurrentToken()}`
             }
         });
         

@@ -312,7 +312,7 @@ document.addEventListener('DOMContentLoaded', function() {
             
             const response = await fetch(`/api/assessments?user_id=${userEmail}`, {
                 headers: {
-                    'Authorization': `Bearer ${window.authManager.token}`
+                    'Authorization': `Bearer ${window.authManager.getCurrentToken()}`
                 }
             });
             

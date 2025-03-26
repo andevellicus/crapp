@@ -61,7 +61,7 @@ async function loadUserData() {
         if (!userData) {
             const response = await fetch('/api/user', {
                 headers: {
-                    'Authorization': `Bearer ${window.authManager.token}`
+                    'Authorization': `Bearer ${window.authManager.getCurrentToken()}`
                 }
             });
             

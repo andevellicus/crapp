@@ -2,9 +2,9 @@
 
 class AuthManager {
     constructor() {
-        this.token = localStorage.getItem('authToken');
-        this.currentUser = JSON.parse(localStorage.getItem('currentUser') || 'null');
-        this.deviceId = localStorage.getItem('deviceId');
+        this.token = localStorage.getItem('authToken') || sessionStorage.getItem('authToken');
+        this.currentUser = this.getCurrentUser();
+        this.deviceId = localStorage.getItem('deviceId') || sessionStorage.getItem('deviceId');
         
         // Initialize event listeners based on current page
         this.initPage();
@@ -190,6 +190,26 @@ class AuthManager {
         // Redirect to login page
         window.location.href = '/login';
     }
+
+    // Returns current token from local storage or session storage
+    getCurrentToken() {
+        return this.token || localStorage.getItem('authToken') || sessionStorage.getItem('authToken');
+    }
+
+    // Get current user
+    getCurrentUser() {
+        if (this.currentUser) return this.currentUser;
+        
+        const userJSON = localStorage.getItem('currentUser') || sessionStorage.getItem('currentUser');
+        if (userJSON) {
+          try {
+            return JSON.parse(userJSON);
+          } catch (e) {
+            return null;
+          }
+        }
+        return null;
+      }
     
     // Get device info for device registration
     getDeviceInfo() {
@@ -204,6 +224,10 @@ class AuthManager {
             }
         };
     }
+
+    getDeviceId() {
+        return this.deviceId || localStorage.getItem('deviceId') || sessionStorage.getItem('deviceId');
+      }
     
     // Generate a user-friendly device name
     detectDeviceName() {
@@ -272,12 +296,7 @@ class AuthManager {
     
     // Check if user is authenticated
     isAuthenticated() {
-        // Check both local and session storage
-        const token = this.token || 
-                      localStorage.getItem('authToken') || 
-                      sessionStorage.getItem('authToken');
-                      
-        return !!token;
+        return !!this.getCurrentToken();
     }
     
     // Check if current page requires authentication and redirect if needed
