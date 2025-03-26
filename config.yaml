@@ -1,0 +1,19 @@
+# CRAPP Configuration
+
+app:
+  name: "CRAPP - Cognitive Reporting Application"
+  environment: "development"  # Options: development, production, testing
+  questions_file: "questions.yaml"
+
+database:
+  driver: "sqlite" 
+  url: "crapp.db"
+
+server:
+  host: "0.0.0.0"
+  port: "5000"
+
+logging:
+  directory: "logs"
+  level: "warn"      # Options: debug, info, warn, error
+  format: "json"     # Options: json, console

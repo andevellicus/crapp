@@ -1,11 +1,11 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"os"
-	"path/filepath"
-	"time"
 
+	"github.com/andevellicus/crapp/internal/config"
 	"github.com/andevellicus/crapp/internal/handlers"
 	"github.com/andevellicus/crapp/internal/logger"
 	"github.com/andevellicus/crapp/internal/middleware"
@@ -13,48 +13,55 @@ import (
 	"github.com/andevellicus/crapp/internal/repository"
 	"github.com/andevellicus/crapp/internal/utils"
 	"github.com/gin-gonic/gin"
-	"go.uber.org/zap"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
-	gormlogger "gorm.io/gorm/logger"
 )
 
 func main() {
+	// Parse command line flags
+	configPath := flag.String("config", "", "Path to configuration file")
+	flag.Parse()
+
+	// Load configuration
+	cfg, err := config.LoadConfig(*configPath)
+	if err != nil {
+		panic(fmt.Sprintf("Failed to load configuration: %v", err))
+	}
+
 	// Create logs directory if it doesn't exist
-	logsDir := "logs"
-	if err := os.MkdirAll(logsDir, 0755); err != nil {
+	if err := os.MkdirAll(cfg.Logging.Directory, 0755); err != nil {
 		panic(fmt.Sprintf("Failed to create logs directory: %v", err))
 	}
 
-	// Create log filename with current timestamp
-	timestamp := time.Now().Format("2006-01-02_15-04-05")
-	logFile := filepath.Join(logsDir, fmt.Sprintf("crapp_%s.log", timestamp))
+	// Get log file path
+	logFile := cfg.GetLogFilePath()
 
 	// Initialize Zap logger
-	err := logger.InitLogger(logFile, false)
-	if err != nil {
+	isDevelopment := cfg.IsDevelopment()
+	if err := logger.InitLogger(logFile, isDevelopment); err != nil {
 		panic("Failed to initialize logger: " + err.Error())
 	}
 	defer logger.Sync()
 
 	log := logger.Sugar
-	log.Info("Starting CRAPP server with Gin")
+	log.Infof("Starting %s server with Gin", cfg.App.Name)
+	log.Infof("Environment: %s", cfg.App.Environment)
 
 	// Set Gin mode based on environment
-	if os.Getenv("GIN_MODE") == "release" {
+	if cfg.IsProduction() {
 		gin.SetMode(gin.ReleaseMode)
 	} else {
 		gin.SetMode(gin.DebugMode)
 	}
 
 	// Initialize YAML question loader
-	questionLoader, err := utils.NewQuestionLoader("questions.yaml")
+	questionLoader, err := utils.NewQuestionLoader(cfg.App.QuestionsFile)
 	if err != nil {
 		log.Fatalf("Failed to load questions: %v", err)
 	}
 
 	// Setup database
-	db, err := setupDatabase()
+	db, err := setupDatabase(cfg)
 	if err != nil {
 		log.Fatalf("Failed to connect to database: %v", err)
 	}
@@ -90,7 +97,7 @@ func main() {
 	}
 
 	// Start server
-	addr := "0.0.0.0:5000"
+	addr := cfg.GetServerAddress()
 	log.Infof("Starting server on %s", addr)
 	if err := router.Run(addr); err != nil {
 		log.Fatalf("Failed to start server: %v", err)
@@ -98,28 +105,15 @@ func main() {
 }
 
 // setupDatabase initializes the database connection
-func setupDatabase() (*gorm.DB, error) {
-	// Get database URL from environment variable or use default SQLite database
-	dbURL := os.Getenv("DATABASE_URL")
-	if dbURL == "" {
-		dbURL = "crapp.db"
-	}
+func setupDatabase(cfg *config.Config) (*gorm.DB, error) {
+	// Get database configuration
+	dbURL := cfg.Database.URL
 
 	// Get a logger for GORM
 	dbLogger := logger.GetLogger("gorm")
 
 	// Configure GORM logger
-	gormConfig := &gorm.Config{
-		Logger: gormlogger.New(
-			&GormLogAdapter{zapLogger: dbLogger},
-			gormlogger.Config{
-				SlowThreshold:             time.Second,
-				LogLevel:                  gormlogger.Error,
-				IgnoreRecordNotFoundError: true,
-				Colorful:                  false,
-			},
-		),
-	}
+	gormConfig := logger.SetUpGormConfig(dbLogger, cfg.Logging.Level)
 
 	// Connect to database
 	db, err := gorm.Open(sqlite.Open(dbURL), gormConfig)
@@ -134,14 +128,4 @@ func setupDatabase() (*gorm.DB, error) {
 	}
 
 	return db, nil
-}
-
-// GormLogAdapter adapts zap logger to gorm logger interface
-type GormLogAdapter struct {
-	zapLogger *zap.Logger
-}
-
-// Printf implements GORM's logger interface
-func (l *GormLogAdapter) Printf(format string, args ...interface{}) {
-	l.zapLogger.Sugar().Infof(format, args...)
 }

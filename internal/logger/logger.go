@@ -2,9 +2,12 @@ package logger
 
 import (
 	"os"
+	"time"
 
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
+	"gorm.io/gorm"
+	gormlogger "gorm.io/gorm/logger"
 )
 
 var (
@@ -14,6 +17,16 @@ var (
 	// Sugar is the global sugared logger (easier to use but slightly slower)
 	Sugar *zap.SugaredLogger
 )
+
+// GormLogAdapter adapts zap logger to gorm logger interface
+type GormLogAdapter struct {
+	ZapLogger *zap.Logger
+}
+
+// Printf implements GORM's logger interface
+func (l *GormLogAdapter) Printf(format string, args ...interface{}) {
+	l.ZapLogger.Sugar().Infof(format, args...)
+}
 
 // InitLogger initializes the Zap logger
 func InitLogger(logFile string, development bool) error {
@@ -105,4 +118,34 @@ func GetSugaredLogger(name string) *zap.SugaredLogger {
 // Sync flushes any buffered log entries
 func Sync() {
 	_ = Log.Sync()
+}
+
+func SetUpGormConfig(dbLogger *zap.Logger, logLevel string) *gorm.Config {
+	var level gormlogger.LogLevel
+
+	// Convert string log level to GORM log level
+	switch logLevel {
+	case "debug":
+		level = gormlogger.Info // GORM doesn't have a debug level, so use Info
+	case "info":
+		level = gormlogger.Info
+	case "warn":
+		level = gormlogger.Warn
+	case "error":
+		level = gormlogger.Error
+	default:
+		level = gormlogger.Error
+	}
+
+	return &gorm.Config{
+		Logger: gormlogger.New(
+			&GormLogAdapter{ZapLogger: dbLogger},
+			gormlogger.Config{
+				SlowThreshold:             time.Second,
+				LogLevel:                  level,
+				IgnoreRecordNotFoundError: true,
+				Colorful:                  false,
+			},
+		),
+	}
 }

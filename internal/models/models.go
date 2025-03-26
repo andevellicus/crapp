@@ -9,8 +9,8 @@ import (
 
 // User represents a user in the system
 type User struct {
-	ID        string    `json:"id" gorm:"primaryKey"`
-	Email     string    `json:"email,omitempty" gorm:"uniqueIndex"`
+	ID string `json:"id" gorm:"primaryKey"`
+	//Email     string    `json:"email,omitempty" gorm:"uniqueIndex"`
 	CreatedAt time.Time `json:"created_at"`
 	LastLogin time.Time `json:"last_login"`
 
