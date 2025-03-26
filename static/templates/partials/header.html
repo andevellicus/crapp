@@ -1,4 +1,8 @@
 {{ define "header" }}
+<!-- Conditional CSS loading -->
+{{ if .isAdminPage }}
+<link rel="stylesheet" href="/static/css/admin.css">
+{{ end }}
 <header>
     <div class="header-main">
         <h1>CRAPP</h1>
@@ -10,7 +14,7 @@
             <a href="/">Home</a>
             <!-- Only show visualization link for admins -->
             <span id="admin-links" style="display: none">
-                <a href="/visualize">Visualization</a>
+                <a href="/admin/visualize">Visualization</a>
             </span>
         </div>
         

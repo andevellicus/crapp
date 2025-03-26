@@ -189,3 +189,17 @@ footer {
     border-radius: 4px;
     color: #e0e0e0;
 }
+
+.admin-context {
+    background-color: #444;
+    padding: 10px;
+    margin-bottom: 15px;
+    border-radius: 4px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.admin-context p {
+    margin: 0;
+}

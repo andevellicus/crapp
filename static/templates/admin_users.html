@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Manage Users - CRAPP Admin</title>
+    <link rel="stylesheet" href="/static/css/main.css">
+</head>
+<body>
+    <div class="container">
+        {{ template "header" .}}
+        
+        <div id="message" class="message"></div>
+        
+        <div class="admin-header">
+            <h2>User Management</h2>
+            <div class="search-container">
+                <input type="text" id="search-input" placeholder="Search users by email or name...">
+                <button id="search-button" class="button">Search</button>
+            </div>
+        </div>
+        
+        <div class="admin-content">
+            <div class="users-table-container">
+                <table class="users-table">
+                    <thead>
+                        <tr>
+                            <th>Email</th>
+                            <th>Name</th>
+                            <th>Created</th>
+                            <th>Last Login</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="users-table-body">
+                        <!-- Will be populated by JavaScript -->
+                    </tbody>
+                </table>
+            </div>
+            
+            <div class="pagination">
+                <button id="prev-page" class="pagination-button">Previous</button>
+                <span id="page-info">Page 1</span>
+                <button id="next-page" class="pagination-button">Next</button>
+            </div>
+            
+            <div id="loading" class="loading">
+                <div class="spinner"></div>
+                <p>Loading users...</p>
+            </div>
+            
+            <div id="no-results" class="no-results" style="display: none;">
+                <p>No users found matching your search.</p>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Include scripts -->
+    <script src="/static/js/auth.js"></script>
+    <script src="/static/js/admin_users.js"></script>
+</body>
+</html>

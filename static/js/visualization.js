@@ -8,6 +8,9 @@ document.addEventListener('DOMContentLoaded', function() {
     const metricTypeIndicator = document.getElementById('metric-type-indicator');
     const mouseMetricsHelp = document.getElementById('mouse-metrics-help');
     const keyboardMetricsHelp = document.getElementById('keyboard-metrics-help');
+
+    const urlParams = new URLSearchParams(window.location.search);
+    const userIdParam = urlParams.get('user_id');
     
     // Metric definitions
     const mouseMetrics = [
@@ -302,13 +305,30 @@ document.addEventListener('DOMContentLoaded', function() {
     // Fetch user data from API
     async function loadUserData() {
         try {
-            // Use the current user's email from auth manager
-            if (!window.authManager.currentUser || !window.authManager.currentUser.email) {
-                showNoData("Not logged in. Please log in to view data.");
-                return;
-            }
+            // Determine which user's data to fetch
+            let userEmail;
             
-            const userEmail = window.authManager.currentUser.email;
+            if (userIdParam) {
+                // Admin viewing another user's data
+                userEmail = userIdParam;
+                
+                // Show admin context banner
+                const adminContextBanner = document.createElement('div');
+                adminContextBanner.className = 'admin-context';
+                adminContextBanner.innerHTML = `
+                    <p>Viewing data for user: <strong>${userEmail}</strong></p>
+                    <a href="/admin/users" class="button">Back to Users</a>
+                `;
+                document.querySelector('.context-display').prepend(adminContextBanner);
+            } else {
+                // User viewing their own data
+                if (!window.authManager.getCurrentUser()) {
+                    showNoData("Not logged in. Please log in to view data.");
+                    return;
+                }
+                
+                userEmail = window.authManager.getCurrentUser().email;
+            }
             
             const response = await fetch(`/api/assessments?user_id=${userEmail}`, {
                 headers: {

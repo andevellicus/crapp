@@ -144,6 +144,8 @@ func main() {
 	{
 		// Admin endpoints can be added here
 		admin.GET("/visualize", viewHandler.ServeVisualize)
+		admin.GET("/users", viewHandler.ServeAdminUsers)
+		admin.GET("/api/users/search", apiHandler.SearchUsers)
 	}
 
 	// Start server

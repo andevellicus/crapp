@@ -531,7 +531,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 messageDiv.className = 'message success';
                 messageDiv.innerHTML = '<h3>Thank You!</h3><p>Your report has been submitted successfully.</p>';
                 if (window.authManager.currentUser.is_admin) {
-                    messageDiv.innerHTML += '<p><a href="/visualize">View data visualization</a></p>';
+                    messageDiv.innerHTML += '<p><a href="/admin/visualize">View data visualization</a></p>';
                 }
                 messageDiv.style.display = 'block';
                 

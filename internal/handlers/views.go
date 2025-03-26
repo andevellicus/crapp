@@ -32,13 +32,6 @@ func (h *GinViewHandler) ServeLogin(c *gin.Context) {
 	})
 }
 
-// ServeVisualize serves the visualization.html file
-func (h *GinViewHandler) ServeVisualize(c *gin.Context) {
-	c.HTML(http.StatusOK, "visualize.html", gin.H{
-		"title": "Visulization - CRAPP",
-	})
-}
-
 // ServeRegister serves the register.html file
 func (h *GinViewHandler) ServeRegister(c *gin.Context) {
 	c.HTML(http.StatusOK, "register.html", gin.H{
@@ -57,5 +50,21 @@ func (h *GinViewHandler) ServeProfile(c *gin.Context) {
 func (h *GinViewHandler) ServeDevices(c *gin.Context) {
 	c.HTML(http.StatusOK, "devices.html", gin.H{
 		"title": "Devices - CRAPP",
+	})
+}
+
+// ServeAdminUsers serves the admin users page
+func (h *GinViewHandler) ServeAdminUsers(c *gin.Context) {
+	c.HTML(http.StatusOK, "admin_users.html", gin.H{
+		"title":       "Manage Users - CRAPP Admin",
+		"isAdminPage": true,
+	})
+}
+
+// ServeVisualize serves the visualization.html file
+func (h *GinViewHandler) ServeVisualize(c *gin.Context) {
+	c.HTML(http.StatusOK, "visualize.html", gin.H{
+		"title":       "Visulization - CRAPP",
+		"isAdminPage": true,
 	})
 }

@@ -126,7 +126,7 @@ func (r *Repository) GetAssessment(assessmentID uint) (*models.Assessment, error
 func (r *Repository) GetAssessmentsByUser(userID string, skip, limit int) ([]models.AssessmentSummary, error) {
 	var assessments []models.Assessment
 
-	query := r.db.Where("user_id = ?", userID).
+	query := r.db.Where("user_email = ?", userID).
 		Order("date DESC").
 		Offset(skip).
 		Limit(limit)
@@ -185,6 +185,35 @@ func (r *Repository) GetUser(email string) (*models.User, error) {
 	}
 
 	return &user, nil
+}
+
+// SearchUsers searches for users by email or name
+func (r *Repository) SearchUsers(query string, skip, limit int) ([]models.User, int64, error) {
+	var users []models.User
+	var total int64
+
+	db := r.db
+
+	if query != "" {
+		query = "%" + query + "%"
+		db = db.Where("email LIKE ? OR first_name LIKE ? OR last_name LIKE ?", query, query, query)
+	}
+
+	if err := db.Model(&models.User{}).Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	result := db.Order("email").Offset(skip).Limit(limit).Find(&users)
+	if result.Error != nil {
+		return nil, 0, result.Error
+	}
+
+	// Don't return password hashes
+	for i := range users {
+		users[i].Password = nil
+	}
+
+	return users, total, nil
 }
 
 // UserExists checks if a user with the given email exists
