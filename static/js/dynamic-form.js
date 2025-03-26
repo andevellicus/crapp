@@ -1,11 +1,15 @@
 // static/js/dynamic-form.js
-// Handles loading and rendering questions dynamically from YAML definitions
+// Modified to display questions one at a time and randomize order
 
 document.addEventListener('DOMContentLoaded', function() {
     let questions = [];
+    let currentQuestionIndex = 0;
+    let randomizedQuestionOrder = [];
 
     const formContainer = document.getElementById('symptom-form');
     const messageDiv = document.getElementById('message');
+    const progressIndicator = document.createElement('div');
+    progressIndicator.className = 'progress-indicator';
     
     // Generate a simple user ID (persist in local storage if possible)
     const storedUserId = localStorage.getItem('crappUserId');
@@ -16,7 +20,7 @@ document.addEventListener('DOMContentLoaded', function() {
         localStorage.setItem('crappUserId', userId);
     }
     
-    // Load and render questions
+    // Load and randomize questions
     async function loadQuestions() {
         try {
             const response = await fetch('/api/questions');
@@ -25,7 +29,12 @@ document.addEventListener('DOMContentLoaded', function() {
             }
             
             questions = await response.json();
-            renderQuestions(questions);
+            
+            // Randomize question order
+            randomizedQuestionOrder = generateRandomOrder(questions.length);
+            
+            // Initial render
+            renderCurrentQuestion();
             setupFormSubmission();
         } catch (error) {
             console.error('Error loading questions:', error);
@@ -35,51 +44,292 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
     
-    // Render questions based on their type
-    function renderQuestions(questions) {
+    // Generate random order of question indices
+    function generateRandomOrder(count) {
+        const indices = Array.from({ length: count }, (_, i) => i);
+        
+        // Fisher-Yates shuffle
+        for (let i = indices.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [indices[i], indices[j]] = [indices[j], indices[i]];
+        }
+        
+        return indices;
+    }
+    
+    // Render the current question only
+    function renderCurrentQuestion() {
         // Clear form
         formContainer.innerHTML = '';
         
-        // Add each question
-        questions.forEach(question => {
-            const questionDiv = document.createElement('div');
-            questionDiv.className = 'form-group';
-            questionDiv.dataset.questionId = question.id;
+        // Add progress indicator
+        updateProgressIndicator();
+        formContainer.appendChild(progressIndicator);
+        
+        if (currentQuestionIndex >= randomizedQuestionOrder.length) {
+            // We've shown all questions, add submit button only
+            renderSubmitButton();
+            return;
+        }
+        
+        // Get the current question based on randomized order
+        const questionIndex = randomizedQuestionOrder[currentQuestionIndex];
+        const question = questions[questionIndex];
+        
+        // Create question container
+        const questionDiv = document.createElement('div');
+        questionDiv.className = 'form-group';
+        questionDiv.dataset.questionId = question.id;
+        
+        // Add question title and description
+        const titleEl = document.createElement('h3');
+        titleEl.textContent = question.title;
+        questionDiv.appendChild(titleEl);
+        
+        if (question.description) {
+            const descEl = document.createElement('p');
+            descEl.textContent = question.description;
+            questionDiv.appendChild(descEl);
+        }
+        
+        // Render appropriate input based on type
+        switch (question.type) {
+            case 'radio':
+                renderRadioOptions(questionDiv, question);
+                break;
+            case 'dropdown':
+                renderDropdown(questionDiv, question);
+                break;
+            case 'text':
+                renderTextInput(questionDiv, question);
+                break;
+            default:
+                console.warn(`Unknown question type: ${question.type}`);
+        }
+        
+        formContainer.appendChild(questionDiv);
+        
+        // Add navigation buttons
+        renderNavigationButtons();
+    }
+    
+    // Update the progress indicator
+    function updateProgressIndicator() {
+        const total = questions.length;
+        const current = currentQuestionIndex + 1;
+        let displayCurrent = current;
+        if (current > total) displayCurrent = total;
+        
+        progressIndicator.innerHTML = `Question ${displayCurrent} of ${total}`;
+    }
+    
+    // Render navigation buttons
+    function renderNavigationButtons() {
+        const navDiv = document.createElement('div');
+        navDiv.className = 'navigation-buttons';
+        
+        // Previous button (if not on first question)
+        if (currentQuestionIndex > 0) {
+            const prevBtn = document.createElement('button');
+            prevBtn.type = 'button';
+            prevBtn.className = 'nav-button prev-button';
+            prevBtn.textContent = 'Previous';
+            prevBtn.dataset.navAction = 'prev';
             
-            // Add question title and description
-            const titleEl = document.createElement('h3');
-            titleEl.textContent = question.title;
-            questionDiv.appendChild(titleEl);
-            
-            if (question.description) {
-                const descEl = document.createElement('p');
-                descEl.textContent = question.description;
-                questionDiv.appendChild(descEl);
-            }
-            
-            // Render appropriate input based on type
-            switch (question.type) {
-                case 'radio':
-                    renderRadioOptions(questionDiv, question);
-                    break;
-                case 'dropdown':
-                    renderDropdown(questionDiv, question);
-                    break;
-                case 'text':
-                    renderTextInput(questionDiv, question);
-                    break;
-                default:
-                    console.warn(`Unknown question type: ${question.type}`);
-            }
-            
-            formContainer.appendChild(questionDiv);
-        });
+            prevBtn.addEventListener('click', handlePreviousClick);
+            navDiv.appendChild(prevBtn);
+        }
+        
+        // Next button
+        const nextBtn = document.createElement('button');
+        nextBtn.type = 'button';
+        nextBtn.className = 'nav-button next-button';
+        nextBtn.textContent = 'Next';
+        nextBtn.dataset.navAction = 'next';
+        
+        nextBtn.addEventListener('click', handleNextClick);
+        navDiv.appendChild(nextBtn);
+        
+        formContainer.appendChild(navDiv);
+    }
+    
+    // Final submit button (shown after all questions)
+    function renderSubmitButton() {
+        const submitDiv = document.createElement('div');
+        submitDiv.className = 'submit-container';
+        
+        // Show completion message
+        const completionMsg = document.createElement('p');
+        completionMsg.className = 'completion-message';
+        completionMsg.textContent = 'You have answered all the questions. Please submit your responses.';
+        submitDiv.appendChild(completionMsg);
+        
+        // Add back button
+        const backBtn = document.createElement('button');
+        backBtn.type = 'button';
+        backBtn.className = 'nav-button prev-button';
+        backBtn.textContent = 'Back to Questions';
+        backBtn.dataset.navAction = 'prev';
+        backBtn.addEventListener('click', handlePreviousClick);
+        submitDiv.appendChild(backBtn);
         
         // Add submit button
         const submitBtn = document.createElement('button');
         submitBtn.type = 'submit';
+        submitBtn.className = 'submit-button';
         submitBtn.textContent = 'Submit';
-        formContainer.appendChild(submitBtn);
+        submitBtn.dataset.navAction = 'submit';
+        submitDiv.appendChild(submitBtn);
+        
+        formContainer.appendChild(submitDiv);
+    }
+    
+    // Handle previous button click
+    function handlePreviousClick(event) {
+        event.preventDefault();
+        
+        // Save current answers before moving
+        saveCurrentQuestionAnswers();
+        
+        // Decrement question index
+        currentQuestionIndex--;
+        if (currentQuestionIndex < 0) currentQuestionIndex = 0;
+        
+        // Render the new current question
+        renderCurrentQuestion();
+    }
+    
+    // Handle next button click
+    function handleNextClick(event) {
+        event.preventDefault();
+        
+        // Save current answers
+        saveCurrentQuestionAnswers();
+        
+        // Validate current question if required
+        if (!validateCurrentQuestion()) {
+            return;
+        }
+        
+        // Increment question index
+        currentQuestionIndex++;
+        
+        // Render the new current question
+        renderCurrentQuestion();
+    }
+    
+    // Save the current question's answers to session storage
+    function saveCurrentQuestionAnswers() {
+        if (currentQuestionIndex >= randomizedQuestionOrder.length) return;
+        
+        const questionIndex = randomizedQuestionOrder[currentQuestionIndex];
+        const question = questions[questionIndex];
+        
+        let value = null;
+        
+        switch (question.type) {
+            case 'radio':
+                const selectedRadio = document.querySelector(`input[name="${question.id}"]:checked`);
+                if (selectedRadio) value = selectedRadio.value;
+                break;
+            case 'dropdown':
+                const dropdown = document.querySelector(`select[name="${question.id}"]`);
+                if (dropdown) value = dropdown.value;
+                break;
+            case 'text':
+                const textInput = document.querySelector(`textarea[name="${question.id}"]`);
+                if (textInput) value = textInput.value;
+                break;
+        }
+        
+        // Store in session storage for retrieval during submission
+        if (value !== null) {
+            const savedAnswers = JSON.parse(sessionStorage.getItem('crappAnswers') || '{}');
+            savedAnswers[question.id] = value;
+            sessionStorage.setItem('crappAnswers', JSON.stringify(savedAnswers));
+        }
+    }
+    
+    // Validate the current question
+    function validateCurrentQuestion() {
+        if (currentQuestionIndex >= randomizedQuestionOrder.length) return true;
+        
+        const questionIndex = randomizedQuestionOrder[currentQuestionIndex];
+        const question = questions[questionIndex];
+        
+        // Check if question is required
+        if (!question.required) return true;
+        
+        let isValid = true;
+        let message = '';
+        
+        switch (question.type) {
+            case 'radio':
+                const selectedRadio = document.querySelector(`input[name="${question.id}"]:checked`);
+                if (!selectedRadio) {
+                    isValid = false;
+                    message = 'Please select an option before continuing.';
+                }
+                break;
+            case 'dropdown':
+                const dropdown = document.querySelector(`select[name="${question.id}"]`);
+                if (!dropdown || !dropdown.value) {
+                    isValid = false;
+                    message = 'Please select an option before continuing.';
+                }
+                break;
+            case 'text':
+                const textInput = document.querySelector(`textarea[name="${question.id}"]`);
+                if (!textInput || !textInput.value.trim()) {
+                    isValid = false;
+                    message = 'Please provide an answer before continuing.';
+                }
+                break;
+        }
+        
+        if (!isValid) {
+            // Show validation message
+            let validationMsg = document.querySelector('.validation-message');
+            if (!validationMsg) {
+                validationMsg = document.createElement('div');
+                validationMsg.className = 'validation-message';
+                formContainer.insertBefore(validationMsg, 
+                    document.querySelector('.navigation-buttons'));
+            }
+            validationMsg.textContent = message;
+            validationMsg.style.display = 'block';
+            
+            // Highlight required field
+            const questionDiv = document.querySelector(`.form-group[data-question-id="${question.id}"]`);
+            if (questionDiv) questionDiv.classList.add('highlight-required');
+        }
+        
+        return isValid;
+    }
+    
+    // Restore saved answers when revisiting a question
+    function restoreAnswers(questionId) {
+        const savedAnswers = JSON.parse(sessionStorage.getItem('crappAnswers') || '{}');
+        const savedValue = savedAnswers[questionId];
+        
+        if (savedValue !== undefined) {
+            const questionType = questions.find(q => q.id === questionId)?.type;
+            
+            switch (questionType) {
+                case 'radio':
+                    const radio = document.querySelector(`input[name="${questionId}"][value="${savedValue}"]`);
+                    if (radio) radio.checked = true;
+                    break;
+                case 'dropdown':
+                    const dropdown = document.querySelector(`select[name="${questionId}"]`);
+                    if (dropdown) dropdown.value = savedValue;
+                    break;
+                case 'text':
+                    const textInput = document.querySelector(`textarea[name="${questionId}"]`);
+                    if (textInput) textInput.value = savedValue;
+                    break;
+            }
+        }
     }
     
     // Render radio button options
@@ -117,6 +367,9 @@ document.addEventListener('DOMContentLoaded', function() {
         });
         
         container.appendChild(optionsDiv);
+        
+        // Restore saved answer if exists
+        setTimeout(() => restoreAnswers(question.id), 0);
     }
     
     // Render dropdown select
@@ -143,6 +396,9 @@ document.addEventListener('DOMContentLoaded', function() {
         });
         
         container.appendChild(select);
+        
+        // Restore saved answer if exists
+        setTimeout(() => restoreAnswers(question.id), 0);
     }
     
     // Render text input
@@ -165,6 +421,9 @@ document.addEventListener('DOMContentLoaded', function() {
         }
         
         container.appendChild(input);
+        
+        // Restore saved answer if exists
+        setTimeout(() => restoreAnswers(question.id), 0);
     }
     
     // Set up form submission handler
@@ -174,9 +433,9 @@ document.addEventListener('DOMContentLoaded', function() {
             
             // Get interaction data from the tracker
             const interactionData = window.interactionTracker ? window.interactionTracker.getData() : {};
-                            
-            // Collect form data
-            const formData = new FormData(formContainer);
+            
+            // Collect all answers from session storage
+            const savedAnswers = JSON.parse(sessionStorage.getItem('crappAnswers') || '{}');
             
             // Build submission data
             const data = {
@@ -188,19 +447,20 @@ document.addEventListener('DOMContentLoaded', function() {
                         width: window.innerWidth,
                         height: window.innerHeight
                     },
-                    timestamp: new Date().toISOString()
+                    timestamp: new Date().toISOString(),
+                    question_order: randomizedQuestionOrder
                 }
             };
             
-            // Add all form values to responses object
-            formData.forEach((value, key) => {
+            // Add all saved answers to responses object
+            for (const [key, value] of Object.entries(savedAnswers)) {
                 const question = questions.find(q => q.id === key);
                 if (question && question.type === 'radio') {
                     data.responses[key] = parseInt(value);
                 } else {
                     data.responses[key] = value;
                 }
-            });
+            }
             
             // Add interaction metrics if available
             if (interactionData.metrics) {
@@ -211,11 +471,9 @@ document.addEventListener('DOMContentLoaded', function() {
             if (interactionData.questionMetrics) {
                 data.metadata.question_metrics = {};
                 
-                // Manually extract metrics from the interactions directly
-                // This bypasses any potential issues in the tracker's metric calculation
+                // Process each question that has interactions
                 const questionIds = Object.keys(interactionData.questionMetrics);
                 
-                // Process each question that has interactions
                 for (const questionId of questionIds) {
                     const qData = interactionData.questionMetrics[questionId];
                     const interactions = qData.interactions || [];
@@ -272,8 +530,16 @@ document.addEventListener('DOMContentLoaded', function() {
                     window.interactionTracker.reset();
                 }
                 
-                // Reset form
-                formContainer.reset();
+                // Clear session storage
+                sessionStorage.removeItem('crappAnswers');
+                
+                // Reset form and back to first question
+                currentQuestionIndex = 0;
+                randomizedQuestionOrder = generateRandomOrder(questions.length);
+                renderCurrentQuestion();
+                
+                // Scroll to top to see message
+                window.scrollTo(0, 0);
                 
                 // Hide message after 10 seconds
                 setTimeout(() => {

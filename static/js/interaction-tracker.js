@@ -127,7 +127,17 @@ class InteractionTracker {
                     }
                 }
             } else if (element.tagName.toLowerCase() === 'button') {
-                questionId = 'submit';
+                // Special handling for navigation buttons
+                if (element.classList.contains('nav-button')) {
+                    questionId = 'navigation';
+                    
+                    // Add additional data to identify navigation type
+                    if (element.dataset.navAction) {
+                        element.dataset.navType = element.dataset.navAction;
+                    }
+                } else {
+                    questionId = 'submit';
+                }
             }
             
             element.dataset.questionId = questionId;
@@ -143,7 +153,8 @@ class InteractionTracker {
                 width: rect.width,
                 height: rect.height,
                 type: element.tagName.toLowerCase(),
-                label: element.textContent?.trim() || element.value || element.id
+                label: element.textContent?.trim() || element.value || element.id,
+                navType: element.dataset.navType
             };
             
             // Track mouseover events to detect when user is aiming for this target
