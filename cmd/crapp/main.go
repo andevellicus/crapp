@@ -69,21 +69,21 @@ func main() {
 	// Create repository
 	repo := repository.NewRepository(db, log)
 
-	// Initialize handlers
-	apiHandler := handlers.NewGinAPIHandler(repo, questionLoader, log)
-	viewHandler := handlers.NewGinViewHandler("static")
-	// Create auth handler
-	authHandler := handlers.NewAuthHandler(repo, log)
-
 	// Create Gin router
 	router := gin.New()
+
+	// Static files
+	router.Static("/static", "./static")
+
+	// Initialize handlers
+	apiHandler := handlers.CreateAPIHandler(repo, questionLoader, log)
+	viewHandler := handlers.CreateViewHandler(router, "static")
+	// Create auth handler
+	authHandler := handlers.NewAuthHandler(repo, log)
 
 	// Apply middleware
 	router.Use(gin.Recovery())
 	router.Use(middleware.GinLogger(log))
-
-	// Static files
-	router.Static("/static", "./static")
 
 	// View routes
 	router.GET("/", middleware.AuthRedirectMiddleware(), viewHandler.ServeIndex)
