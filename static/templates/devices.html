@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Your Devices - CRAPP</title>
+    <link rel="stylesheet" href="/static/css/main.css">
+    <link rel="stylesheet" href="/static/css/auth.css">
+    <link rel="stylesheet" href="/static/css/profile.css">
+</head>
+<body>
+    <div class="container">
+        {{template "header" .}}
+        
+        <div id="message" class="message"></div>
+        
+        <div class="profile-container">
+            <div class="profile-sidebar">
+                <div class="profile-nav">
+                    <a href="/profile" class="profile-nav-item">Account Settings</a>
+                    <a href="/devices" class="profile-nav-item active">Devices</a>
+                    <a href="/visualize" class="profile-nav-item">My Data</a>
+                </div>
+            </div>
+            
+            <div class="profile-content">
+                <h3>Your Devices</h3>
+                <p class="section-description">
+                    These are the devices you've used to access CRAPP. 
+                    We track devices to help analyze if cognitive performance varies by device.
+                </p>
+                
+                <div class="devices-list" id="devices-list">
+                    <div class="devices-loading">
+                        <div class="spinner"></div>
+                        <p>Loading your devices...</p>
+                    </div>
+                </div>
+                
+                <!-- Device template - will be cloned by JavaScript -->
+                <template id="device-template">
+                    <div class="device-card">
+                        <div class="device-icon">
+                            <span class="device-type-icon"></span>
+                        </div>
+                        <div class="device-info">
+                            <div class="device-name">
+                                <span class="device-name-text"></span>
+                                <span class="current-device-badge">Current</span>
+                            </div>
+                            <div class="device-details">
+                                <span class="device-os"></span> • 
+                                <span class="device-browser"></span>
+                            </div>
+                            <div class="device-last-active">
+                                Last active: <span class="last-active-date"></span>
+                            </div>
+                        </div>
+                        <div class="device-actions">
+                            <button class="rename-device-btn" data-device-id="">Rename</button>
+                            <button class="remove-device-btn" data-device-id="">Remove</button>
+                        </div>
+                    </div>
+                </template>
+                
+                <!-- Empty state - shown when no devices -->
+                <div class="empty-state" id="no-devices" style="display: none;">
+                    <div class="empty-icon">📱</div>
+                    <h4>No devices found</h4>
+                    <p>You haven't used any other devices to access CRAPP yet.</p>
+                </div>
+                
+                <!-- Rename device modal -->
+                <div class="modal" id="rename-modal">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h4>Rename Device</h4>
+                            <button class="close-modal">&times;</button>
+                        </div>
+                        <div class="modal-body">
+                            <form id="rename-device-form">
+                                <input type="hidden" id="rename-device-id">
+                                <div class="form-group">
+                                    <label for="new-device-name">New Device Name</label>
+                                    <input type="text" id="new-device-name" name="new_device_name" required>
+                                </div>
+                                <div class="form-actions">
+                                    <button type="button" class="cancel-button">Cancel</button>
+                                    <button type="submit" class="submit-button">Save</button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Confirm delete modal -->
+                <div class="modal" id="delete-modal">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h4>Remove Device</h4>
+                            <button class="close-modal">&times;</button>
+                        </div>
+                        <div class="modal-body">
+                            <p>Are you sure you want to remove this device?</p>
+                            <p>This will not delete any assessment data collected from this device.</p>
+                            <input type="hidden" id="delete-device-id">
+                            <div class="form-actions">
+                                <button type="button" class="cancel-button">Cancel</button>
+                                <button type="button" class="delete-button">Remove Device</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <footer>
+            <p>© 2025 CRAPP - Daily Symptom Reporting</p>
+        </footer>
+    </div>
+    
+    <!-- Include scripts -->
+    <script src="/static/js/auth.js"></script>
+    <script src="/static/js/devices.js"></script>
+</body>
+</html>

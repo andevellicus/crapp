@@ -72,6 +72,8 @@ func main() {
 	// Initialize handlers
 	apiHandler := handlers.NewGinAPIHandler(repo, questionLoader, log)
 	viewHandler := handlers.NewGinViewHandler("static")
+	// Create auth handler
+	authHandler := handlers.NewAuthHandler(repo, log)
 
 	// Create Gin router
 	router := gin.New()
@@ -84,16 +86,47 @@ func main() {
 	router.Static("/static", "./static")
 
 	// View routes
-	router.GET("/", viewHandler.ServeIndex)
-	router.GET("/visualize", viewHandler.ServeVisualize)
+	router.GET("/", middleware.AuthRedirectMiddleware(), viewHandler.ServeIndex)
+	router.GET("/login", viewHandler.ServeLogin)
+	router.GET("/register", viewHandler.ServeRegister)
+	router.GET("/profile", middleware.AuthMiddleware(), viewHandler.ServeProfile)
+	router.GET("/devices", middleware.AuthMiddleware(), viewHandler.ServeDevices)
+	router.GET("/visualize", middleware.AuthMiddleware(), viewHandler.ServeVisualize)
 
-	// API routes
-	api := router.Group("/api")
+	// Auth API routes
+	auth := router.Group("/api/auth")
 	{
+		auth.POST("/register", authHandler.Register)
+		auth.POST("/login", authHandler.Login)
+		// Password reset endpoints could be added here
+	}
+
+	// Protected API routes
+	api := router.Group("/api")
+	api.Use(middleware.AuthMiddleware())
+	{
+		// User routes
+		api.GET("/user", authHandler.GetCurrentUser)
+		api.PUT("/user", authHandler.UpdateUser)
+
+		// Device routes
+		api.GET("/devices", authHandler.GetUserDevices)
+		api.POST("/devices/register", authHandler.RegisterDevice)
+		api.DELETE("/devices/:deviceId", authHandler.RemoveDevice)
+		api.POST("/devices/:deviceId/rename", authHandler.RenameDevice)
+
+		// Assessment routes
 		api.GET("/questions", apiHandler.GetQuestions)
 		api.GET("/questions/symptoms", apiHandler.GetSymptomQuestions)
 		api.POST("/submit", apiHandler.SubmitAssessment)
-		api.GET("/assessments/:user_id", apiHandler.GetUserAssessments)
+		api.GET("/assessments", apiHandler.GetUserAssessments)
+	}
+
+	// Admin routes
+	admin := router.Group("/api/admin")
+	admin.Use(middleware.AuthMiddleware(), middleware.AdminMiddleware())
+	{
+		// Admin endpoints can be added here
 	}
 
 	// Start server

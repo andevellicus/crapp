@@ -51,12 +51,12 @@ func (h *GinAPIHandler) SubmitAssessment(c *gin.Context) {
 	}
 
 	// Log submission
-	h.log.Infow("Received assessment submission", "user_id", submission.UserID)
+	h.log.Infow("Received assessment submission", "user_id", submission.UserEmail)
 
 	// Save to database
 	assessmentID, err := h.repo.CreateAssessment(&submission)
 	if err != nil {
-		h.log.Errorw("Error processing submission", "error", err, "user_id", submission.UserID)
+		h.log.Errorw("Error processing submission", "error", err, "user_id", submission.UserEmail)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error processing assessment submission"})
 		return
 	}

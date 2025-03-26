@@ -224,3 +224,150 @@ footer {
     background-color: #e6f7ff;
     border-radius: 4px;
 }
+
+/* Header and Navigation Styles */
+
+header {
+    padding: 20px 0;
+    margin-bottom: 30px;
+    border-bottom: 1px solid #e0e0e0;
+}
+
+.header-main {
+    text-align: center;
+    margin-bottom: 15px;
+}
+
+.main-nav {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0 10px;
+}
+
+.nav-links {
+    display: flex;
+    gap: 20px;
+}
+
+.nav-links a {
+    color: #4a6fa5;
+    text-decoration: none;
+    font-weight: bold;
+}
+
+.nav-links a:hover {
+    text-decoration: underline;
+}
+
+.auth-nav {
+    display: flex;
+    align-items: center;
+}
+
+.guest-nav {
+    display: flex;
+    gap: 10px;
+}
+
+.nav-button {
+    padding: 8px 15px;
+    border-radius: 4px;
+    text-decoration: none;
+    font-weight: bold;
+    color: #4a6fa5;
+    border: 1px solid #4a6fa5;
+}
+
+.nav-button:hover {
+    background-color: #f0f5ff;
+}
+
+.nav-button.highlight {
+    background-color: #4a6fa5;
+    color: white;
+}
+
+.nav-button.highlight:hover {
+    background-color: #3b5a88;
+}
+
+/* User dropdown menu */
+.user-menu {
+    position: relative;
+}
+
+.user-menu-trigger {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    padding: 8px 15px;
+    border-radius: 4px;
+    border: 1px solid #e0e0e0;
+}
+
+.user-menu-trigger:hover {
+    background-color: #f5f5f5;
+}
+
+.dropdown-arrow {
+    font-size: 10px;
+    color: #666;
+}
+
+.user-dropdown {
+    position: absolute;
+    top: 100%;
+    right: 0;
+    margin-top: 5px;
+    background-color: white;
+    border: 1px solid #e0e0e0;
+    border-radius: 4px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    min-width: 150px;
+    display: none;
+    z-index: 100;
+}
+
+.user-dropdown.show {
+    display: block;
+}
+
+.user-dropdown a {
+    display: block;
+    padding: 10px 15px;
+    color: #333;
+    text-decoration: none;
+    border-bottom: 1px solid #f0f0f0;
+}
+
+.user-dropdown a:last-child {
+    border-bottom: none;
+}
+
+.user-dropdown a:hover {
+    background-color: #f5f5f5;
+}
+
+.user-dropdown a.logout-button {
+    color: #e53e3e;
+}
+
+/* Responsive adjustments */
+@media screen and (max-width: 600px) {
+    .main-nav {
+        flex-direction: column;
+        gap: 15px;
+    }
+    
+    .nav-links {
+        width: 100%;
+        justify-content: center;
+    }
+    
+    .auth-nav {
+        width: 100%;
+        justify-content: center;
+    }
+}

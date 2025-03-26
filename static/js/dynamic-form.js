@@ -439,7 +439,8 @@ document.addEventListener('DOMContentLoaded', function() {
             
             // Build submission data
             const data = {
-                user_id: userId,
+                user_email: window.authManager.currentUser.email,
+                device_id: window.authManager.deviceId,
                 responses: {},
                 metadata: {
                     user_agent: navigator.userAgent,
