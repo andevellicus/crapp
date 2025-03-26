@@ -1,8 +1,4 @@
 {{ define "header" }}
-<!-- Conditional CSS loading -->
-{{ if .isAdminPage }}
-<link rel="stylesheet" href="/static/css/admin.css">
-{{ end }}
 <header>
     <div class="header-main">
         <h1>CRAPP</h1>
@@ -15,6 +11,7 @@
             <!-- Only show visualization link for admins -->
             <span id="admin-links" style="display: none">
                 <a href="/admin/visualize">Visualization</a>
+                <a href="/admin/users">Manage Users</a>
             </span>
         </div>
         
@@ -48,6 +45,11 @@
         const guestNav = document.getElementById('guest-nav');
         const userName = document.getElementById('user-name');
         const adminLinks = document.getElementById('admin-links');
+
+        // Show admin links if user is admin
+        if (window.authManager && window.authManager.getCurrentUser() && window.authManager.getCurrentUser().is_admin) {
+            document.getElementById('admin-links').style.display = 'inline';
+        }
         
         if (window.authManager && window.authManager.isAuthenticated()) {
             // User is logged in
