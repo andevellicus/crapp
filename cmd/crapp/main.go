@@ -3,7 +3,9 @@ package main
 import (
 	"flag"
 	"fmt"
+	"html/template"
 	"os"
+	"path/filepath"
 
 	"github.com/andevellicus/crapp/internal/config"
 	"github.com/andevellicus/crapp/internal/handlers"
@@ -72,12 +74,27 @@ func main() {
 	// Create Gin router
 	router := gin.New()
 
+	// Create a template renderer
+	templates := filepath.Join("static", "templates")
+	partialsDir := filepath.Join(templates, "partials", "*.html")
+	pagesDir := filepath.Join(templates, "*.html")
+
+	// Create a template set that includes all files
+	tmpl := template.New("")
+
+	// Add partials first so they're available to pages
+	template.Must(tmpl.ParseGlob(partialsDir))
+	template.Must(tmpl.ParseGlob(pagesDir))
+
+	// Set the template engine
+	router.SetHTMLTemplate(tmpl)
+
 	// Static files
 	router.Static("/static", "./static")
 
 	// Initialize handlers
 	apiHandler := handlers.CreateAPIHandler(repo, questionLoader, log)
-	viewHandler := handlers.CreateViewHandler(router, "static")
+	viewHandler := handlers.CreateViewHandler("static")
 	// Create auth handler
 	authHandler := handlers.NewAuthHandler(repo, log)
 
@@ -91,7 +108,6 @@ func main() {
 	router.GET("/register", viewHandler.ServeRegister)
 	router.GET("/profile", middleware.AuthMiddleware(), viewHandler.ServeProfile)
 	router.GET("/devices", middleware.AuthMiddleware(), viewHandler.ServeDevices)
-	router.GET("/visualize", middleware.AuthMiddleware(), viewHandler.ServeVisualize)
 
 	// Auth API routes
 	auth := router.Group("/api/auth")
@@ -123,10 +139,11 @@ func main() {
 	}
 
 	// Admin routes
-	admin := router.Group("/api/admin")
+	admin := router.Group("/admin")
 	admin.Use(middleware.AuthMiddleware(), middleware.AdminMiddleware())
 	{
 		// Admin endpoints can be added here
+		admin.GET("/visualize", viewHandler.ServeVisualize)
 	}
 
 	// Start server

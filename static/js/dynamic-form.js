@@ -11,13 +11,10 @@ document.addEventListener('DOMContentLoaded', function() {
     const progressIndicator = document.createElement('div');
     progressIndicator.className = 'progress-indicator';
     
-    // Generate a simple user ID (persist in local storage if possible)
-    const storedUserId = localStorage.getItem('crappUserId');
-    const userId = storedUserId || 'user_' + Math.random().toString(36).substring(2, 10);
-    
-    // Save user ID to local storage for future sessions
-    if (!storedUserId) {
-        localStorage.setItem('crappUserId', userId);
+    // Check for authentication
+    if (!window.authManager || !window.authManager.isAuthenticated()) {
+        window.location.href = '/login';
+        return;
     }
     
     // Load and randomize questions
@@ -431,6 +428,14 @@ document.addEventListener('DOMContentLoaded', function() {
         formContainer.addEventListener('submit', function(event) {
             event.preventDefault();
             
+            // Ensure user is authenticated
+            if (!window.authManager.isAuthenticated()) {
+                messageDiv.className = 'message error';
+                messageDiv.innerHTML = '<h3>Error</h3><p>You must be logged in to submit a report.</p>';
+                messageDiv.style.display = 'block';
+                return;
+            }
+            
             // Get interaction data from the tracker
             const interactionData = window.interactionTracker ? window.interactionTracker.getData() : {};
             
@@ -510,7 +515,8 @@ document.addEventListener('DOMContentLoaded', function() {
             fetch('/api/submit', {
                 method: 'POST',
                 headers: {
-                    'Content-Type': 'application/json'
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${window.authManager.token}`
                 },
                 body: JSON.stringify(data)
             })
@@ -523,7 +529,10 @@ document.addEventListener('DOMContentLoaded', function() {
             .then(result => {                
                 // Show success message
                 messageDiv.className = 'message success';
-                messageDiv.innerHTML = '<h3>Thank You!</h3><p>Your report has been submitted successfully.</p><p><a href="/visualize">View your data visualization</a></p>';
+                messageDiv.innerHTML = '<h3>Thank You!</h3><p>Your report has been submitted successfully.</p>';
+                if (window.authManager.currentUser.is_admin) {
+                    messageDiv.innerHTML += '<p><a href="/visualize">View data visualization</a></p>';
+                }
                 messageDiv.style.display = 'block';
                 
                 // Reset tracker

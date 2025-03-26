@@ -302,20 +302,27 @@ document.addEventListener('DOMContentLoaded', function() {
     // Fetch user data from API
     async function loadUserData() {
         try {
-            const userId = localStorage.getItem('crappUserId');
-            if (!userId) {
-                showNoData("No user ID found. Please submit a symptom report first.");
+            // Use the current user's email from auth manager
+            if (!window.authManager.currentUser || !window.authManager.currentUser.email) {
+                showNoData("Not logged in. Please log in to view data.");
                 return;
             }
             
-            const response = await fetch(`/api/assessments/${userId}`);
+            const userEmail = window.authManager.currentUser.email;
+            
+            const response = await fetch(`/api/assessments?user_id=${userEmail}`, {
+                headers: {
+                    'Authorization': `Bearer ${window.authManager.token}`
+                }
+            });
+            
             if (!response.ok) throw new Error('Network response was not ok');
             
             userData = await response.json();
             console.log("User data loaded:", userData);
             
             if (userData.length === 0) {
-                showNoData("No data available. Please submit at least one symptom report.");
+                showNoData("No data available. Users need to submit at least one symptom report.");
                 return;
             }
             

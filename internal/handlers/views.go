@@ -1,9 +1,7 @@
 package handlers
 
 import (
-	"html/template"
 	"net/http"
-	"path/filepath"
 
 	"github.com/gin-gonic/gin"
 )
@@ -14,23 +12,10 @@ type GinViewHandler struct {
 }
 
 // CreateViewHandler creates a new view handler for Gin
-func CreateViewHandler(router *gin.Engine, staticDir string) *GinViewHandler {
-	// Create a template renderer
-	templates := filepath.Join(staticDir, "templates")
-	partialsDir := filepath.Join(templates, "partials", "*.html")
-	pagesDir := filepath.Join(templates, "*.html")
-
-	// Create a template set that includes all files
-	tmpl := template.New("")
-
-	// Add partials first so they're available to pages
-	template.Must(tmpl.ParseGlob(partialsDir))
-	template.Must(tmpl.ParseGlob(pagesDir))
-
-	// Set the template engine
-	router.SetHTMLTemplate(tmpl)
-
-	return &GinViewHandler{staticDir: staticDir}
+func CreateViewHandler(staticDir string) *GinViewHandler {
+	return &GinViewHandler{
+		staticDir: staticDir,
+	}
 }
 
 // ServeIndex serves the index.html file
@@ -49,7 +34,7 @@ func (h *GinViewHandler) ServeLogin(c *gin.Context) {
 
 // ServeVisualize serves the visualization.html file
 func (h *GinViewHandler) ServeVisualize(c *gin.Context) {
-	c.HTML(http.StatusOK, "visualization.html", gin.H{
+	c.HTML(http.StatusOK, "visualize.html", gin.H{
 		"title": "Visulization - CRAPP",
 	})
 }

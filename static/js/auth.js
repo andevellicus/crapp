@@ -41,7 +41,7 @@ class AuthManager {
             
             try {
                 await this.login(email, password, rememberMe);
-                // Redirect to main page on success
+                // Redirect to home page with assessment
                 window.location.href = '/';
             } catch (error) {
                 this.showMessage(error.message || 'Login failed. Please check your credentials.', 'error');
@@ -125,6 +125,9 @@ class AuthManager {
             localStorage.setItem('currentUser', JSON.stringify(this.currentUser));
             localStorage.setItem('deviceId', this.deviceId);
             
+            // Also set a cookie for server-side authentication
+            document.cookie = `auth_token=${this.token}; path=/; max-age=${rememberMe ? 86400*30 : 86400}`;
+            
             // If not "remember me", set session storage instead of local storage
             if (!rememberMe) {
                 sessionStorage.setItem('authToken', this.token);
@@ -175,6 +178,9 @@ class AuthManager {
         
         sessionStorage.removeItem('authToken');
         sessionStorage.removeItem('currentUser');
+        
+        // Clear auth cookie
+        document.cookie = 'auth_token=; path=/; max-age=0';
         
         // Keep deviceId for possible reconnection
         
@@ -279,7 +285,7 @@ class AuthManager {
         const path = window.location.pathname;
         const publicPages = ['/login', '/register', '/forgot-password'];
         
-        // If on a public page and already authenticated, redirect to home
+        // If on a public page and already authenticated, redirect to assessment
         if (publicPages.includes(path) && this.isAuthenticated()) {
             window.location.href = '/';
             return;

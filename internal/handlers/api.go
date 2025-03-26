@@ -70,7 +70,22 @@ func (h *GinAPIHandler) SubmitAssessment(c *gin.Context) {
 
 // GetUserAssessments returns assessments for a user
 func (h *GinAPIHandler) GetUserAssessments(c *gin.Context) {
-	userID := c.Param("user_id")
+	userID := c.Query("user_id")
+
+	// Get the current user from context (set by auth middleware)
+	currentUserEmail, exists := c.Get("userEmail")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Authentication required"})
+		return
+	}
+
+	// Check if user is trying to access someone else's data
+	isAdmin, _ := c.Get("isAdmin")
+	if userID != currentUserEmail.(string) && (!isAdmin.(bool)) {
+		// Non-admin trying to access other user's data
+		c.JSON(http.StatusForbidden, gin.H{"error": "Admin access required to view other users' data"})
+		return
+	}
 
 	// Get query parameters for pagination
 	skip := 0

@@ -8,7 +8,10 @@
     <nav class="main-nav">
         <div class="nav-links">
             <a href="/">Home</a>
-            <a href="/visualize">Visualization</a>
+            <!-- Only show visualization link for admins -->
+            <span id="admin-links" style="display: none">
+                <a href="/visualize">Visualization</a>
+            </span>
         </div>
         
         <div class="auth-nav">
@@ -40,6 +43,7 @@
         const userMenu = document.getElementById('user-menu');
         const guestNav = document.getElementById('guest-nav');
         const userName = document.getElementById('user-name');
+        const adminLinks = document.getElementById('admin-links');
         
         if (window.authManager && window.authManager.isAuthenticated()) {
             // User is logged in
@@ -47,10 +51,17 @@
             if (guestNav) guestNav.style.display = 'none';
             
             // Update user name
-            const user = JSON.parse(localStorage.getItem('currentUser') || 
-                                   sessionStorage.getItem('currentUser') || '{}');
+            const user = window.authManager.currentUser || 
+                       JSON.parse(localStorage.getItem('currentUser') || 
+                       sessionStorage.getItem('currentUser') || '{}');
+                       
             if (userName && user) {
                 userName.textContent = user.first_name || user.email;
+            }
+            
+            // Show admin links if user is admin
+            if (adminLinks && user && user.is_admin) {
+                adminLinks.style.display = 'inline';
             }
             
             // Setup dropdown toggle
