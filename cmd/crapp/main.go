@@ -85,6 +85,8 @@ func main() {
 	authHandler := handlers.NewAuthHandler(repo, log)
 	// Create form handler
 	formHandler := handlers.NewFormHandler(questionLoader, log)
+	// Create metrics handler
+	metricsHandler := handlers.NewMetricsHandler(log)
 
 	// Apply middleware
 	router.Use(gin.Recovery())
@@ -125,6 +127,8 @@ func main() {
 		api.GET("/questions/symptoms", apiHandler.GetSymptomQuestions)
 		api.POST("/submit", apiHandler.SubmitAssessment)
 		api.GET("/assessments", apiHandler.GetUserAssessments)
+
+		api.POST("/process-metrics", metricsHandler.ProcessInteractionData)
 	}
 
 	// Admin routes

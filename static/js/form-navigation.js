@@ -139,24 +139,51 @@ document.addEventListener('DOMContentLoaded', function() {
         msgEl.style.display = 'block';
     }
     
-    function submitData(data) {
-        fetch('/api/submit', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${window.authManager.getCurrentToken()}`
-            },
-            body: JSON.stringify(data)
-        })
-        .then(response => {
-            if (!response.ok) {
+    async function submitData(data) {
+        // First, process interaction metrics on the server
+        const rawInteractions = window.interactionTracker.getData();
+        const messageDiv = document.getElementById('message');
+        
+        try {
+            // Process metrics on server first
+            const metricsResponse = await fetch('/api/process-metrics', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${window.authManager.getCurrentToken()}`
+                },
+                body: JSON.stringify(rawInteractions)
+            });
+            
+            if (!metricsResponse.ok) {
+                throw new Error('Failed to process metrics');
+            }
+            
+            // Get processed metrics
+            const processedMetrics = await metricsResponse.json();
+            
+            // Update the data with processed metrics
+            data.metadata.interaction_metrics = processedMetrics;
+            data.metadata.question_metrics = processedMetrics.questionMetrics;
+            
+            // Then submit the full assessment
+            const submitResponse = await fetch('/api/submit', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${window.authManager.getCurrentToken()}`
+                },
+                body: JSON.stringify(data)
+            });
+            
+            if (!submitResponse.ok) {
                 throw new Error('Network response was not ok');
             }
-            return response.json();
-        })
-        .then(result => {
+            
+            // Handle successful submission
+            const result = await submitResponse.json();
+            
             // Show success message
-            const messageDiv = document.getElementById('message');
             messageDiv.className = 'message success';
             messageDiv.innerHTML = '<h3>Thank You!</h3><p>Your report has been submitted successfully.</p>';
             if (window.authManager.currentUser.is_admin) {
@@ -175,14 +202,13 @@ document.addEventListener('DOMContentLoaded', function() {
             
             // Scroll to top to see message
             window.scrollTo(0, 0);
-        })
-        .catch(error => {
+            
+        } catch (error) {
             // Show error message
-            const messageDiv = document.getElementById('message');
             messageDiv.className = 'message error';
             messageDiv.innerHTML = '<h3>Error</h3><p>There was a problem submitting your report. Please try again later.</p>';
             messageDiv.style.display = 'block';
             console.error('Error:', error);
-        });
+        }
     }
 });
