@@ -79,8 +79,8 @@ func main() {
 	router.Static("/static", "./static")
 
 	// Initialize handlers
-	apiHandler := handlers.CreateAPIHandler(repo, questionLoader, log)
-	viewHandler := handlers.CreateViewHandler("static")
+	apiHandler := handlers.NewAPIHandler(repo, questionLoader, log)
+	viewHandler := handlers.NewViewHandler("static")
 	// Create auth handler
 	authHandler := handlers.NewAuthHandler(repo, log)
 	// Create form handler

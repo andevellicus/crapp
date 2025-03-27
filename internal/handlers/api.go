@@ -18,8 +18,8 @@ type GinAPIHandler struct {
 	log            *zap.SugaredLogger
 }
 
-// CreateAPIHandler creates a new API handler for Gin
-func CreateAPIHandler(repo *repository.Repository, questionLoader *utils.QuestionLoader, log *zap.SugaredLogger) *GinAPIHandler {
+// NewAPIHandler creates a new API handler for Gin
+func NewAPIHandler(repo *repository.Repository, questionLoader *utils.QuestionLoader, log *zap.SugaredLogger) *GinAPIHandler {
 	return &GinAPIHandler{
 		repo:           repo,
 		questionLoader: questionLoader,

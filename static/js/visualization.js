@@ -432,9 +432,7 @@ document.addEventListener('DOMContentLoaded', function() {
     function updateCharts() {
         const metricKey = metricSelect.value;
         const symptomKey = symptomSelect.value;
-        
-        console.log(`Updating charts for metric: ${metricKey}, symptom: ${symptomKey}`);
-        
+              
         // Get selected question
         const selectedQuestion = symptomQuestions.find(q => q.id === symptomKey);
         if (!selectedQuestion) {
@@ -444,7 +442,6 @@ document.addEventListener('DOMContentLoaded', function() {
         
         // Get scale for the selected question
         const scale = getQuestionScale(symptomKey);
-        console.log(`Question scale: min=${scale.min}, max=${scale.max}, step=${scale.step}`);
         
         // Filter data points that have both the symptom and metric
         const validData = userData.filter(item => {
@@ -458,8 +455,6 @@ document.addEventListener('DOMContentLoaded', function() {
             const metricValue = getQuestionMetric(item, metricKey, symptomKey);
             return metricValue !== null && metricValue !== undefined;
         });
-        
-        console.log(`Found ${validData.length} valid data points`);
         
         if (validData.length === 0) {
             showNoData(`No data available for ${getQuestionTitleById(symptomKey)} and ${formatLabel(metricKey)}.`);
@@ -485,7 +480,17 @@ document.addEventListener('DOMContentLoaded', function() {
         
         timelineChart.data.labels = timelineData.map(item => formatDate(item.date));
         timelineChart.data.datasets[0].data = timelineData.map(item => getSymptomValue(item, symptomKey));
-        timelineChart.data.datasets[1].data = timelineData.map(item => getQuestionMetric(item, metricKey, symptomKey));
+        timelineChart.data.datasets[1].data = timelineData.map(item => {
+            const metricValue = getQuestionMetric(item, metricKey, symptomKey);
+            
+            // Check if the metric was calculated
+            if (metricValue && metricValue.calculated) {
+                return metricValue.value;
+            } else {
+                // Handle missing data (return null to create a gap in the chart)
+                return null;
+            }
+        });
         timelineChart.data.datasets[0].label = getQuestionTitleById(symptomKey);
         timelineChart.data.datasets[1].label = formatLabel(metricKey);
         timelineChart.options.scales.y.min = scale.min;

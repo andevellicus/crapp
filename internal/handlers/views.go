@@ -13,8 +13,8 @@ type GinViewHandler struct {
 	staticDir string
 }
 
-// CreateViewHandler creates a new view handler for Gin
-func CreateViewHandler(staticDir string) *GinViewHandler {
+// NewViewHandler creates a new view handler for Gin
+func NewViewHandler(staticDir string) *GinViewHandler {
 	return &GinViewHandler{
 		staticDir: staticDir,
 	}

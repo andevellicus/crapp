@@ -1,9 +1,16 @@
-// File: internal/metrics/interaction_metrics.go
 package metrics
 
 import (
 	"math"
+	"sort"
 )
+
+// MetricResult represents a calculated metric with status and metadata
+type MetricResult struct {
+	Value      float64 `json:"value"`
+	Calculated bool    `json:"calculated"`
+	SampleSize int     `json:"sampleSize,omitempty"`
+}
 
 // InteractionData represents raw client interaction data
 type InteractionData struct {
@@ -104,16 +111,17 @@ func (mc *MetricCalculator) calculatePerQuestionMetrics() map[string]map[string]
 
 	for questionID := range questionIDs {
 		qMetrics := make(map[string]interface{})
+		qID := questionID // Create a copy for pointer safety
 
 		// Mouse metrics
-		qMetrics["clickPrecision"] = mc.calculateClickPrecision(&questionID)
-		qMetrics["pathEfficiency"] = mc.calculatePathEfficiency(&questionID)
-		qMetrics["overShootRate"] = mc.calculateOvershootRate(&questionID)
-		qMetrics["averageVelocity"] = mc.calculateAverageVelocity(&questionID)
-		qMetrics["velocityVariability"] = mc.calculateVelocityVariability(&questionID)
+		qMetrics["clickPrecision"] = mc.calculateClickPrecision(&qID)
+		qMetrics["pathEfficiency"] = mc.calculatePathEfficiency(&qID)
+		qMetrics["overShootRate"] = mc.calculateOvershootRate(&qID)
+		qMetrics["averageVelocity"] = mc.calculateAverageVelocity(&qID)
+		qMetrics["velocityVariability"] = mc.calculateVelocityVariability(&qID)
 
 		// Keyboard metrics
-		keyboardMetrics := mc.calculateKeyboardMetrics(&questionID)
+		keyboardMetrics := mc.calculateKeyboardMetrics(&qID)
 		for k, v := range keyboardMetrics {
 			qMetrics[k] = v
 		}
@@ -125,11 +133,17 @@ func (mc *MetricCalculator) calculatePerQuestionMetrics() map[string]map[string]
 }
 
 // calculateClickPrecision calculates average normalized click precision
-func (mc *MetricCalculator) calculateClickPrecision(questionID *string) float64 {
+func (mc *MetricCalculator) calculateClickPrecision(questionID *string) MetricResult {
 	// Filter interactions by question if needed
 	interactions := mc.filterInteractionsByQuestion(questionID)
-	if len(interactions) == 0 {
-		return 0.7 // Default fallback
+
+	// Check if we have enough data
+	if len(interactions) < 1 {
+		return MetricResult{
+			Value:      0.0,
+			Calculated: false,
+			SampleSize: len(interactions),
+		}
 	}
 
 	// Calculate normalized distances
@@ -141,8 +155,11 @@ func (mc *MetricCalculator) calculateClickPrecision(questionID *string) float64 
 		distance := math.Sqrt(distX*distX + distY*distY)
 
 		// Calculate max possible distance (diagonal of target)
-		// NOTE: This is an approximation assuming rectangular targets
-		maxDistance := math.Sqrt(math.Pow(interaction.TargetX, 2) + math.Pow(interaction.TargetY, 2))
+		// This is half the diagonal of the element, assuming it's rectangular
+		maxDistance := math.Sqrt(math.Pow(interaction.TargetX, 2)+math.Pow(interaction.TargetY, 2)) / 2
+		if maxDistance <= 0 {
+			maxDistance = 1 // Prevent division by zero
+		}
 
 		// Normalized distance (0-1)
 		normalizedDistance := distance / maxDistance
@@ -157,32 +174,196 @@ func (mc *MetricCalculator) calculateClickPrecision(questionID *string) float64 
 	avgNormalizedDistance := sum / float64(len(interactions))
 	precision := 1 - avgNormalizedDistance
 
-	return precision
+	return MetricResult{
+		Value:      precision,
+		Calculated: true,
+		SampleSize: len(interactions),
+	}
 }
 
 // calculatePathEfficiency calculates mouse path efficiency
-func (mc *MetricCalculator) calculatePathEfficiency(questionID *string) float64 {
-	// Consider multiple aspects for implementation
-	// - Direct distance vs. actual distance
-	// - Movement smoothness
+func (mc *MetricCalculator) calculatePathEfficiency(questionID *string) MetricResult {
+	movements := mc.filterMovementsByQuestion(questionID)
+	interactions := mc.filterInteractionsByQuestion(questionID)
 
-	// For simplicity, return a reasonable default
-	return 0.8
+	if len(movements) < 1 {
+		return MetricResult{
+			Value:      0.0,
+			Calculated: false,
+			SampleSize: len(interactions),
+		}
+	}
+
+	// Group movements by target/interaction
+	targetMovements := make(map[string][]Movement)
+
+	for _, movement := range movements {
+		if movement.TargetID != "" {
+			targetMovements[movement.TargetID] = append(targetMovements[movement.TargetID], movement)
+		}
+	}
+
+	// Calculate efficiency for each target
+	totalEfficiency := 0.0
+	count := 0
+
+	for _, interaction := range interactions {
+		targetID := interaction.TargetID
+		relevantMovements := targetMovements[targetID]
+
+		if len(relevantMovements) < 3 {
+			continue // Not enough movements to calculate path
+		}
+
+		// Sort movements by timestamp
+		sort.Slice(relevantMovements, func(i, j int) bool {
+			return relevantMovements[i].Timestamp < relevantMovements[j].Timestamp
+		})
+
+		// Calculate direct distance (first point to click point)
+		firstPoint := relevantMovements[0]
+		directDistX := interaction.ClickX - firstPoint.X
+		directDistY := interaction.ClickY - firstPoint.Y
+		directDistance := math.Sqrt(directDistX*directDistX + directDistY*directDistY)
+
+		// Calculate actual path distance
+		actualDistance := 0.0
+		for i := 1; i < len(relevantMovements); i++ {
+			dx := relevantMovements[i].X - relevantMovements[i-1].X
+			dy := relevantMovements[i].Y - relevantMovements[i-1].Y
+			actualDistance += math.Sqrt(dx*dx + dy*dy)
+		}
+
+		// Add final segment to click point
+		lastPoint := relevantMovements[len(relevantMovements)-1]
+		finalDx := interaction.ClickX - lastPoint.X
+		finalDy := interaction.ClickY - lastPoint.Y
+		actualDistance += math.Sqrt(finalDx*finalDx + finalDy*finalDy)
+
+		// Calculate efficiency (direct / actual)
+		if actualDistance > 0 {
+			efficiency := directDistance / actualDistance
+			if efficiency > 1 {
+				efficiency = 1 // Cap at 100% efficiency
+			}
+			totalEfficiency += efficiency
+			count++
+		}
+	}
+
+	if count == 0 {
+		return MetricResult{
+			Value:      0.0,
+			Calculated: false,
+			SampleSize: len(interactions),
+		}
+	}
+
+	result := totalEfficiency / float64(count)
+	return MetricResult{
+		Value:      result,
+		Calculated: true,
+		SampleSize: count,
+	}
 }
 
 // calculateOvershootRate calculates the rate of target overshooting
-func (mc *MetricCalculator) calculateOvershootRate(questionID *string) float64 {
-	// Implement overshoot detection algorithm here
-	// Simplified implementation
-	return 0.2
+func (mc *MetricCalculator) calculateOvershootRate(questionID *string) MetricResult {
+	movements := mc.filterMovementsByQuestion(questionID)
+	interactions := mc.filterInteractionsByQuestion(questionID)
+
+	if len(movements) < 1 {
+		return MetricResult{
+			Value:      0.0,
+			Calculated: false,
+			SampleSize: len(interactions),
+		}
+	}
+
+	// Group movements by target
+	targetMovements := make(map[string][]Movement)
+	for _, movement := range movements {
+		if movement.TargetID != "" {
+			targetMovements[movement.TargetID] = append(targetMovements[movement.TargetID], movement)
+		}
+	}
+
+	// Count overshoots
+	overshootCount := 0
+	totalTargets := 0
+
+	for _, interaction := range interactions {
+		targetID := interaction.TargetID
+		relevantMovements := targetMovements[targetID]
+
+		if len(relevantMovements) < 5 {
+			continue // Not enough movements to detect overshooting
+		}
+
+		// Sort movements by timestamp
+		sort.Slice(relevantMovements, func(i, j int) bool {
+			return relevantMovements[i].Timestamp < relevantMovements[j].Timestamp
+		})
+
+		// Detect direction changes toward the end of movement
+		directionChanges := 0
+		for i := 2; i < len(relevantMovements); i++ {
+			prev1 := relevantMovements[i-1]
+			prev2 := relevantMovements[i-2]
+			curr := relevantMovements[i]
+
+			// Calculate direction vectors
+			prevDx := prev1.X - prev2.X
+			prevDy := prev1.Y - prev2.Y
+			currDx := curr.X - prev1.X
+			currDy := curr.Y - prev1.Y
+
+			// Check for sign changes in x or y direction
+			if (prevDx*currDx < 0) || (prevDy*currDy < 0) {
+				directionChanges++
+			}
+		}
+
+		// Consider it an overshoot if there are direction changes
+		// in the last few movements
+		if directionChanges > 0 {
+			overshootCount++
+		}
+
+		totalTargets++
+	}
+
+	if totalTargets == 0 {
+		return MetricResult{
+			Value:      0.0,
+			Calculated: false,
+			SampleSize: 0,
+		}
+	}
+
+	result := float64(overshootCount) / float64(totalTargets)
+	return MetricResult{
+		Value:      result,
+		Calculated: true,
+		SampleSize: totalTargets,
+	}
 }
 
 // calculateAverageVelocity calculates average mouse movement velocity
-func (mc *MetricCalculator) calculateAverageVelocity(questionID *string) float64 {
+func (mc *MetricCalculator) calculateAverageVelocity(questionID *string) MetricResult {
 	movements := mc.filterMovementsByQuestion(questionID)
-	if len(movements) < 2 {
-		return 400 // Default fallback
+	if len(movements) < 1 {
+		return MetricResult{
+			Value:      0.0,
+			Calculated: false,
+			SampleSize: len(movements),
+		}
 	}
+
+	// Sort movements by timestamp
+	sort.Slice(movements, func(i, j int) bool {
+		return movements[i].Timestamp < movements[j].Timestamp
+	})
 
 	var totalVelocity float64
 	var count int
@@ -201,18 +382,36 @@ func (mc *MetricCalculator) calculateAverageVelocity(questionID *string) float64
 	}
 
 	if count == 0 {
-		return 400 // Default fallback
+		return MetricResult{
+			Value:      0.0,
+			Calculated: false,
+			SampleSize: 0,
+		}
 	}
 
-	return totalVelocity / float64(count)
+	result := totalVelocity / float64(count)
+	return MetricResult{
+		Value:      result,
+		Calculated: true,
+		SampleSize: count,
+	}
 }
 
 // calculateVelocityVariability calculates consistency of mouse velocity
-func (mc *MetricCalculator) calculateVelocityVariability(questionID *string) float64 {
+func (mc *MetricCalculator) calculateVelocityVariability(questionID *string) MetricResult {
 	movements := mc.filterMovementsByQuestion(questionID)
-	if len(movements) < 3 {
-		return 0.3 // Default fallback
+	if len(movements) < 1 {
+		return MetricResult{
+			Value:      0.0,
+			Calculated: false,
+			SampleSize: len(movements),
+		}
 	}
+
+	// Sort movements by timestamp
+	sort.Slice(movements, func(i, j int) bool {
+		return movements[i].Timestamp < movements[j].Timestamp
+	})
 
 	velocities := make([]float64, 0, len(movements)-1)
 
@@ -228,8 +427,12 @@ func (mc *MetricCalculator) calculateVelocityVariability(questionID *string) flo
 		}
 	}
 
-	if len(velocities) == 0 {
-		return 0.3 // Default fallback
+	if len(velocities) < 3 {
+		return MetricResult{
+			Value:      0.0,
+			Calculated: false,
+			SampleSize: len(velocities),
+		}
 	}
 
 	// Calculate average
@@ -247,29 +450,217 @@ func (mc *MetricCalculator) calculateVelocityVariability(questionID *string) flo
 	variance /= float64(len(velocities))
 
 	// Standard deviation / average (coefficient of variation)
-	return math.Sqrt(variance) / avg
+	result := math.Sqrt(variance) / avg
+	return MetricResult{
+		Value:      result,
+		Calculated: true,
+		SampleSize: len(velocities),
+	}
 }
 
 // calculateKeyboardMetrics calculates all keyboard-related metrics
-func (mc *MetricCalculator) calculateKeyboardMetrics(questionID *string) map[string]float64 {
+func (mc *MetricCalculator) calculateKeyboardMetrics(questionID *string) map[string]MetricResult {
 	events := mc.filterKeyboardEventsByQuestion(questionID)
-	metrics := make(map[string]float64)
+	metrics := make(map[string]MetricResult)
 
-	// Default values
-	metrics["typingSpeed"] = 2.5
-	metrics["averageInterKeyInterval"] = 250
-	metrics["typingRhythmVariability"] = 0.4
-	metrics["averageKeyHoldTime"] = 100
-	metrics["keyPressVariability"] = 0.3
-	metrics["correctionRate"] = 0.05
-	metrics["pauseRate"] = 0.1
-
-	if len(events) < 10 {
-		return metrics // Not enough data
+	// Initialize with uncalculated values
+	metrics["typingSpeed"] = MetricResult{
+		Value:      0.0,
+		Calculated: false,
+		SampleSize: len(events),
 	}
 
-	// TODO: Implement actual calculations based on events array
-	// This would be similar to the JavaScript calculations but in Go
+	metrics["averageInterKeyInterval"] = MetricResult{
+		Value:      0.0,
+		Calculated: false,
+		SampleSize: 0,
+	}
+
+	metrics["typingRhythmVariability"] = MetricResult{
+		Value:      0.0,
+		Calculated: false,
+		SampleSize: 0,
+	}
+
+	metrics["averageKeyHoldTime"] = MetricResult{
+		Value:      0.0,
+		Calculated: false,
+		SampleSize: 0,
+	}
+
+	metrics["keyPressVariability"] = MetricResult{
+		Value:      0.0,
+		Calculated: false,
+		SampleSize: 0,
+	}
+
+	metrics["correctionRate"] = MetricResult{
+		Value:      0.0,
+		Calculated: false,
+		SampleSize: 0,
+	}
+
+	metrics["pauseRate"] = MetricResult{
+		Value:      0.0,
+		Calculated: false,
+		SampleSize: 0,
+	}
+
+	// Not enough data to calculate any metrics
+	if len(events) < 10 {
+		return metrics
+	}
+
+	// Sort events by timestamp
+	sort.Slice(events, func(i, j int) bool {
+		return events[i].Timestamp < events[j].Timestamp
+	})
+
+	// Extract keydown events for typing speed
+	keydownEvents := make([]KeyboardEvent, 0)
+	for _, event := range events {
+		if event.Type == "keydown" {
+			keydownEvents = append(keydownEvents, event)
+		}
+	}
+
+	// Calculate typing speed (keystrokes per second)
+	if len(keydownEvents) >= 5 {
+		totalTime := (keydownEvents[len(keydownEvents)-1].Timestamp - keydownEvents[0].Timestamp) / 1000 // seconds
+		if totalTime > 0 {
+			typingSpeed := float64(len(keydownEvents)) / totalTime
+			metrics["typingSpeed"] = MetricResult{
+				Value:      typingSpeed,
+				Calculated: true,
+				SampleSize: len(keydownEvents),
+			}
+		}
+	}
+
+	// Calculate inter-key intervals
+	intervals := make([]float64, 0)
+	for i := 1; i < len(keydownEvents); i++ {
+		interval := keydownEvents[i].Timestamp - keydownEvents[i-1].Timestamp
+		intervals = append(intervals, interval)
+	}
+
+	if len(intervals) >= 5 {
+		// Average inter-key interval
+		var intervalSum float64
+		for _, interval := range intervals {
+			intervalSum += interval
+		}
+		avgInterval := intervalSum / float64(len(intervals))
+
+		metrics["averageInterKeyInterval"] = MetricResult{
+			Value:      avgInterval,
+			Calculated: true,
+			SampleSize: len(intervals),
+		}
+
+		// Typing rhythm variability (coefficient of variation of intervals)
+		if len(intervals) >= 10 {
+			var intervalVariance float64
+			for _, interval := range intervals {
+				intervalVariance += math.Pow(interval-avgInterval, 2)
+			}
+			intervalVariance /= float64(len(intervals))
+			typingVariability := math.Sqrt(intervalVariance) / avgInterval
+
+			metrics["typingRhythmVariability"] = MetricResult{
+				Value:      typingVariability,
+				Calculated: true,
+				SampleSize: len(intervals),
+			}
+		}
+
+		// Calculate pause rate (pauses per keystroke)
+		pauseThreshold := 1000.0 // 1 second threshold
+		pauseCount := 0
+
+		for _, interval := range intervals {
+			if interval > pauseThreshold {
+				pauseCount++
+			}
+		}
+
+		metrics["pauseRate"] = MetricResult{
+			Value:      float64(pauseCount) / float64(len(intervals)),
+			Calculated: true,
+			SampleSize: len(intervals),
+		}
+	}
+
+	// Calculate key hold times
+	keyHoldTimes := make([]float64, 0)
+	keyDownMap := make(map[string]float64)
+
+	for _, event := range events {
+		if event.Type == "keydown" {
+			keyDownMap[event.Key] = event.Timestamp
+		} else if event.Type == "keyup" {
+			if downTime, exists := keyDownMap[event.Key]; exists {
+				holdTime := event.Timestamp - downTime
+				keyHoldTimes = append(keyHoldTimes, holdTime)
+				delete(keyDownMap, event.Key)
+			}
+		}
+	}
+
+	if len(keyHoldTimes) >= 5 {
+		// Average key hold time
+		var holdTimeSum float64
+		for _, holdTime := range keyHoldTimes {
+			holdTimeSum += holdTime
+		}
+		avgHoldTime := holdTimeSum / float64(len(keyHoldTimes))
+
+		metrics["averageKeyHoldTime"] = MetricResult{
+			Value:      avgHoldTime,
+			Calculated: true,
+			SampleSize: len(keyHoldTimes),
+		}
+
+		// Key press variability
+		if len(keyHoldTimes) >= 10 {
+			var holdTimeVariance float64
+			for _, holdTime := range keyHoldTimes {
+				holdTimeVariance += math.Pow(holdTime-avgHoldTime, 2)
+			}
+			holdTimeVariance /= float64(len(keyHoldTimes))
+			keyPressVar := math.Sqrt(holdTimeVariance) / avgHoldTime
+
+			metrics["keyPressVariability"] = MetricResult{
+				Value:      keyPressVar,
+				Calculated: true,
+				SampleSize: len(keyHoldTimes),
+			}
+		}
+	}
+
+	// Count error corrections (backspace/delete usage)
+	correctionCount := 0
+	for _, event := range keydownEvents {
+		if event.Key == "Backspace" || event.Key == "Delete" {
+			correctionCount++
+		}
+	}
+
+	// Calculate correction rate (corrections per keystroke)
+	charCount := 0
+	for _, event := range keydownEvents {
+		if len(event.Key) == 1 { // Single character keys
+			charCount++
+		}
+	}
+
+	if charCount >= 10 {
+		metrics["correctionRate"] = MetricResult{
+			Value:      float64(correctionCount) / float64(charCount),
+			Calculated: true,
+			SampleSize: charCount,
+		}
+	}
 
 	return metrics
 }
