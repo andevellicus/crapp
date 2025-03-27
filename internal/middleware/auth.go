@@ -8,8 +8,6 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// AuthMiddleware verifies the JWT token in the Authorization header
-// Update the AuthMiddleware to check for token in cookie as well
 // AuthRedirectMiddleware redirects logged out users to login page
 // This is useful for index page, where we want logged out users to be redirected
 func AuthRedirectMiddleware() gin.HandlerFunc {
@@ -43,7 +41,7 @@ func AuthRedirectMiddleware() gin.HandlerFunc {
 	}
 }
 
-// Update the AuthMiddleware to check for token in cookie as well
+// AuthMiddleware verifies the JWT token in the Authorization header
 func AuthMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var tokenString string
