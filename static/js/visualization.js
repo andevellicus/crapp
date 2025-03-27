@@ -1,4 +1,5 @@
-// static/js/visualization.js - Updated to support different metric types by question
+// static/js/visualization.js - Simplified version
+
 document.addEventListener('DOMContentLoaded', function() {
     // DOM elements
     const metricSelect = document.getElementById('metric-select');
@@ -8,36 +9,36 @@ document.addEventListener('DOMContentLoaded', function() {
     const metricTypeIndicator = document.getElementById('metric-type-indicator');
     const mouseMetricsHelp = document.getElementById('mouse-metrics-help');
     const keyboardMetricsHelp = document.getElementById('keyboard-metrics-help');
-
+    
     const urlParams = new URLSearchParams(window.location.search);
     const userIdParam = urlParams.get('user_id');
-    
-    // Metric definitions
-    const mouseMetrics = [
-        { value: 'clickPrecision', label: 'Click Precision' },
-        { value: 'pathEfficiency', label: 'Path Efficiency' },
-        { value: 'overShootRate', label: 'Overshoot Rate' },
-        { value: 'averageVelocity', label: 'Average Velocity' },
-        { value: 'velocityVariability', label: 'Velocity Variability' }
-    ];
-    
-    const keyboardMetrics = [
-        { value: 'typingSpeed', label: 'Typing Speed' },
-        { value: 'averageInterKeyInterval', label: 'Inter-Key Interval' },
-        { value: 'typingRhythmVariability', label: 'Typing Rhythm Variability' },
-        { value: 'averageKeyHoldTime', label: 'Key Hold Time' },
-        { value: 'keyPressVariability', label: 'Key Press Variability' },
-        { value: 'correctionRate', label: 'Correction Rate' },
-        { value: 'pauseRate', label: 'Pause Rate' }
-    ];
     
     // Chart objects
     let correlationChart = null;
     let timelineChart = null;
     
-    // Data storage
-    let userData = [];
-    let symptomQuestions = [];
+    // Metric definitions for UI only (data comes from server)
+    const mouseMetrics = [
+        { value: 'click_precision', label: 'Click Precision' },
+        { value: 'path_efficiency', label: 'Path Efficiency' },
+        { value: 'overshoot_rate', label: 'Overshoot Rate' },
+        { value: 'average_velocity', label: 'Average Velocity' },
+        { value: 'velocity_variability', label: 'Velocity Variability' }
+    ];
+    
+    const keyboardMetrics = [
+        { value: 'typing_speed', label: 'Typing Speed' },
+        { value: 'average_inter_key_interval', label: 'Inter-Key Interval' },
+        { value: 'typing_rhythm_variability', label: 'Typing Rhythm Variability' },
+        { value: 'average_key_hold_time', label: 'Key Hold Time' },
+        { value: 'key_press_variability', label: 'Key Press Variability' },
+        { value: 'correction_rate', label: 'Correction Rate' },
+        { value: 'pause_rate', label: 'Pause Rate' }
+    ];
+    
+    // Initialize app
+    initCharts();
+    loadSymptomQuestions();
     
     // Initialize charts
     function initCharts() {
@@ -73,8 +74,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         title: {
                             display: true,
                             text: 'Symptom Severity'
-                        },
-                        // Scales will be set dynamically based on question definition
+                        }
                     }
                 }
             }
@@ -120,8 +120,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         title: {
                             display: true,
                             text: 'Symptom Severity'
-                        },
-                        // Scales will be set dynamically
+                        }
                     },
                     y1: {
                         type: 'linear',
@@ -148,52 +147,30 @@ document.addEventListener('DOMContentLoaded', function() {
                 throw new Error('Failed to load questions');
             }
             
-            symptomQuestions = await response.json();
-            console.log(`Loaded ${symptomQuestions.length} symptom questions`);
+            const questions = await response.json();
+            
+            // Group questions by input type
+            const mouseQuestions = questions.filter(q => q.metrics_type === 'mouse' || q.type === 'radio' || q.type === 'dropdown');
+            const keyboardQuestions = questions.filter(q => q.metrics_type === 'keyboard' || q.type === 'text');
             
             // Add input types based on question type
-            symptomQuestions.forEach(question => {
-                // Determine input type based on question type
-                question.inputType = getInputTypeFromQuestion(question);
-            });
+            populateSymptomDropdown(mouseQuestions, keyboardQuestions);
             
-            // Populate symptom dropdown
-            populateSymptomDropdown();
+            // Initialize metrics dropdown
+            updateMetricOptions();
             
-            // Load user data
-            await loadUserData();
+            // Load initial data
+            updateCharts();
         } catch (error) {
             console.error('Error loading symptom questions:', error);
             showNoData(`Failed to load question definitions: ${error.message}`);
         }
     }
     
-    // Determine input type (mouse/keyboard) from question type
-    function getInputTypeFromQuestion(question) {
-        // If metrics_type is defined, use it
-        if (question.metrics_type) {
-            return question.metrics_type;
-        }
-        
-        // Otherwise infer from question type
-        switch (question.type) {
-            case 'text': 
-                return 'keyboard';
-            case 'radio':
-            case 'dropdown':
-            default:
-                return 'mouse';
-        }
-    }
-    
-    // Populate symptom dropdown
-    function populateSymptomDropdown() {
+    // Populate symptom dropdown with questions
+    function populateSymptomDropdown(mouseQuestions, keyboardQuestions) {
         // Clear dropdown
         symptomSelect.innerHTML = '';
-        
-        // Group questions by input type
-        const mouseQuestions = symptomQuestions.filter(q => q.inputType === 'mouse');
-        const keyboardQuestions = symptomQuestions.filter(q => q.inputType === 'keyboard');
         
         // Add mouse questions group
         if (mouseQuestions.length > 0) {
@@ -226,21 +203,15 @@ document.addEventListener('DOMContentLoaded', function() {
             
             symptomSelect.appendChild(keyboardGroup);
         }
-        
-        // Update metric options based on selected question
-        updateMetricOptions();
     }
     
     // Update metric options based on selected question
     function updateMetricOptions() {
-        // Get selected question
-        const selectedQuestionId = symptomSelect.value;
-        const selectedQuestion = symptomQuestions.find(q => q.id === selectedQuestionId);
+        // Get selected question input type
+        const selectedOption = symptomSelect.options[symptomSelect.selectedIndex];
+        if (!selectedOption) return;
         
-        if (!selectedQuestion) return;
-        
-        // Determine input type
-        const inputType = selectedQuestion.inputType || 'mouse';
+        const inputType = selectedOption.dataset.inputType || 'mouse';
         
         // Clear metric dropdown
         metricSelect.innerHTML = '';
@@ -272,296 +243,218 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
     
-    // Get scale information for a question
-    function getQuestionScale(questionId) {
-        const question = symptomQuestions.find(q => q.id === questionId);
-        if (!question) return { min: 0, max: 3, step: 1 }; // Default scale
+    // Update charts with selected data
+    async function updateCharts() {
+        const metricKey = metricSelect.value;
+        const symptomKey = symptomSelect.value;
         
-        // Try to extract scale from question definition
-        if (question.scale) {
-            return {
-                min: question.scale.min ?? 0,
-                max: question.scale.max ?? 3,
-                step: question.scale.step ?? 1
-            };
+        if (!metricKey || !symptomKey) return;
+        
+        try {
+          // Determine which user's data to fetch
+          const userEmail = userIdParam || window.authManager.getCurrentUser()?.email;
+          
+          if (!userEmail) {
+            showNoData("Not logged in. Please log in to view data.");
+            return;
+          }
+          
+          // Show loading state
+          dataContent.classList.add('loading');
+          
+          // Using the new server-side endpoints
+          const [correlationData, timelineData] = await Promise.all([
+            fetch(`/api/metrics/correlation?user_id=${userEmail}&symptom=${symptomKey}&metric=${metricKey}`, {
+              headers: { 'Authorization': `Bearer ${window.authManager.getCurrentToken()}` }
+            }).then(response => {
+              if (!response.ok) throw new Error('Failed to load correlation data');
+              return response.json();
+            }),
+            
+            fetch(`/api/metrics/timeline?user_id=${userEmail}&symptom=${symptomKey}&metric=${metricKey}`, {
+              headers: { 'Authorization': `Bearer ${window.authManager.getCurrentToken()}` }
+            }).then(response => {
+              if (!response.ok) throw new Error('Failed to load timeline data');
+              return response.json();
+            })
+          ]);
+          
+          // Hide loading state
+          dataContent.classList.remove('loading');
+          
+          // Always show dataContent which includes controls
+          dataContent.style.display = 'block';
+          
+          // Check if we have data
+          if ((!correlationData || correlationData.length === 0) && 
+              (!timelineData || timelineData.length === 0)) {
+            showNoData(`No data available for this symptom and metric combination.`);
+            return;
+          }
+          
+          // Hide no data message
+          noDataDiv.style.display = 'none';
+          
+          // Show chart containers
+          const chartContainers = document.querySelectorAll('.chart-container');
+          chartContainers.forEach(container => {
+            container.style.display = 'block';
+          });
+          
+          // Get labels for chart titles
+          const symptomLabel = symptomSelect.options[symptomSelect.selectedIndex].textContent;
+          const metricLabel = metricSelect.options[metricSelect.selectedIndex].textContent;
+          
+          // Update charts if data exists
+          if (correlationData && correlationData.length > 0) {
+            updateCorrelationChart(correlationData, symptomLabel, metricLabel);
+          } else {
+            // If no correlation data, clear chart
+            correlationChart.data.datasets[0].data = [];
+            correlationChart.update();
+          }
+          
+          if (timelineData && timelineData.length > 0) {
+            updateTimelineChart(timelineData, symptomLabel, metricLabel);
+          } else {
+            // If no timeline data, clear chart
+            timelineChart.data.datasets[0].data = [];
+            timelineChart.data.datasets[1].data = [];
+            timelineChart.data.labels = [];
+            timelineChart.update();
+          }
+          
+        } catch (error) {
+          console.error('Error updating charts:', error);
+          showNoData(`Failed to load data: ${error.message}`);
         }
+      }
+    
+    // Update correlation chart with data
+    function updateCorrelationChart(data, symptomLabel, metricLabel) {       
+        // Format data for the chart
+        const chartData = data.map(point => {
+          // Log each point for debugging
+          console.log("Data point:", point);
+          return {
+            x: point.metric_value,
+            y: point.symptom_value
+          };
+        });
         
-        // If no explicit scale, derive from options
-        if (question.options && question.options.length > 0) {
-            const values = question.options.map(opt => parseInt(opt.value)).filter(v => !isNaN(v));
-            if (values.length > 0) {
-                return {
-                    min: Math.min(...values),
-                    max: Math.max(...values),
-                    step: 1
-                };
-            }
-        }
+        console.log("Formatted chart data:", chartData);
         
-        // Fallback to default
-        return { min: 0, max: 3, step: 1 };
+        // Update chart data
+        correlationChart.data.datasets[0].data = chartData;
+        
+        // Update chart options
+        correlationChart.options.scales.x.title.text = metricLabel;
+        correlationChart.options.scales.y.title.text = `${symptomLabel} Severity`;
+        correlationChart.options.plugins.title.text = `Correlation: ${symptomLabel} vs ${metricLabel}`;
+        
+        updateCorrelationScales(data);
+        
+        // Force chart update
+        correlationChart.update();
     }
     
-    // Fetch user data from API
-    async function loadUserData() {
-        try {
-            // Determine which user's data to fetch
-            let userEmail;
-            
-            if (userIdParam) {
-                // Admin viewing another user's data
-                userEmail = userIdParam;
-                
-                // Show admin context banner
-                const adminContextBanner = document.createElement('div');
-                adminContextBanner.className = 'admin-context';
-                adminContextBanner.innerHTML = `
-                    <p>Viewing data for user: <strong>${userEmail}</strong></p>
-                    <a href="/admin/users" class="button">Back to Users</a>
-                `;
-                document.querySelector('.context-display').prepend(adminContextBanner);
-            } else {
-                // User viewing their own data
-                if (!window.authManager.getCurrentUser()) {
-                    showNoData("Not logged in. Please log in to view data.");
-                    return;
-                }
-                
-                userEmail = window.authManager.getCurrentUser().email;
+    // Update correlation chart scales based on data
+    function updateCorrelationScales(data) {
+        // Find min/max for symptom values (usually 0-3)
+        let symptomMin = Math.min(...data.map(p => p.symptom_value));
+        let symptomMax = Math.max(...data.map(p => p.symptom_value));
+
+        if (data && data.length > 0) {
+            const symptomValues = data.map(p => p.symptom_value);
+            if (symptomValues.length > 0) {
+              symptomMin = Math.min(...symptomValues);
+              symptomMax = Math.max(...symptomValues);
+              
+              // Ensure we have appropriate padding/rounding
+              symptomMin = Math.floor(symptomMin);
+              symptomMax = Math.ceil(symptomMax);
             }
-            
-            const response = await fetch(`/api/assessments?user_id=${userEmail}`, {
-                headers: {
-                    'Authorization': `Bearer ${window.authManager.getCurrentToken()}`
-                }
-            });
-            
-            if (!response.ok) throw new Error('Network response was not ok');
-            
-            userData = await response.json();
-            console.log("User data loaded:", userData);
-            
-            if (userData.length === 0) {
-                showNoData("No data available. Users need to submit at least one symptom report.");
-                return;
-            }
-            
-            // Set up the UI
-            noDataDiv.style.display = 'none';
-            dataContent.style.display = 'block';
-            
-            // Update charts
-            updateCharts();
-        } catch (error) {
-            console.error('Error fetching data:', error);
-            showNoData(`Failed to load data: ${error.message}`);
-        }
+          }
+        
+        // Default scale for symptoms is 0-3
+        symptomMin = Math.floor(symptomMin);
+        symptomMax = Math.ceil(symptomMax);
+        
+        correlationChart.options.scales.y.min = symptomMin;
+        correlationChart.options.scales.y.max = symptomMax;
+    }
+    
+    // Update timeline chart with data
+    function updateTimelineChart(data, symptomLabel, metricLabel) {
+        // Format dates for x-axis
+        const labels = data.map(point => formatDate(point.date));
+        
+        // Format data for datasets
+        const symptomData = data.map(point => point.symptom_value);
+        const metricData = data.map(point => point.metric_value);
+        
+        // Update chart data
+        timelineChart.data.labels = labels;
+        timelineChart.data.datasets[0].data = symptomData;
+        timelineChart.data.datasets[1].data = metricData;
+        
+        // Update dataset labels
+        timelineChart.data.datasets[0].label = symptomLabel;
+        timelineChart.data.datasets[1].label = metricLabel;
+        
+        // Update chart title
+        timelineChart.options.plugins.title.text = `Timeline: ${symptomLabel} and ${metricLabel}`;
+        
+        // Update scales
+        updateTimelineScales(data);
+        
+        // Update chart
+        timelineChart.update();
+    }
+    
+    // Update timeline chart scales based on data
+    function updateTimelineScales(data) {
+        // Find min/max for symptom values
+        let symptomMin = Math.min(...data.map(p => p.symptom_value));
+        let symptomMax = Math.max(...data.map(p => p.symptom_value));
+        
+        // Find min/max for metric values
+        let metricMin = Math.min(...data.map(p => p.metric_value));
+        let metricMax = Math.max(...data.map(p => p.metric_value));
+        
+        // Add some padding to the ranges
+        symptomMin = Math.floor(symptomMin);
+        symptomMax = Math.ceil(symptomMax);
+        metricMin = Math.floor(metricMin * 0.9);
+        metricMax = Math.ceil(metricMax * 1.1);
+        
+        // Update scales
+        timelineChart.options.scales.y.min = symptomMin;
+        timelineChart.options.scales.y.max = symptomMax;
+        timelineChart.options.scales.y1.min = metricMin;
+        timelineChart.options.scales.y1.max = metricMax;
     }
     
     // Show no data message
     function showNoData(message) {
+        // Keep the controls visible
+        const controlsDiv = document.querySelector('.controls');
+        if (controlsDiv) controlsDiv.style.display = 'flex';
+        
+        // Show the no data message
         noDataDiv.innerHTML = `<h3>No Data Available</h3><p>${message}</p>`;
         noDataDiv.style.display = 'block';
-        dataContent.style.display = 'none';
-    }
-    
-    // Get question metric key from id
-    function getMetricKeyById(questionId) {
-        const question = symptomQuestions.find(q => q.id === questionId);
-        return question ? question.metric_key || questionId : questionId;
-    }
-    
-    // Get question title from id
-    function getQuestionTitleById(questionId) {
-        const question = symptomQuestions.find(q => q.id === questionId);
-        return question ? question.title : formatLabel(questionId);
-    }
-    
-    // Get symptom value for a given assessment
-    function getSymptomValue(dataItem, symptomKey) {
-        // First try responses object (new format)
-        if (dataItem.responses && dataItem.responses[symptomKey] !== undefined) {
-            return dataItem.responses[symptomKey];
-        }
         
-        // Then try legacy format (symptoms object)
-        if (dataItem.symptoms && dataItem.symptoms[symptomKey] !== undefined) {
-            return dataItem.symptoms[symptomKey];
-        }
-        
-        // Finally check raw_data
-        if (dataItem.raw_data?.responses && dataItem.raw_data.responses[symptomKey] !== undefined) {
-            return dataItem.raw_data.responses[symptomKey];
-        }
-        
-        return null;
-    }
-    
-    // Get metric value for a symptom's question
-    function getQuestionMetric(dataItem, metricKey, symptomKey) {
-        // Try to get question metrics from either source
-        let questionMetrics = null;
-        
-        // First try direct question_metrics field
-        if (dataItem.question_metrics && dataItem.question_metrics[symptomKey]) {
-            questionMetrics = dataItem.question_metrics[symptomKey];
-        }
-        // Then try raw_data.metadata.question_metrics
-        else if (dataItem.raw_data?.metadata?.question_metrics?.[symptomKey]) {
-            questionMetrics = dataItem.raw_data.metadata.question_metrics[symptomKey];
-        }
-        
-        // If we found metrics, get the requested one
-        if (questionMetrics) {
-            // Handle camelCase vs snake_case differences in data structure
-            const camelCaseKey = metricKey.replace(/_([a-z])/g, (g) => g[1].toUpperCase());
-            
-            if (questionMetrics[metricKey] !== undefined) {
-                return questionMetrics[metricKey];
-            } else if (questionMetrics[camelCaseKey] !== undefined) {
-                return questionMetrics[camelCaseKey];
-            }
-        }
-        
-        // As fallback, use global metrics
-        return dataItem.interaction_metrics?.[metricKey] || 
-               dataItem.raw_data?.metadata?.interaction_metrics?.[metricKey];
-    }
-    
-    // Update charts with selected data
-    function updateCharts() {
-        const metricKey = metricSelect.value;
-        const symptomKey = symptomSelect.value;
-              
-        // Get selected question
-        const selectedQuestion = symptomQuestions.find(q => q.id === symptomKey);
-        if (!selectedQuestion) {
-            console.error(`Selected question not found: ${symptomKey}`);
-            return;
-        }
-        
-        // Get scale for the selected question
-        const scale = getQuestionScale(symptomKey);
-        
-        // Filter data points that have both the symptom and metric
-        const validData = userData.filter(item => {
-            // Must have symptom data
-            const symptomValue = getSymptomValue(item, symptomKey);
-            if (symptomValue === null || symptomValue === undefined) {
-                return false;
-            }
-            
-            // Get question-specific metric value (with fallback to global)
-            const metricValue = getQuestionMetric(item, metricKey, symptomKey);
-            return metricValue !== null && metricValue !== undefined;
+        // Hide chart containers but not the entire content
+        const chartContainers = document.querySelectorAll('.chart-container');
+        chartContainers.forEach(container => {
+          container.style.display = 'none';
         });
         
-        if (validData.length === 0) {
-            showNoData(`No data available for ${getQuestionTitleById(symptomKey)} and ${formatLabel(metricKey)}.`);
-            return;
-        }
-        
-        // Update correlation chart
-        const correlationData = validData.map(item => ({
-            x: getQuestionMetric(item, metricKey, symptomKey),
-            y: getSymptomValue(item, symptomKey)
-        }));
-        
-        correlationChart.data.datasets[0].data = correlationData;
-        correlationChart.options.scales.x.title.text = formatLabel(metricKey);
-        correlationChart.options.scales.y.min = scale.min;
-        correlationChart.options.scales.y.max = scale.max;
-        correlationChart.options.scales.y.title.text = `${getQuestionTitleById(symptomKey)} (${scale.min}-${scale.max})`;
-        correlationChart.options.plugins.title.text = `Correlation: ${getQuestionTitleById(symptomKey)} vs ${formatLabel(metricKey)}`;
-        correlationChart.update();
-        
-        // Update timeline chart
-        const timelineData = [...validData].sort((a, b) => new Date(a.date) - new Date(b.date));
-        
-        timelineChart.data.labels = timelineData.map(item => formatDate(item.date));
-        timelineChart.data.datasets[0].data = timelineData.map(item => getSymptomValue(item, symptomKey));
-        timelineChart.data.datasets[1].data = timelineData.map(item => {
-            const metricValue = getQuestionMetric(item, metricKey, symptomKey);
-            
-            // Check if the metric was calculated
-            if (metricValue && metricValue.calculated) {
-                return metricValue.value;
-            } else {
-                // Handle missing data (return null to create a gap in the chart)
-                return null;
-            }
-        });
-        timelineChart.data.datasets[0].label = getQuestionTitleById(symptomKey);
-        timelineChart.data.datasets[1].label = formatLabel(metricKey);
-        timelineChart.options.scales.y.min = scale.min;
-        timelineChart.options.scales.y.max = scale.max;
-        timelineChart.options.scales.y.title.text = `${getQuestionTitleById(symptomKey)} (${scale.min}-${scale.max})`;
-        timelineChart.options.plugins.title.text = `Timeline: ${getQuestionTitleById(symptomKey)} and ${formatLabel(metricKey)}`;
-        timelineChart.update();
-        
-        // Add debug info
-        addDebugInfo(validData, symptomKey);
-    }
-    
-    function addDebugInfo(validData, symptomKey) {
-        let debugDiv = document.getElementById('debug-panel');
-        if (!debugDiv) {
-            debugDiv = document.createElement('div');
-            debugDiv.id = 'debug-panel';
-            debugDiv.classList.add('debug-panel');
-            document.getElementById('data-content').appendChild(debugDiv);
-        }
-        
-        const metricKey = metricSelect.value;
-        const scale = getQuestionScale(symptomKey);
-        
-        let debugContent = `
-            <h3>Debug Information</h3>
-            <p>Current selection - Symptom: ${getQuestionTitleById(symptomKey)}, Metric: ${formatLabel(metricKey)}</p>
-            <p>Scale: min=${scale.min}, max=${scale.max}, step=${scale.step}</p>
-            <p>Data points: ${validData.length}</p>
-        `;
-        
-        // Show question-specific metrics data
-        if (validData.length > 0) {
-            const sampleItem = validData[0];
-            let metricsData = null;
-            
-            // Try to get from either source
-            if (sampleItem.question_metrics && sampleItem.question_metrics[symptomKey]) {
-                metricsData = sampleItem.question_metrics[symptomKey];
-                debugContent += `<p>Found metrics in question_metrics.${symptomKey}</p>`;
-            } 
-            else if (sampleItem.raw_data?.metadata?.question_metrics?.[symptomKey]) {
-                metricsData = sampleItem.raw_data.metadata.question_metrics[symptomKey];
-                debugContent += `<p>Found metrics in raw_data.metadata.question_metrics.${symptomKey}</p>`;
-            }
-            
-            if (metricsData) {
-                debugContent += `<h4>${getQuestionTitleById(symptomKey)} Question Metrics:</h4>`;
-                debugContent += `<pre>${JSON.stringify(metricsData, null, 2)}</pre>`;
-            } else {
-                debugContent += `<p>No question-specific metrics found for ${getQuestionTitleById(symptomKey)}</p>`;
-            }
-            
-            // Show sample data point for debugging
-            debugContent += `<h4>Sample Data Point Structure:</h4>`;
-            debugContent += `<pre>${JSON.stringify({
-                symptomValue: getSymptomValue(sampleItem, symptomKey),
-                metricValue: getQuestionMetric(sampleItem, metricKey, symptomKey)
-            }, null, 2)}</pre>`;
-        }
-        
-        debugDiv.innerHTML = debugContent;
-    }
-    
-    // Format label for display
-    function formatLabel(key) {
-        return key
-            .split(/(?=[A-Z])/)  // Split camelCase
-            .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-            .join(' ');
-    }
+        // Keep the metrics help visible
+        const metricsHelp = document.querySelector('.metrics-help');
+        if (metricsHelp) metricsHelp.style.display = 'block';
+      }
     
     // Format date for display
     function formatDate(dateString) {
@@ -572,10 +465,6 @@ document.addEventListener('DOMContentLoaded', function() {
             year: 'numeric'
         });
     }
-    
-    // Initialize and start
-    initCharts();
-    loadSymptomQuestions();
     
     // Add event listeners
     metricSelect.addEventListener('change', updateCharts);

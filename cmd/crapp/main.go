@@ -79,12 +79,12 @@ func main() {
 	router.Static("/static", "./static")
 
 	// Initialize handlers
-	apiHandler := handlers.NewAPIHandler(repo, questionLoader, log)
+	apiHandler := handlers.NewAPIHandler(repo, log, questionLoader)
 	viewHandler := handlers.NewViewHandler("static")
 	// Create auth handler
 	authHandler := handlers.NewAuthHandler(repo, log)
 	// Create form handler
-	formHandler := handlers.NewFormHandler(questionLoader, log)
+	formHandler := handlers.NewFormHandler(repo, log, questionLoader)
 	// Create metrics handler
 	metricsHandler := handlers.NewMetricsHandler(log)
 
@@ -129,6 +129,17 @@ func main() {
 		api.GET("/assessments", apiHandler.GetUserAssessments)
 
 		api.POST("/process-metrics", metricsHandler.ProcessInteractionData)
+		api.GET("/metrics/correlation", apiHandler.GetMetricsCorrelation)
+		api.GET("/metrics/timeline", apiHandler.GetMetricsTimeline)
+	}
+
+	form := router.Group("/api/form")
+	form.Use(middleware.AuthMiddleware())
+	{
+		form.POST("/init", formHandler.InitForm)
+		form.GET("/state/:stateId", formHandler.GetCurrentQuestion)
+		form.POST("/state/:stateId/answer", formHandler.SaveAnswer)
+		form.POST("/state/:stateId/submit", formHandler.SubmitForm)
 	}
 
 	// Admin routes
@@ -167,7 +178,8 @@ func setupDatabase(cfg *config.Config) (*gorm.DB, error) {
 	}
 
 	// Migrate database schema
-	err = db.AutoMigrate(&models.User{}, &models.Assessment{})
+	// Add FormState to the list of models
+	err = db.AutoMigrate(&models.User{}, &models.Assessment{}, &models.FormState{})
 	if err != nil {
 		return nil, err
 	}

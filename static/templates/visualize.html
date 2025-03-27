@@ -17,11 +17,6 @@
             <a href="/" class="button">Return to Symptom Report</a>
         </div>
         
-        <div id="no-data" class="no-data">
-            <h3>No Data Available</h3>
-            <p>You haven't submitted any symptom reports yet. Please complete a symptom report first.</p>
-        </div>
-        
         <div id="data-content" style="display:none;">
             <div class="controls">
                 <div class="control-group">
@@ -42,6 +37,11 @@
             <div class="context-display">
                 <p>This visualization shows the relationship between your reported symptom severity and your interaction metrics while answering each specific question.</p>
                 <p><span id="metric-type-indicator">Mouse metrics</span> are shown for the selected question type.</p>
+            </div>
+
+            <div id="no-data" class="no-data">
+                <h3>No Data Available</h3>
+                <p>You haven't submitted any symptom reports yet. Please complete a symptom report first.</p>
             </div>
             
             <div class="chart-container">

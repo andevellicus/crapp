@@ -49,18 +49,44 @@ type Assessment struct {
 	// Responses (stored as JSON)
 	Responses JSON `json:"responses" gorm:"type:text"`
 
-	// Global Interaction metrics
-	ClickPrecision      *float64 `json:"click_precision,omitempty"`
-	PathEfficiency      *float64 `json:"path_efficiency,omitempty"`
-	OvershootRate       *float64 `json:"overshoot_rate,omitempty"`
-	AverageVelocity     *float64 `json:"average_velocity,omitempty"`
-	VelocityVariability *float64 `json:"velocity_variability,omitempty"`
+	// All metrics stored as JSON
+	Metrics JSON `json:"metrics,omitempty" gorm:"type:text"`
 
 	// Per-question metrics (stored as JSON)
 	QuestionMetrics JSON `json:"question_metrics,omitempty" gorm:"type:text"`
 
 	// Metadata
 	RawData JSON `json:"raw_data,omitempty" gorm:"type:text"`
+}
+
+// AssessmentSubmission is used for incoming API requests
+type AssessmentSubmission struct {
+	UserEmail string          `json:"user_email"`
+	DeviceID  string          `json:"device_id"`
+	Responses JSON            `json:"responses"`
+	Metadata  json.RawMessage `json:"metadata,omitempty"`
+}
+
+// SubmissionResponse is sent back after processing a submission
+type SubmissionResponse struct {
+	Status       string `json:"status"`
+	AssessmentID uint   `json:"assessment_id"`
+}
+
+// AssessmentSummary is used for API responses
+type AssessmentSummary struct {
+	ID                 uint      `json:"id"`
+	Date               time.Time `json:"date"`
+	Responses          JSON      `json:"responses"`
+	InteractionMetrics struct {
+		ClickPrecision      *float64 `json:"click_precision,omitempty"`
+		PathEfficiency      *float64 `json:"path_efficiency,omitempty"`
+		OvershootRate       *float64 `json:"overshoot_rate,omitempty"`
+		AverageVelocity     *float64 `json:"average_velocity,omitempty"`
+		VelocityVariability *float64 `json:"velocity_variability,omitempty"`
+	} `json:"interaction_metrics"`
+	QuestionMetrics JSON `json:"question_metrics,omitempty"`
+	RawData         JSON `json:"raw_data,omitempty"`
 }
 
 // JSON is a custom type for handling JSON data in the database
@@ -103,32 +129,5 @@ func (j *JSON) Scan(value any) error {
 	return err
 }
 
-// AssessmentSubmission is used for incoming API requests
-type AssessmentSubmission struct {
-	UserEmail string          `json:"user_email"`
-	DeviceID  string          `json:"device_id"`
-	Responses JSON            `json:"responses"`
-	Metadata  json.RawMessage `json:"metadata,omitempty"`
-}
-
-// SubmissionResponse is sent back after processing a submission
-type SubmissionResponse struct {
-	Status       string `json:"status"`
-	AssessmentID uint   `json:"assessment_id"`
-}
-
-// AssessmentSummary is used for API responses
-type AssessmentSummary struct {
-	ID                 uint      `json:"id"`
-	Date               time.Time `json:"date"`
-	Responses          JSON      `json:"responses"`
-	InteractionMetrics struct {
-		ClickPrecision      *float64 `json:"click_precision,omitempty"`
-		PathEfficiency      *float64 `json:"path_efficiency,omitempty"`
-		OvershootRate       *float64 `json:"overshoot_rate,omitempty"`
-		AverageVelocity     *float64 `json:"average_velocity,omitempty"`
-		VelocityVariability *float64 `json:"velocity_variability,omitempty"`
-	} `json:"interaction_metrics"`
-	QuestionMetrics JSON `json:"question_metrics,omitempty"`
-	RawData         JSON `json:"raw_data,omitempty"`
-}
+// IntArray is a custom type for handling arrays of integers in the database
+type IntArray []int

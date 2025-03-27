@@ -19,7 +19,7 @@ type GinAPIHandler struct {
 }
 
 // NewAPIHandler creates a new API handler for Gin
-func NewAPIHandler(repo *repository.Repository, questionLoader *utils.QuestionLoader, log *zap.SugaredLogger) *GinAPIHandler {
+func NewAPIHandler(repo *repository.Repository, log *zap.SugaredLogger, questionLoader *utils.QuestionLoader) *GinAPIHandler {
 	return &GinAPIHandler{
 		repo:           repo,
 		questionLoader: questionLoader,
@@ -145,4 +145,71 @@ func (h *GinAPIHandler) SearchUsers(c *gin.Context) {
 		"skip":  skip,
 		"limit": limit,
 	})
+}
+
+func (h *GinAPIHandler) GetMetricsTimeline(c *gin.Context) {
+	userID := c.Query("user_id")
+	symptomKey := c.Query("symptom")
+	metricKey := c.Query("metric")
+
+	// Get the current user from context (set by auth middleware)
+	currentUserEmail, exists := c.Get("userEmail")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Authentication required"})
+		return
+	}
+
+	// Check if user is trying to access someone else's data
+	isAdmin, _ := c.Get("isAdmin")
+	if userID != currentUserEmail.(string) && (!isAdmin.(bool)) {
+		// Non-admin trying to access other user's data
+		c.JSON(http.StatusForbidden, gin.H{"error": "Admin access required to view other users' data"})
+		return
+	}
+
+	// Get data from repository
+	data, err := h.repo.GetMetricsTimeline(userID, symptomKey, metricKey)
+	if err != nil {
+		h.log.Errorw("Error retrieving metrics timeline", "error", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error retrieving data"})
+		return
+	}
+
+	c.JSON(http.StatusOK, data)
+}
+
+func (h *GinAPIHandler) GetMetricsCorrelation(c *gin.Context) {
+	userID := c.Query("user_id")
+	symptomKey := c.Query("symptom")
+	metricKey := c.Query("metric")
+
+	// Get the current user from context (set by auth middleware)
+	currentUserEmail, exists := c.Get("userEmail")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Authentication required"})
+		return
+	}
+
+	// Check if user is trying to access someone else's data
+	isAdmin, _ := c.Get("isAdmin")
+	if userID != currentUserEmail.(string) && (!isAdmin.(bool)) {
+		// Non-admin trying to access other user's data
+		c.JSON(http.StatusForbidden, gin.H{"error": "Admin access required to view other users' data"})
+		return
+	}
+
+	// Get data from repository
+	data, err := h.repo.GetMetricsCorrelation(userID, symptomKey, metricKey)
+	if err != nil {
+		h.log.Errorw("Error retrieving metrics correlation", "error", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error retrieving data"})
+		return
+	}
+
+	// Even if empty, return an array rather than null
+	if data == nil {
+		data = []repository.CorrelationDataPoint{}
+	}
+
+	c.JSON(http.StatusOK, data)
 }
