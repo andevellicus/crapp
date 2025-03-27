@@ -3,9 +3,7 @@ package main
 import (
 	"flag"
 	"fmt"
-	"html/template"
 	"os"
-	"path/filepath"
 
 	"github.com/andevellicus/crapp/internal/config"
 	"github.com/andevellicus/crapp/internal/handlers"
@@ -74,20 +72,8 @@ func main() {
 	// Create Gin router
 	router := gin.New()
 
-	// Create a template renderer
-	templates := filepath.Join("static", "templates")
-	partialsDir := filepath.Join(templates, "partials", "*.html")
-	pagesDir := filepath.Join(templates, "*.html")
-
-	// Create a template set that includes all files
-	tmpl := template.New("")
-
-	// Add partials first so they're available to pages
-	template.Must(tmpl.ParseGlob(partialsDir))
-	template.Must(tmpl.ParseGlob(pagesDir))
-
 	// Set the template engine
-	router.SetHTMLTemplate(tmpl)
+	router.SetHTMLTemplate(handlers.SetupTemplates())
 
 	// Static files
 	router.Static("/static", "./static")
@@ -97,13 +83,16 @@ func main() {
 	viewHandler := handlers.CreateViewHandler("static")
 	// Create auth handler
 	authHandler := handlers.NewAuthHandler(repo, log)
+	// Create form handler
+	formHandler := handlers.NewFormHandler(questionLoader, log)
 
 	// Apply middleware
 	router.Use(gin.Recovery())
 	router.Use(middleware.GinLogger(log))
 
 	// View routes
-	router.GET("/", middleware.AuthRedirectMiddleware(), viewHandler.ServeIndex)
+	//router.GET("/", middleware.AuthRedirectMiddleware(), viewHandler.ServeIndex)
+	router.GET("/", middleware.AuthRedirectMiddleware(), formHandler.ServeForm)
 	router.GET("/login", viewHandler.ServeLogin)
 	router.GET("/register", viewHandler.ServeRegister)
 	router.GET("/profile", middleware.AuthMiddleware(), viewHandler.ServeProfile)
