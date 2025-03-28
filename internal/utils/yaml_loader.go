@@ -109,6 +109,10 @@ func (q *QuestionLoader) GetQuestions() []Question {
 
 // GetQuestionByID gets a question by its ID
 func (q *QuestionLoader) GetQuestionByID(id string) *Question {
+	if id == "" {
+		return nil
+	}
+
 	for _, question := range q.Config.Questions {
 		if question.ID == id {
 			return &question

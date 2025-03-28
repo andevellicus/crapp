@@ -1,4 +1,4 @@
-// static/js/visualization.js - Simplified version
+// Updated visualization.js for structured data approach
 
 document.addEventListener('DOMContentLoaded', function() {
     // DOM elements
@@ -17,7 +17,7 @@ document.addEventListener('DOMContentLoaded', function() {
     let correlationChart = null;
     let timelineChart = null;
     
-    // Metric definitions for UI only (data comes from server)
+    // Metric definitions for UI only
     const mouseMetrics = [
         { value: 'click_precision', label: 'Click Precision' },
         { value: 'path_efficiency', label: 'Path Efficiency' },
@@ -251,98 +251,97 @@ document.addEventListener('DOMContentLoaded', function() {
         if (!metricKey || !symptomKey) return;
         
         try {
-          // Determine which user's data to fetch
-          const userEmail = userIdParam || window.authManager.getCurrentUser()?.email;
-          
-          if (!userEmail) {
-            showNoData("Not logged in. Please log in to view data.");
-            return;
-          }
-          
-          // Show loading state
-          dataContent.classList.add('loading');
-          
-          // Using the new server-side endpoints
-          const [correlationData, timelineData] = await Promise.all([
-            fetch(`/api/metrics/correlation?user_id=${userEmail}&symptom=${symptomKey}&metric=${metricKey}`, {
-              headers: { 'Authorization': `Bearer ${window.authManager.getCurrentToken()}` }
-            }).then(response => {
-              if (!response.ok) throw new Error('Failed to load correlation data');
-              return response.json();
-            }),
+            // Determine which user's data to fetch
+            const userEmail = userIdParam || window.authManager.getCurrentUser()?.email;
             
-            fetch(`/api/metrics/timeline?user_id=${userEmail}&symptom=${symptomKey}&metric=${metricKey}`, {
-              headers: { 'Authorization': `Bearer ${window.authManager.getCurrentToken()}` }
-            }).then(response => {
-              if (!response.ok) throw new Error('Failed to load timeline data');
-              return response.json();
-            })
-          ]);
-          
-          // Hide loading state
-          dataContent.classList.remove('loading');
-          
-          // Always show dataContent which includes controls
-          dataContent.style.display = 'block';
-          
-          // Check if we have data
-          if ((!correlationData || correlationData.length === 0) && 
-              (!timelineData || timelineData.length === 0)) {
-            showNoData(`No data available for this symptom and metric combination.`);
-            return;
-          }
-          
-          // Hide no data message
-          noDataDiv.style.display = 'none';
-          
-          // Show chart containers
-          const chartContainers = document.querySelectorAll('.chart-container');
-          chartContainers.forEach(container => {
-            container.style.display = 'block';
-          });
-          
-          // Get labels for chart titles
-          const symptomLabel = symptomSelect.options[symptomSelect.selectedIndex].textContent;
-          const metricLabel = metricSelect.options[metricSelect.selectedIndex].textContent;
-          
-          // Update charts if data exists
-          if (correlationData && correlationData.length > 0) {
-            updateCorrelationChart(correlationData, symptomLabel, metricLabel);
-          } else {
-            // If no correlation data, clear chart
-            correlationChart.data.datasets[0].data = [];
-            correlationChart.update();
-          }
-          
-          if (timelineData && timelineData.length > 0) {
-            updateTimelineChart(timelineData, symptomLabel, metricLabel);
-          } else {
-            // If no timeline data, clear chart
-            timelineChart.data.datasets[0].data = [];
-            timelineChart.data.datasets[1].data = [];
-            timelineChart.data.labels = [];
-            timelineChart.update();
-          }
-          
+            if (!userEmail) {
+                showNoData("Not logged in. Please log in to view data.");
+                return;
+            }
+            
+            // Show loading state
+            dataContent.classList.add('loading');
+            
+            // Fetch data using the new structured endpoints
+            const [correlationData, timelineData] = await Promise.all([
+                fetch(`/api/metrics/correlation?user_id=${userEmail}&symptom=${symptomKey}&metric=${metricKey}`, {
+                    headers: { 'Authorization': `Bearer ${window.authManager.getCurrentToken()}` }
+                }).then(response => {
+                    if (!response.ok) throw new Error('Failed to load correlation data');
+                    return response.json();
+                }),
+                
+                fetch(`/api/metrics/timeline?user_id=${userEmail}&symptom=${symptomKey}&metric=${metricKey}`, {
+                    headers: { 'Authorization': `Bearer ${window.authManager.getCurrentToken()}` }
+                }).then(response => {
+                    if (!response.ok) throw new Error('Failed to load timeline data');
+                    return response.json();
+                })
+            ]);
+            
+            // Hide loading state
+            dataContent.classList.remove('loading');
+            
+            // Always show dataContent which includes controls
+            dataContent.style.display = 'block';
+            
+            // Check if we have data
+            if ((!correlationData || correlationData.length === 0) && 
+                (!timelineData || timelineData.length === 0)) {
+                showNoData(`No data available for this symptom and metric combination.`);
+                return;
+            }
+            
+            // Hide no data message
+            noDataDiv.style.display = 'none';
+            
+            // Show chart containers
+            const chartContainers = document.querySelectorAll('.chart-container');
+            chartContainers.forEach(container => {
+                container.style.display = 'block';
+            });
+            
+            // Get labels for chart titles
+            const symptomLabel = symptomSelect.options[symptomSelect.selectedIndex].textContent;
+            const metricLabel = metricSelect.options[metricSelect.selectedIndex].textContent;
+            
+            // Update charts if data exists
+            if (correlationData && correlationData.length > 0) {
+                updateCorrelationChart(correlationData, symptomLabel, metricLabel);
+            } else {
+                // If no correlation data, clear chart
+                correlationChart.data.datasets[0].data = [];
+                correlationChart.update();
+            }
+            
+            if (timelineData && timelineData.length > 0) {
+                updateTimelineChart(timelineData, symptomLabel, metricLabel);
+            } else {
+                // If no timeline data, clear chart
+                timelineChart.data.datasets[0].data = [];
+                timelineChart.data.datasets[1].data = [];
+                timelineChart.data.labels = [];
+                timelineChart.update();
+            }
+            
         } catch (error) {
-          console.error('Error updating charts:', error);
-          showNoData(`Failed to load data: ${error.message}`);
+            console.error('Error updating charts:', error);
+            showNoData(`Failed to load data: ${error.message}`);
         }
-      }
+    }
     
     // Update correlation chart with data
-    function updateCorrelationChart(data, symptomLabel, metricLabel) {       
-        // Format data for the chart
-        const chartData = data.map(point => {
-          // Log each point for debugging
-          console.log("Data point:", point);
-          return {
-            x: point.metric_value,
-            y: point.symptom_value
-          };
-        });
+    function updateCorrelationChart(data, symptomLabel, metricLabel) {
+        // Log raw data for debugging
+        console.log("Correlation data:", data);
         
-        console.log("Formatted chart data:", chartData);
+        // Format data for the chart - structured format with symptom_value and metric_value
+        const chartData = data.map(point => {
+            return {
+                x: point.metric_value,
+                y: point.symptom_value
+            };
+        });
         
         // Update chart data
         correlationChart.data.datasets[0].data = chartData;
@@ -352,44 +351,27 @@ document.addEventListener('DOMContentLoaded', function() {
         correlationChart.options.scales.y.title.text = `${symptomLabel} Severity`;
         correlationChart.options.plugins.title.text = `Correlation: ${symptomLabel} vs ${metricLabel}`;
         
-        updateCorrelationScales(data);
+        // Update scales
+        const symptomValues = chartData.map(p => p.y);
+        const symptomMin = Math.floor(Math.min(...symptomValues));
+        const symptomMax = Math.ceil(Math.max(...symptomValues));
+        
+        correlationChart.options.scales.y.min = symptomMin;
+        correlationChart.options.scales.y.max = symptomMax;
         
         // Force chart update
         correlationChart.update();
     }
     
-    // Update correlation chart scales based on data
-    function updateCorrelationScales(data) {
-        // Find min/max for symptom values (usually 0-3)
-        let symptomMin = Math.min(...data.map(p => p.symptom_value));
-        let symptomMax = Math.max(...data.map(p => p.symptom_value));
-
-        if (data && data.length > 0) {
-            const symptomValues = data.map(p => p.symptom_value);
-            if (symptomValues.length > 0) {
-              symptomMin = Math.min(...symptomValues);
-              symptomMax = Math.max(...symptomValues);
-              
-              // Ensure we have appropriate padding/rounding
-              symptomMin = Math.floor(symptomMin);
-              symptomMax = Math.ceil(symptomMax);
-            }
-          }
-        
-        // Default scale for symptoms is 0-3
-        symptomMin = Math.floor(symptomMin);
-        symptomMax = Math.ceil(symptomMax);
-        
-        correlationChart.options.scales.y.min = symptomMin;
-        correlationChart.options.scales.y.max = symptomMax;
-    }
-    
     // Update timeline chart with data
     function updateTimelineChart(data, symptomLabel, metricLabel) {
+        // Log raw data for debugging
+        console.log("Timeline data:", data);
+        
         // Format dates for x-axis
         const labels = data.map(point => formatDate(point.date));
         
-        // Format data for datasets
+        // Format data for datasets - structured format with symptom_value and metric_value
         const symptomData = data.map(point => point.symptom_value);
         const metricData = data.map(point => point.metric_value);
         
@@ -406,33 +388,18 @@ document.addEventListener('DOMContentLoaded', function() {
         timelineChart.options.plugins.title.text = `Timeline: ${symptomLabel} and ${metricLabel}`;
         
         // Update scales
-        updateTimelineScales(data);
+        const symptomMin = Math.floor(Math.min(...symptomData));
+        const symptomMax = Math.ceil(Math.max(...symptomData));
+        const metricMin = Math.floor(Math.min(...metricData) * 0.9);
+        const metricMax = Math.ceil(Math.max(...metricData) * 1.1);
         
-        // Update chart
-        timelineChart.update();
-    }
-    
-    // Update timeline chart scales based on data
-    function updateTimelineScales(data) {
-        // Find min/max for symptom values
-        let symptomMin = Math.min(...data.map(p => p.symptom_value));
-        let symptomMax = Math.max(...data.map(p => p.symptom_value));
-        
-        // Find min/max for metric values
-        let metricMin = Math.min(...data.map(p => p.metric_value));
-        let metricMax = Math.max(...data.map(p => p.metric_value));
-        
-        // Add some padding to the ranges
-        symptomMin = Math.floor(symptomMin);
-        symptomMax = Math.ceil(symptomMax);
-        metricMin = Math.floor(metricMin * 0.9);
-        metricMax = Math.ceil(metricMax * 1.1);
-        
-        // Update scales
         timelineChart.options.scales.y.min = symptomMin;
         timelineChart.options.scales.y.max = symptomMax;
         timelineChart.options.scales.y1.min = metricMin;
         timelineChart.options.scales.y1.max = metricMax;
+        
+        // Update chart
+        timelineChart.update();
     }
     
     // Show no data message
@@ -448,13 +415,13 @@ document.addEventListener('DOMContentLoaded', function() {
         // Hide chart containers but not the entire content
         const chartContainers = document.querySelectorAll('.chart-container');
         chartContainers.forEach(container => {
-          container.style.display = 'none';
+            container.style.display = 'none';
         });
         
         // Keep the metrics help visible
         const metricsHelp = document.querySelector('.metrics-help');
         if (metricsHelp) metricsHelp.style.display = 'block';
-      }
+    }
     
     // Format date for display
     function formatDate(dateString) {

@@ -1,8 +1,8 @@
 package repository
 
 import (
+	"encoding/json"
 	"fmt"
-	"strconv"
 	"time"
 
 	"github.com/andevellicus/crapp/internal/models"
@@ -31,74 +31,71 @@ type MetricsData struct {
 	MetricMinMax map[string]float64     `json:"metric_min_max"`
 }
 
-// GetMetricsCorrelation gets correlation data for a specific symptom and metric
+// GetMetricsCorrelation gets correlation data from structured tables
 func (r *Repository) GetMetricsCorrelation(userID, symptomKey, metricKey string) ([]CorrelationDataPoint, error) {
-	var assessments []models.Assessment
 	var result []CorrelationDataPoint
 
-	// Query database for assessments with these keys
-	query := r.db.Where("user_email = ?", userID).Order("date DESC")
+	// Use a different JOIN approach - first get the response data, then match metrics
+	query := `
+        SELECT 
+            qr.numeric_value as symptom_value,
+            am.metric_value
+        FROM 
+            assessments a
+            JOIN question_responses qr ON a.id = qr.assessment_id
+            JOIN assessment_metrics am ON a.id = am.assessment_id
+        WHERE 
+            a.user_email = ?
+            AND qr.question_id = ?
+            AND am.metric_key = ?
+            AND am.question_id = ?
+    `
 
-	if err := query.Find(&assessments).Error; err != nil {
+	err := r.db.Raw(query, userID, symptomKey, metricKey, symptomKey).Scan(&result).Error
+	if err != nil {
+		r.log.Errorw("Error in correlation query", "error", err)
 		return nil, fmt.Errorf("database error: %w", err)
 	}
 
-	// Process into correlation format
-	for _, assessment := range assessments {
-		// Extract symptom value
-		symptomValue, err1 := getSymptomValue(&assessment, symptomKey)
-		// Extract metric value
-		metricValue, err2 := getMetricValue(&assessment, metricKey, symptomKey)
-
-		if err1 == nil && err2 == nil && symptomValue != nil && metricValue != nil {
-			// Add to result set
-			result = append(result, CorrelationDataPoint{
-				SymptomValue: *symptomValue,
-				MetricValue:  *metricValue,
-			})
-		}
-	}
-
-	// Log the results
-	r.log.Infow("Generated correlation data",
+	r.log.Infow("Retrieved correlation data",
 		"user_id", userID,
 		"symptom", symptomKey,
 		"metric", metricKey,
-		"points_count", len(result),
-		"result", result)
+		"points_count", len(result))
 
 	return result, nil
 }
 
-// GetMetricsTimeline gets timeline data for a specific symptom and metric
+// GetMetricsTimeline gets timeline data from structured tables
 func (r *Repository) GetMetricsTimeline(userID, symptomKey, metricKey string) ([]TimelineDataPoint, error) {
-	var assessments []models.Assessment
 	var result []TimelineDataPoint
 
-	// Query database for assessments with these keys
-	query := r.db.Where("user_email = ?", userID).Order("date ASC")
+	// Use a different JOIN approach and debugging
+	query := `
+        SELECT 
+            a.date,
+            qr.numeric_value as symptom_value,
+            am.metric_value
+        FROM 
+            assessments a
+            JOIN question_responses qr ON a.id = qr.assessment_id
+            JOIN assessment_metrics am ON a.id = am.assessment_id
+        WHERE 
+            a.user_email = ?
+            AND qr.question_id = ?
+            AND am.metric_key = ?
+            AND am.question_id = ?
+        ORDER BY a.date ASC
+    `
 
-	if err := query.Find(&assessments).Error; err != nil {
+	err := r.db.Raw(query, userID, symptomKey, metricKey, symptomKey).Scan(&result).Error
+	if err != nil {
+		r.log.Errorw("Error in timeline query", "error", err)
 		return nil, fmt.Errorf("database error: %w", err)
 	}
 
-	// Process into timeline format
-	for _, assessment := range assessments {
-		// Extract symptom value
-		symptomValue, err1 := getSymptomValue(&assessment, symptomKey)
-		// Extract metric value
-		metricValue, err2 := getMetricValue(&assessment, metricKey, symptomKey)
-
-		if err1 == nil && err2 == nil && symptomValue != nil && metricValue != nil {
-			result = append(result, TimelineDataPoint{
-				Date:         assessment.Date,
-				SymptomValue: *symptomValue,
-				MetricValue:  *metricValue,
-			})
-		}
-	}
-
-	r.log.Infow("Generated timeline data",
+	// Log the results for debugging
+	r.log.Infow("Retrieved timeline data",
 		"user_id", userID,
 		"symptom", symptomKey,
 		"metric", metricKey,
@@ -121,27 +118,51 @@ func (r *Repository) GetMetricsData(userID, symptomKey, metricKey string) (*Metr
 		return nil, err
 	}
 
-	// Load question info to get scale
-	// This would require accessing the QuestionLoader
-	// For now, use a default scale
-	symptomScale := map[string]interface{}{
-		"min":  0,
-		"max":  3,
-		"step": 1,
+	// Get the question definition to retrieve the scale
+	var symptomScale map[string]interface{}
+
+	// Look up the question by ID
+	question := r.questionLoader.GetQuestionByID(symptomKey)
+	if question != nil && question.Scale != nil {
+		// Use the scale from the question definition
+		symptomScale = map[string]interface{}{
+			"min":  question.Scale.Min,
+			"max":  question.Scale.Max,
+			"step": question.Scale.Step,
+		}
+
+		r.log.Infow("Using question scale from definition",
+			"question_id", symptomKey,
+			"scale", symptomScale)
+	} else {
+		// Fall back to default scale if question not found or has no scale
+		r.log.Warnw("Using default scale, couldn't find question scale",
+			"question_id", symptomKey)
+		symptomScale = map[string]interface{}{
+			"min":  0,
+			"max":  3,
+			"step": 1,
+		}
 	}
 
-	// Calculate metric min/max for proper scaling
+	// Calculate metric min/max for proper scaling from data
 	metricMin, metricMax := 0.0, 0.0
 	if len(correlation) > 0 {
+		metricValues := make([]float64, len(correlation))
+		for i, point := range correlation {
+			metricValues[i] = point.MetricValue
+		}
+
+		// Find min/max values
 		metricMin = correlation[0].MetricValue
 		metricMax = correlation[0].MetricValue
 
-		for _, point := range correlation {
-			if point.MetricValue < metricMin {
-				metricMin = point.MetricValue
+		for _, v := range metricValues {
+			if v < metricMin {
+				metricMin = v
 			}
-			if point.MetricValue > metricMax {
-				metricMax = point.MetricValue
+			if v > metricMax {
+				metricMax = v
 			}
 		}
 	}
@@ -303,158 +324,86 @@ func (r *Repository) GetCorrelationData(userID, symptomKey, metricKey string) ([
 	return results, err
 }
 
-// getSymptomValue extracts a symptom value from an assessment
-func getSymptomValue(assessment *models.Assessment, symptomKey string) (*float64, error) {
-	// Try to get from responses object (new format)
-	if assessment.Responses != nil {
-		if val, ok := assessment.Responses[symptomKey]; ok {
-			// Handle different value types (could be string, number, etc.)
-			switch v := val.(type) {
-			case float64:
-				return &v, nil
-			case int:
-				f := float64(v)
-				return &f, nil
-			case string:
-				if f, err := strconv.ParseFloat(v, 64); err == nil {
-					return &f, nil
-				}
-			}
-		}
-	}
-
-	// Try legacy format (if symptom data is structured differently)
-	if rawData, ok := assessment.RawData["responses"].(map[string]interface{}); ok {
-		if val, ok := rawData[symptomKey]; ok {
-			// Handle different value types
-			switch v := val.(type) {
-			case float64:
-				return &v, nil
-			case int:
-				f := float64(v)
-				return &f, nil
-			case string:
-				if f, err := strconv.ParseFloat(v, 64); err == nil {
-					return &f, nil
-				}
-			}
-		}
-	}
-
-	return nil, fmt.Errorf("symptom value not found for key: %s", symptomKey)
-}
-
-func getMetricValue(assessment *models.Assessment, metricKey, symptomKey string) (*float64, error) {
-	// Convert metric key to camelCase for alternate format checking
-	camelCaseKey := toCamelCase(metricKey)
-
-	// Define locations to check with ordered priority
-	sources := []struct {
-		name      string
-		container map[string]interface{}
-	}{
-		// Try question-specific metrics first
-		{"questionMetrics", getNestedMap(assessment.QuestionMetrics, symptomKey)},
-
-		// Then try metrics field for any value
-		{"metrics", assessment.Metrics},
-
-		// Then try raw data fields
-		{"rawQuestionMetrics", getNestedMap(
-			getNestedMap(getNestedMap(assessment.RawData, "metadata"), "question_metrics"),
-			symptomKey),
-		},
-		{"rawInteractionMetrics", getNestedMap(
-			getNestedMap(assessment.RawData, "metadata"),
-			"interaction_metrics"),
-		},
-	}
-
-	// Check each location for both key variants
-	for _, source := range sources {
-		if source.container != nil {
-			// Check original key
-			if val, ok := source.container[metricKey]; ok {
-				return extractFloat64Value(val)
-			}
-
-			// Check camelCase variant
-			if val, ok := source.container[camelCaseKey]; ok {
-				return extractFloat64Value(val)
-			}
-		}
-	}
-
-	return nil, fmt.Errorf("metric value not found for key: %s in question: %s", metricKey, symptomKey)
-}
-
 // Add a new function to handle the extraction and saving of metrics
-func (r *Repository) extractAndSaveMetrics(assessmentID uint, globalMetrics, questionMetrics models.JSON) error {
+func (r *Repository) extractAndSaveMetrics(assessmentID uint, metadata json.RawMessage) error {
+	// Parse the metadata
+	var metadataMap map[string]interface{}
+	if err := json.Unmarshal(metadata, &metadataMap); err != nil {
+		return fmt.Errorf("failed to parse metadata: %w", err)
+	}
+
 	metrics := make([]*models.AssessmentMetric, 0)
 
-	// Process global metrics
-	for metricKey, metricValue := range globalMetrics {
-		// Handle metric result objects
-		if metricObj, ok := metricValue.(map[string]interface{}); ok {
-			if calculated, cOk := metricObj["calculated"].(bool); cOk && calculated {
-				if value, vOk := metricObj["value"].(float64); vOk {
-					sampleSize := 0
-					if s, sok := metricObj["sampleSize"].(float64); sok {
-						sampleSize = int(s)
-					}
+	// Process global metrics (interaction_metrics)
+	if interactionMetrics, ok := metadataMap["interaction_metrics"].(map[string]interface{}); ok {
+		for metricKey, metricValue := range interactionMetrics {
+			// Handle metric result objects
+			if metricObj, ok := metricValue.(map[string]interface{}); ok {
+				if calculated, cOk := metricObj["calculated"].(bool); cOk && calculated {
+					if value, vOk := metricObj["value"].(float64); vOk {
+						sampleSize := 0
+						if s, sok := metricObj["sampleSize"].(float64); sok {
+							sampleSize = int(s)
+						}
 
-					metrics = append(metrics, &models.AssessmentMetric{
-						AssessmentID: assessmentID,
-						QuestionID:   "", // Empty for global metrics
-						MetricKey:    metricKey,
-						MetricValue:  value,
-						SampleSize:   sampleSize,
-						CreatedAt:    time.Now(),
-					})
+						metrics = append(metrics, &models.AssessmentMetric{
+							AssessmentID: assessmentID,
+							QuestionID:   "", // Empty for global metrics
+							MetricKey:    metricKey,
+							MetricValue:  value,
+							SampleSize:   sampleSize,
+							CreatedAt:    time.Now(),
+						})
+					}
 				}
+			} else if value, ok := metricValue.(float64); ok {
+				// Direct numeric value
+				metrics = append(metrics, &models.AssessmentMetric{
+					AssessmentID: assessmentID,
+					QuestionID:   "",
+					MetricKey:    metricKey,
+					MetricValue:  value,
+					SampleSize:   1,
+					CreatedAt:    time.Now(),
+				})
 			}
-		} else if value, ok := metricValue.(float64); ok {
-			// Direct numeric value
-			metrics = append(metrics, &models.AssessmentMetric{
-				AssessmentID: assessmentID,
-				QuestionID:   "",
-				MetricKey:    metricKey,
-				MetricValue:  value,
-				SampleSize:   0,
-				CreatedAt:    time.Now(),
-			})
 		}
 	}
 
 	// Process question metrics
-	for questionID, qData := range questionMetrics {
-		if questionMetrics, ok := qData.(map[string]interface{}); ok {
-			for metricKey, metricValue := range questionMetrics {
-				// Process similar to global metrics
-				if metricObj, ok := metricValue.(map[string]interface{}); ok {
-					if calculated, cOk := metricObj["calculated"].(bool); cOk && calculated {
-						if value, vOk := metricObj["value"].(float64); vOk {
-							// Add to structured metrics
-							metrics = append(metrics, &models.AssessmentMetric{
-								AssessmentID: assessmentID,
-								QuestionID:   questionID,
-								MetricKey:    metricKey,
-								MetricValue:  value,
-								SampleSize:   0,
-								CreatedAt:    time.Now(),
-							})
+	if questionMetrics, ok := metadataMap["question_metrics"].(map[string]interface{}); ok {
+		for questionID, qData := range questionMetrics {
+			if qMetrics, ok := qData.(map[string]interface{}); ok {
+				for metricKey, metricValue := range qMetrics {
+					if metricObj, ok := metricValue.(map[string]interface{}); ok {
+						if calculated, cOk := metricObj["calculated"].(bool); cOk && calculated {
+							if value, vOk := metricObj["value"].(float64); vOk {
+								sampleSize := 0
+								if s, sok := metricObj["sampleSize"].(float64); sok {
+									sampleSize = int(s)
+								}
+
+								metrics = append(metrics, &models.AssessmentMetric{
+									AssessmentID: assessmentID,
+									QuestionID:   questionID,
+									MetricKey:    metricKey,
+									MetricValue:  value,
+									SampleSize:   sampleSize,
+									CreatedAt:    time.Now(),
+								})
+							}
 						}
+					} else if value, ok := metricValue.(float64); ok {
+						// Direct numeric value
+						metrics = append(metrics, &models.AssessmentMetric{
+							AssessmentID: assessmentID,
+							QuestionID:   questionID,
+							MetricKey:    metricKey,
+							MetricValue:  value,
+							SampleSize:   1,
+							CreatedAt:    time.Now(),
+						})
 					}
-				} else if value, ok := metricValue.(float64); ok {
-					// Direct numeric value
-					metrics = append(metrics, &models.AssessmentMetric{
-						AssessmentID: assessmentID,
-						QuestionID:   questionID,
-						MetricKey:    metricKey,
-						MetricValue:  value,
-						SampleSize:   0,
-						CreatedAt:    time.Now(),
-					})
 				}
 			}
 		}

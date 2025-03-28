@@ -4,6 +4,7 @@ import (
 	"github.com/andevellicus/crapp/internal/config"
 	"github.com/andevellicus/crapp/internal/logger"
 	"github.com/andevellicus/crapp/internal/models"
+	"github.com/andevellicus/crapp/internal/utils"
 	"go.uber.org/zap"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
@@ -11,12 +12,13 @@ import (
 
 // Repository handles all database operations
 type Repository struct {
-	db  *gorm.DB
-	log *zap.SugaredLogger
+	db             *gorm.DB
+	log            *zap.SugaredLogger
+	questionLoader *utils.QuestionLoader
 }
 
 // NewRepository creates a new repository with the given database connection
-func NewRepository(cfg *config.Config, log *zap.SugaredLogger) *Repository {
+func NewRepository(cfg *config.Config, log *zap.SugaredLogger, questionLoader *utils.QuestionLoader) *Repository {
 	// Setup database
 	db, err := setupDatabase(cfg)
 	if err != nil {
@@ -24,8 +26,9 @@ func NewRepository(cfg *config.Config, log *zap.SugaredLogger) *Repository {
 	}
 
 	return &Repository{
-		db:  db,
-		log: log.Named("repository"),
+		db:             db,
+		log:            log.Named("repository"),
+		questionLoader: questionLoader,
 	}
 }
 
@@ -48,7 +51,11 @@ func setupDatabase(cfg *config.Config) (*gorm.DB, error) {
 
 	// Migrate database schema
 	// Add FormState to the list of models
-	err = db.AutoMigrate(&models.User{}, &models.Assessment{}, &models.FormState{}, &models.AssessmentMetric{})
+	err = db.AutoMigrate(&models.User{},
+		&models.Assessment{},
+		&models.FormState{},
+		&models.AssessmentMetric{},
+		&models.QuestionResponse{})
 	if err != nil {
 		return nil, err
 	}

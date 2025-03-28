@@ -58,7 +58,7 @@ func main() {
 	}
 
 	// Create repository
-	repo := repository.NewRepository(cfg, log)
+	repo := repository.NewRepository(cfg, log, questionLoader)
 
 	// Create Gin router
 	router := gin.New()

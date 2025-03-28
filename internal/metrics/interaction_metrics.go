@@ -64,11 +64,11 @@ func (mc *MetricCalculator) CalculateAllMetrics() map[string]interface{} {
 	metrics := make(map[string]interface{})
 
 	// Global metrics
-	metrics["clickPrecision"] = mc.calculateClickPrecision(nil)
-	metrics["pathEfficiency"] = mc.calculatePathEfficiency(nil)
-	metrics["overShootRate"] = mc.calculateOvershootRate(nil)
-	metrics["averageVelocity"] = mc.calculateAverageVelocity(nil)
-	metrics["velocityVariability"] = mc.calculateVelocityVariability(nil)
+	metrics["click_precision"] = mc.calculateClickPrecision(nil)
+	metrics["path_efficiency"] = mc.calculatePathEfficiency(nil)
+	metrics["overshoot_rate"] = mc.calculateOvershootRate(nil)
+	metrics["average_velocity"] = mc.calculateAverageVelocity(nil)
+	metrics["velocity_variability"] = mc.calculateVelocityVariability(nil)
 
 	// Add keyboard metrics
 	keyboardMetrics := mc.calculateKeyboardMetrics(nil)
@@ -114,11 +114,11 @@ func (mc *MetricCalculator) calculatePerQuestionMetrics() map[string]map[string]
 		qID := questionID // Create a copy for pointer safety
 
 		// Mouse metrics
-		qMetrics["clickPrecision"] = mc.calculateClickPrecision(&qID)
-		qMetrics["pathEfficiency"] = mc.calculatePathEfficiency(&qID)
-		qMetrics["overShootRate"] = mc.calculateOvershootRate(&qID)
-		qMetrics["averageVelocity"] = mc.calculateAverageVelocity(&qID)
-		qMetrics["velocityVariability"] = mc.calculateVelocityVariability(&qID)
+		qMetrics["click_precision"] = mc.calculateClickPrecision(&qID)
+		qMetrics["path_efficiency"] = mc.calculatePathEfficiency(&qID)
+		qMetrics["overshoot_rate"] = mc.calculateOvershootRate(&qID)
+		qMetrics["average_velocity"] = mc.calculateAverageVelocity(&qID)
+		qMetrics["velocity_variability"] = mc.calculateVelocityVariability(&qID)
 
 		// Keyboard metrics
 		keyboardMetrics := mc.calculateKeyboardMetrics(&qID)
@@ -473,43 +473,43 @@ func (mc *MetricCalculator) calculateKeyboardMetrics(questionID *string) map[str
 	metrics := make(map[string]MetricResult)
 
 	// Initialize with uncalculated values
-	metrics["typingSpeed"] = MetricResult{
+	metrics["typing_speed"] = MetricResult{
 		Value:      0.0,
 		Calculated: false,
 		SampleSize: len(events),
 	}
 
-	metrics["averageInterKeyInterval"] = MetricResult{
+	metrics["average_inter_key_interval"] = MetricResult{
 		Value:      0.0,
 		Calculated: false,
 		SampleSize: 0,
 	}
 
-	metrics["typingRhythmVariability"] = MetricResult{
+	metrics["typing_rhythm_variability"] = MetricResult{
 		Value:      0.0,
 		Calculated: false,
 		SampleSize: 0,
 	}
 
-	metrics["averageKeyHoldTime"] = MetricResult{
+	metrics["average_key_hold_time"] = MetricResult{
 		Value:      0.0,
 		Calculated: false,
 		SampleSize: 0,
 	}
 
-	metrics["keyPressVariability"] = MetricResult{
+	metrics["key_press_variability"] = MetricResult{
 		Value:      0.0,
 		Calculated: false,
 		SampleSize: 0,
 	}
 
-	metrics["correctionRate"] = MetricResult{
+	metrics["correction_rate"] = MetricResult{
 		Value:      0.0,
 		Calculated: false,
 		SampleSize: 0,
 	}
 
-	metrics["pauseRate"] = MetricResult{
+	metrics["pause_rate"] = MetricResult{
 		Value:      0.0,
 		Calculated: false,
 		SampleSize: 0,
@@ -539,7 +539,7 @@ func (mc *MetricCalculator) calculateKeyboardMetrics(questionID *string) map[str
 		totalTime := (keydownEvents[len(keydownEvents)-1].Timestamp - keydownEvents[0].Timestamp) / 1000 // seconds
 		if totalTime > 0 {
 			typingSpeed := float64(len(keydownEvents)) / totalTime
-			metrics["typingSpeed"] = MetricResult{
+			metrics["typing_speed"] = MetricResult{
 				Value:      typingSpeed,
 				Calculated: true,
 				SampleSize: len(keydownEvents),
@@ -563,7 +563,7 @@ func (mc *MetricCalculator) calculateKeyboardMetrics(questionID *string) map[str
 		}
 		avgInterval := intervalSum / float64(len(intervals))
 
-		metrics["averageInterKeyInterval"] = MetricResult{
+		metrics["average_inter_key_interval"] = MetricResult{
 			Value:      avgInterval,
 			Calculated: true,
 			SampleSize: len(intervals),
@@ -579,7 +579,7 @@ func (mc *MetricCalculator) calculateKeyboardMetrics(questionID *string) map[str
 			intervalVariance /= float64(len(intervals))
 			typingVariability := math.Sqrt(intervalVariance) / avgInterval
 
-			metrics["typingRhythmVariability"] = MetricResult{
+			metrics["typing_rhythm_variability"] = MetricResult{
 				Value:      typingVariability,
 				Calculated: true,
 				SampleSize: len(intervals),
@@ -597,7 +597,7 @@ func (mc *MetricCalculator) calculateKeyboardMetrics(questionID *string) map[str
 			}
 		}
 
-		metrics["pauseRate"] = MetricResult{
+		metrics["pause_rate"] = MetricResult{
 			Value:      float64(pauseCount) / float64(len(intervals)),
 			Calculated: true,
 			SampleSize: len(intervals),
@@ -629,7 +629,7 @@ func (mc *MetricCalculator) calculateKeyboardMetrics(questionID *string) map[str
 		}
 		avgHoldTime := holdTimeSum / float64(len(keyHoldTimes))
 
-		metrics["averageKeyHoldTime"] = MetricResult{
+		metrics["average_key_hold_time"] = MetricResult{
 			Value:      avgHoldTime,
 			Calculated: true,
 			SampleSize: len(keyHoldTimes),
@@ -645,7 +645,7 @@ func (mc *MetricCalculator) calculateKeyboardMetrics(questionID *string) map[str
 			holdTimeVariance /= float64(len(keyHoldTimes))
 			keyPressVar := math.Sqrt(holdTimeVariance) / avgHoldTime
 
-			metrics["keyPressVariability"] = MetricResult{
+			metrics["key_press_variability"] = MetricResult{
 				Value:      keyPressVar,
 				Calculated: true,
 				SampleSize: len(keyHoldTimes),
@@ -671,7 +671,7 @@ func (mc *MetricCalculator) calculateKeyboardMetrics(questionID *string) map[str
 
 	// Need at least 1 character to calculate correction rate
 	if charCount >= 1 {
-		metrics["correctionRate"] = MetricResult{
+		metrics["correction_rate"] = MetricResult{
 			Value:      float64(correctionCount) / float64(charCount),
 			Calculated: true,
 			SampleSize: charCount,

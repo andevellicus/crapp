@@ -3,20 +3,18 @@ package repository
 import (
 	"encoding/json"
 	"fmt"
+	"strconv"
 	"time"
 
 	"github.com/andevellicus/crapp/internal/models"
 )
 
-// CreateAssessment creates a new assessment from submission data
+// CreateAssessment creates a new assessment with structured data
 func (r *Repository) CreateAssessment(assessment *models.AssessmentSubmission) (uint, error) {
 	// Check if user exists
 	exists, err := r.UserExists(assessment.UserEmail)
-	if err != nil {
+	if err != nil || !exists {
 		return 0, fmt.Errorf("error checking user: %w", err)
-	}
-	if !exists {
-		return 0, fmt.Errorf("user not found: %s", assessment.UserEmail)
 	}
 
 	// Check if device exists and belongs to user
@@ -30,41 +28,13 @@ func (r *Repository) CreateAssessment(assessment *models.AssessmentSubmission) (
 	device.LastActive = time.Now()
 	r.db.Save(&device)
 
-	// Create assessment record with empty metrics
+	// Create assessment record - JSON fields stay for reference but aren't used for visualization
 	newAssessment := models.Assessment{
-		UserEmail:       assessment.UserEmail,
-		DeviceID:        assessment.DeviceID,
-		Date:            time.Now(),
-		SubmittedAt:     time.Now(),
-		Responses:       assessment.Responses,
-		Metrics:         models.JSON{}, // Initialize empty
-		QuestionMetrics: models.JSON{}, // Initialize empty
-	}
-
-	// Process metadata if available
-	if assessment.Metadata != nil {
-		var metadata map[string]interface{}
-		if err := json.Unmarshal(assessment.Metadata, &metadata); err != nil {
-			r.log.Warnw("Invalid metadata JSON", "error", err)
-		} else {
-			// Store global metrics
-			if metricData, ok := metadata["interaction_metrics"].(map[string]interface{}); ok {
-				newAssessment.Metrics = models.JSON(metricData)
-			}
-
-			// Store question-specific metrics - convert properly to models.JSON
-			if qMetrics, ok := metadata["question_metrics"].(map[string]interface{}); ok {
-				newAssessment.QuestionMetrics = models.JSON(qMetrics)
-			}
-		}
-	}
-
-	// Convert the original submission to raw data for auditing/debugging
-	rawDataBytes, err := json.Marshal(assessment)
-	if err == nil {
-		var rawData models.JSON
-		_ = json.Unmarshal(rawDataBytes, &rawData)
-		newAssessment.RawData = rawData
+		UserEmail:   assessment.UserEmail,
+		DeviceID:    assessment.DeviceID,
+		Date:        time.Now(),
+		SubmittedAt: time.Now(),
+		Responses:   assessment.Responses, // Keep JSON copy for reference
 	}
 
 	// Save to database
@@ -73,19 +43,19 @@ func (r *Repository) CreateAssessment(assessment *models.AssessmentSubmission) (
 		return 0, result.Error
 	}
 
-	// Now create the structured metrics
-	if err := r.extractAndSaveMetrics(newAssessment.ID, newAssessment.Metrics, newAssessment.QuestionMetrics); err != nil {
-		r.log.Warnw("Error saving structured metrics", "error", err)
-		// Don't fail the entire operation if this fails
+	// Now save structured responses
+	if err := r.saveStructuredResponses(newAssessment.ID, assessment.Responses); err != nil {
+		r.log.Warnw("Error saving structured responses", "error", err)
+		// Don't fail the entire operation
 	}
 
-	r.log.Infow("Assessment created successfully",
-		"id", newAssessment.ID,
-		"user", assessment.UserEmail,
-		"device", assessment.DeviceID,
-		"responses_count", len(assessment.Responses),
-		"has_metrics", len(newAssessment.Metrics) > 0,
-		"has_question_metrics", len(newAssessment.QuestionMetrics) > 0)
+	// Save structured metrics if metadata available
+	if assessment.Metadata != nil {
+		if err := r.extractAndSaveMetrics(newAssessment.ID, assessment.Metadata); err != nil {
+			r.log.Warnw("Error saving structured metrics", "error", err)
+			// Don't fail the entire operation
+		}
+	}
 
 	return newAssessment.ID, nil
 }
@@ -131,19 +101,19 @@ func (r *Repository) GetAssessmentsByUser(userID string, skip, limit int) ([]mod
 			metricsData := assessment.Metrics
 
 			// Check for specific metrics and assign them
-			if clickPrecision, ok := getFloat64FromJSON(metricsData, "clickPrecision"); ok {
+			if clickPrecision, ok := getFloat64FromJSON(metricsData, "click_precision"); ok {
 				summary.InteractionMetrics.ClickPrecision = clickPrecision
 			}
-			if pathEfficiency, ok := getFloat64FromJSON(metricsData, "pathEfficiency"); ok {
+			if pathEfficiency, ok := getFloat64FromJSON(metricsData, "path_efficiency"); ok {
 				summary.InteractionMetrics.PathEfficiency = pathEfficiency
 			}
-			if overShootRate, ok := getFloat64FromJSON(metricsData, "overShootRate"); ok {
+			if overShootRate, ok := getFloat64FromJSON(metricsData, "overshoot_rate"); ok {
 				summary.InteractionMetrics.OvershootRate = overShootRate
 			}
-			if avgVelocity, ok := getFloat64FromJSON(metricsData, "averageVelocity"); ok {
+			if avgVelocity, ok := getFloat64FromJSON(metricsData, "average_velocity"); ok {
 				summary.InteractionMetrics.AverageVelocity = avgVelocity
 			}
-			if velVariability, ok := getFloat64FromJSON(metricsData, "velocityVariability"); ok {
+			if velVariability, ok := getFloat64FromJSON(metricsData, "velocity_variability"); ok {
 				summary.InteractionMetrics.VelocityVariability = velVariability
 			}
 		}
@@ -152,4 +122,57 @@ func (r *Repository) GetAssessmentsByUser(userID string, skip, limit int) ([]mod
 	}
 
 	return summaries, nil
+}
+
+// Save structured responses
+func (r *Repository) saveStructuredResponses(assessmentID uint, responses models.JSON) error {
+	questionResponses := make([]models.QuestionResponse, 0, len(responses))
+
+	for questionID, value := range responses {
+		response := models.QuestionResponse{
+			AssessmentID: assessmentID,
+			QuestionID:   questionID,
+			CreatedAt:    time.Now(),
+		}
+
+		// Handle different value types
+		switch v := value.(type) {
+		case float64:
+			response.ValueType = "number"
+			response.NumericValue = v
+		case int:
+			response.ValueType = "number"
+			response.NumericValue = float64(v)
+		case string:
+			response.ValueType = "string"
+			response.TextValue = v
+			// Try to convert to number if possible
+			if f, err := strconv.ParseFloat(v, 64); err == nil {
+				response.NumericValue = f
+			}
+		case bool:
+			response.ValueType = "boolean"
+			if v {
+				response.NumericValue = 1.0
+			} else {
+				response.NumericValue = 0.0
+			}
+			response.TextValue = strconv.FormatBool(v)
+		default:
+			// For complex types, store as JSON
+			response.ValueType = "object"
+			if bytes, err := json.Marshal(v); err == nil {
+				response.TextValue = string(bytes)
+			}
+		}
+
+		questionResponses = append(questionResponses, response)
+	}
+
+	// Save all responses in a batch
+	if len(questionResponses) > 0 {
+		return r.db.CreateInBatches(questionResponses, 100).Error
+	}
+
+	return nil
 }
