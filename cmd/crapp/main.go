@@ -9,12 +9,9 @@ import (
 	"github.com/andevellicus/crapp/internal/handlers"
 	"github.com/andevellicus/crapp/internal/logger"
 	"github.com/andevellicus/crapp/internal/middleware"
-	"github.com/andevellicus/crapp/internal/models"
 	"github.com/andevellicus/crapp/internal/repository"
 	"github.com/andevellicus/crapp/internal/utils"
 	"github.com/gin-gonic/gin"
-	"gorm.io/driver/sqlite"
-	"gorm.io/gorm"
 )
 
 func main() {
@@ -60,14 +57,8 @@ func main() {
 		log.Fatalf("Failed to load questions: %v", err)
 	}
 
-	// Setup database
-	db, err := setupDatabase(cfg)
-	if err != nil {
-		log.Fatalf("Failed to connect to database: %v", err)
-	}
-
 	// Create repository
-	repo := repository.NewRepository(db, log)
+	repo := repository.NewRepository(cfg, log)
 
 	// Create Gin router
 	router := gin.New()
@@ -158,31 +149,4 @@ func main() {
 	if err := router.Run(addr); err != nil {
 		log.Fatalf("Failed to start server: %v", err)
 	}
-}
-
-// setupDatabase initializes the database connection
-func setupDatabase(cfg *config.Config) (*gorm.DB, error) {
-	// Get database configuration
-	dbURL := cfg.Database.URL
-
-	// Get a logger for GORM
-	dbLogger := logger.GetLogger("gorm")
-
-	// Configure GORM logger
-	gormConfig := logger.SetUpGormConfig(dbLogger, cfg.Logging.Level)
-
-	// Connect to database
-	db, err := gorm.Open(sqlite.Open(dbURL), gormConfig)
-	if err != nil {
-		return nil, err
-	}
-
-	// Migrate database schema
-	// Add FormState to the list of models
-	err = db.AutoMigrate(&models.User{}, &models.Assessment{}, &models.FormState{})
-	if err != nil {
-		return nil, err
-	}
-
-	return db, nil
 }
