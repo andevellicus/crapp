@@ -104,167 +104,6 @@ func (r *Repository) GetMetricsTimeline(userID, symptomKey, metricKey string) ([
 	return result, nil
 }
 
-// GetMetricsData gets all visualization data in one call
-func (r *Repository) GetMetricsData(userID, symptomKey, metricKey string) (*MetricsData, error) {
-	// Get correlation data
-	correlation, err := r.GetMetricsCorrelation(userID, symptomKey, metricKey)
-	if err != nil {
-		return nil, err
-	}
-
-	// Get timeline data
-	timeline, err := r.GetMetricsTimeline(userID, symptomKey, metricKey)
-	if err != nil {
-		return nil, err
-	}
-
-	// Get the question definition to retrieve the scale
-	var symptomScale map[string]interface{}
-
-	// Look up the question by ID
-	question := r.questionLoader.GetQuestionByID(symptomKey)
-	if question != nil && question.Scale != nil {
-		// Use the scale from the question definition
-		symptomScale = map[string]interface{}{
-			"min":  question.Scale.Min,
-			"max":  question.Scale.Max,
-			"step": question.Scale.Step,
-		}
-
-		r.log.Infow("Using question scale from definition",
-			"question_id", symptomKey,
-			"scale", symptomScale)
-	} else {
-		// Fall back to default scale if question not found or has no scale
-		r.log.Warnw("Using default scale, couldn't find question scale",
-			"question_id", symptomKey)
-		symptomScale = map[string]interface{}{
-			"min":  0,
-			"max":  3,
-			"step": 1,
-		}
-	}
-
-	// Calculate metric min/max for proper scaling from data
-	metricMin, metricMax := 0.0, 0.0
-	if len(correlation) > 0 {
-		metricValues := make([]float64, len(correlation))
-		for i, point := range correlation {
-			metricValues[i] = point.MetricValue
-		}
-
-		// Find min/max values
-		metricMin = correlation[0].MetricValue
-		metricMax = correlation[0].MetricValue
-
-		for _, v := range metricValues {
-			if v < metricMin {
-				metricMin = v
-			}
-			if v > metricMax {
-				metricMax = v
-			}
-		}
-	}
-
-	return &MetricsData{
-		SymptomName:  symptomKey,
-		MetricName:   metricKey,
-		Timeline:     timeline,
-		Correlation:  correlation,
-		SymptomScale: symptomScale,
-		MetricMinMax: map[string]float64{
-			"min": metricMin,
-			"max": metricMax,
-		},
-	}, nil
-}
-
-func (r *Repository) CreateAssessmentMetrics(assessmentID uint, questionMetrics map[string]map[string]interface{}, globalMetrics map[string]interface{}) error {
-	metrics := make([]*models.AssessmentMetric, 0)
-
-	// Process question-specific metrics
-	for questionID, questionData := range questionMetrics {
-		for metricKey, metricDataRaw := range questionData {
-			// Try to extract metric result
-			if metricData, ok := metricDataRaw.(map[string]interface{}); ok {
-				// Check if it's calculated
-				if calculated, cOk := metricData["calculated"].(bool); cOk && calculated {
-					value, vOk := metricData["value"].(float64)
-					sampleSize := 0
-					if s, sOk := metricData["sampleSize"].(float64); sOk {
-						sampleSize = int(s)
-					}
-
-					if vOk {
-						metrics = append(metrics, &models.AssessmentMetric{
-							AssessmentID: assessmentID,
-							QuestionID:   questionID,
-							MetricKey:    metricKey,
-							MetricValue:  value,
-							SampleSize:   sampleSize,
-							CreatedAt:    time.Now(),
-						})
-					}
-				}
-			} else if value, ok := metricDataRaw.(float64); ok {
-				// Direct value (simplified case)
-				metrics = append(metrics, &models.AssessmentMetric{
-					AssessmentID: assessmentID,
-					QuestionID:   questionID,
-					MetricKey:    metricKey,
-					MetricValue:  value,
-					SampleSize:   0, // Unknown sample size for direct values
-					CreatedAt:    time.Now(),
-				})
-			}
-		}
-	}
-
-	// Process global metrics (use empty string as questionID)
-	for metricKey, metricDataRaw := range globalMetrics {
-		// Try to extract metric result
-		if metricData, ok := metricDataRaw.(map[string]interface{}); ok {
-			// Check if it's calculated
-			if calculated, cOk := metricData["calculated"].(bool); cOk && calculated {
-				value, vOk := metricData["value"].(float64)
-				sampleSize := 0
-				if s, sOk := metricData["sampleSize"].(float64); sOk {
-					sampleSize = int(s)
-				}
-
-				if vOk {
-					metrics = append(metrics, &models.AssessmentMetric{
-						AssessmentID: assessmentID,
-						QuestionID:   "", // Empty string for global metrics
-						MetricKey:    metricKey,
-						MetricValue:  value,
-						SampleSize:   sampleSize,
-						CreatedAt:    time.Now(),
-					})
-				}
-			}
-		} else if value, ok := metricDataRaw.(float64); ok {
-			// Direct value (simplified case)
-			metrics = append(metrics, &models.AssessmentMetric{
-				AssessmentID: assessmentID,
-				QuestionID:   "", // Empty string for global metrics
-				MetricKey:    metricKey,
-				MetricValue:  value,
-				SampleSize:   0, // Unknown sample size for direct values
-				CreatedAt:    time.Now(),
-			})
-		}
-	}
-
-	// Save all metrics in bulk
-	if len(metrics) > 0 {
-		return r.db.CreateInBatches(metrics, 100).Error
-	}
-
-	return nil
-}
-
 // GetMetricsForQuestion retrieves all metrics for a specific question
 func (r *Repository) GetMetricsForQuestion(questionID string) ([]models.AssessmentMetric, error) {
 	var metrics []models.AssessmentMetric
@@ -363,7 +202,7 @@ func (r *Repository) extractAndSaveMetrics(assessmentID uint, metadata json.RawM
 					QuestionID:   "",
 					MetricKey:    metricKey,
 					MetricValue:  value,
-					SampleSize:   1,
+					SampleSize:   0,
 					CreatedAt:    time.Now(),
 				})
 			}
@@ -400,7 +239,7 @@ func (r *Repository) extractAndSaveMetrics(assessmentID uint, metadata json.RawM
 							QuestionID:   questionID,
 							MetricKey:    metricKey,
 							MetricValue:  value,
-							SampleSize:   1,
+							SampleSize:   0,
 							CreatedAt:    time.Now(),
 						})
 					}

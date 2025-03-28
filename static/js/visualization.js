@@ -353,8 +353,8 @@ document.addEventListener('DOMContentLoaded', function() {
         
         // Update scales
         const symptomValues = chartData.map(p => p.y);
-        const symptomMin = Math.floor(Math.min(...symptomValues));
-        const symptomMax = Math.ceil(Math.max(...symptomValues));
+        const symptomMin = Math.floor(Math.min(-1, ...symptomValues) * 0.9);
+        const symptomMax = Math.ceil(Math.max(1, ...symptomValues) * 1.1);
         
         correlationChart.options.scales.y.min = symptomMin;
         correlationChart.options.scales.y.max = symptomMax;
@@ -388,10 +388,10 @@ document.addEventListener('DOMContentLoaded', function() {
         timelineChart.options.plugins.title.text = `Timeline: ${symptomLabel} and ${metricLabel}`;
         
         // Update scales
-        const symptomMin = Math.floor(Math.min(...symptomData));
-        const symptomMax = Math.ceil(Math.max(...symptomData));
-        const metricMin = Math.floor(Math.min(...metricData) * 0.9);
-        const metricMax = Math.ceil(Math.max(...metricData) * 1.1);
+        const symptomMin = Math.floor(Math.min(-1, ...symptomData) * 0.9);
+        const symptomMax = Math.ceil(Math.max(1, ...symptomData) * 1.1);
+        const metricMin = Math.floor(Math.min(-1, ...metricData) * 0.9);
+        const metricMax = Math.ceil(Math.max(1, ...metricData) * 1.1);
         
         timelineChart.options.scales.y.min = symptomMin;
         timelineChart.options.scales.y.max = symptomMax;
