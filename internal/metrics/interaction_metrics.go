@@ -132,17 +132,17 @@ func (mc *MetricCalculator) calculatePerQuestionMetrics() map[string]map[string]
 	return result
 }
 
-// calculateClickPrecision calculates average normalized click precision
+// calculateClickPrecision calculates average normalized click precision with minimal threshold
 func (mc *MetricCalculator) calculateClickPrecision(questionID *string) MetricResult {
 	// Filter interactions by question if needed
 	interactions := mc.filterInteractionsByQuestion(questionID)
 
-	// Check if we have enough data
+	// Check if we have enough data - need at least 1 interaction
 	if len(interactions) < 1 {
 		return MetricResult{
 			Value:      0.0,
 			Calculated: false,
-			SampleSize: len(interactions),
+			SampleSize: 0,
 		}
 	}
 
@@ -181,16 +181,17 @@ func (mc *MetricCalculator) calculateClickPrecision(questionID *string) MetricRe
 	}
 }
 
-// calculatePathEfficiency calculates mouse path efficiency
+// calculatePathEfficiency calculates mouse path efficiency with minimal threshold
 func (mc *MetricCalculator) calculatePathEfficiency(questionID *string) MetricResult {
 	movements := mc.filterMovementsByQuestion(questionID)
 	interactions := mc.filterInteractionsByQuestion(questionID)
 
+	// Need at least some movements to calculate path
 	if len(movements) < 1 {
 		return MetricResult{
 			Value:      0.0,
 			Calculated: false,
-			SampleSize: len(interactions),
+			SampleSize: 0,
 		}
 	}
 
@@ -211,7 +212,8 @@ func (mc *MetricCalculator) calculatePathEfficiency(questionID *string) MetricRe
 		targetID := interaction.TargetID
 		relevantMovements := targetMovements[targetID]
 
-		if len(relevantMovements) < 3 {
+		// Need at least 2 movements to calculate a path
+		if len(relevantMovements) < 2 {
 			continue // Not enough movements to calculate path
 		}
 
@@ -255,7 +257,7 @@ func (mc *MetricCalculator) calculatePathEfficiency(questionID *string) MetricRe
 		return MetricResult{
 			Value:      0.0,
 			Calculated: false,
-			SampleSize: len(interactions),
+			SampleSize: 0,
 		}
 	}
 
@@ -267,16 +269,16 @@ func (mc *MetricCalculator) calculatePathEfficiency(questionID *string) MetricRe
 	}
 }
 
-// calculateOvershootRate calculates the rate of target overshooting
+// calculateOvershootRate calculates the rate of target overshooting with minimal threshold
 func (mc *MetricCalculator) calculateOvershootRate(questionID *string) MetricResult {
 	movements := mc.filterMovementsByQuestion(questionID)
 	interactions := mc.filterInteractionsByQuestion(questionID)
 
-	if len(movements) < 1 {
+	if len(movements) < 1 || len(interactions) < 1 {
 		return MetricResult{
 			Value:      0.0,
 			Calculated: false,
-			SampleSize: len(interactions),
+			SampleSize: 0,
 		}
 	}
 
@@ -296,8 +298,10 @@ func (mc *MetricCalculator) calculateOvershootRate(questionID *string) MetricRes
 		targetID := interaction.TargetID
 		relevantMovements := targetMovements[targetID]
 
-		if len(relevantMovements) < 5 {
-			continue // Not enough movements to detect overshooting
+		// Need at least 3 movements to detect direction changes
+		// This is a minimal threshold for detecting an overshoot pattern
+		if len(relevantMovements) < 3 {
+			continue
 		}
 
 		// Sort movements by timestamp
@@ -349,14 +353,16 @@ func (mc *MetricCalculator) calculateOvershootRate(questionID *string) MetricRes
 	}
 }
 
-// calculateAverageVelocity calculates average mouse movement velocity
+// calculateAverageVelocity calculates average mouse movement velocity with minimal threshold
 func (mc *MetricCalculator) calculateAverageVelocity(questionID *string) MetricResult {
 	movements := mc.filterMovementsByQuestion(questionID)
-	if len(movements) < 1 {
+
+	// Need at least 2 movements to calculate velocity (movement between points)
+	if len(movements) < 2 {
 		return MetricResult{
 			Value:      0.0,
 			Calculated: false,
-			SampleSize: len(movements),
+			SampleSize: 0,
 		}
 	}
 
@@ -397,14 +403,16 @@ func (mc *MetricCalculator) calculateAverageVelocity(questionID *string) MetricR
 	}
 }
 
-// calculateVelocityVariability calculates consistency of mouse velocity
+// calculateVelocityVariability calculates consistency of mouse velocity with minimal threshold
 func (mc *MetricCalculator) calculateVelocityVariability(questionID *string) MetricResult {
 	movements := mc.filterMovementsByQuestion(questionID)
-	if len(movements) < 1 {
+
+	// Need at least 2 movements to calculate velocity
+	if len(movements) < 2 {
 		return MetricResult{
 			Value:      0.0,
 			Calculated: false,
-			SampleSize: len(movements),
+			SampleSize: 0,
 		}
 	}
 
@@ -427,7 +435,8 @@ func (mc *MetricCalculator) calculateVelocityVariability(questionID *string) Met
 		}
 	}
 
-	if len(velocities) < 3 {
+	// Need at least 2 velocities to calculate variability
+	if len(velocities) < 2 {
 		return MetricResult{
 			Value:      0.0,
 			Calculated: false,
@@ -458,7 +467,7 @@ func (mc *MetricCalculator) calculateVelocityVariability(questionID *string) Met
 	}
 }
 
-// calculateKeyboardMetrics calculates all keyboard-related metrics
+// calculateKeyboardMetrics calculates all keyboard-related metrics with minimal thresholds
 func (mc *MetricCalculator) calculateKeyboardMetrics(questionID *string) map[string]MetricResult {
 	events := mc.filterKeyboardEventsByQuestion(questionID)
 	metrics := make(map[string]MetricResult)
@@ -506,8 +515,8 @@ func (mc *MetricCalculator) calculateKeyboardMetrics(questionID *string) map[str
 		SampleSize: 0,
 	}
 
-	// Not enough data to calculate any metrics
-	if len(events) < 10 {
+	// Need at least 1 event to calculate anything
+	if len(events) < 1 {
 		return metrics
 	}
 
@@ -525,7 +534,8 @@ func (mc *MetricCalculator) calculateKeyboardMetrics(questionID *string) map[str
 	}
 
 	// Calculate typing speed (keystrokes per second)
-	if len(keydownEvents) >= 5 {
+	// Need at least 2 keydown events to have a meaningful time interval
+	if len(keydownEvents) >= 2 {
 		totalTime := (keydownEvents[len(keydownEvents)-1].Timestamp - keydownEvents[0].Timestamp) / 1000 // seconds
 		if totalTime > 0 {
 			typingSpeed := float64(len(keydownEvents)) / totalTime
@@ -544,7 +554,8 @@ func (mc *MetricCalculator) calculateKeyboardMetrics(questionID *string) map[str
 		intervals = append(intervals, interval)
 	}
 
-	if len(intervals) >= 5 {
+	// Need at least 1 interval to calculate average
+	if len(intervals) >= 1 {
 		// Average inter-key interval
 		var intervalSum float64
 		for _, interval := range intervals {
@@ -559,7 +570,8 @@ func (mc *MetricCalculator) calculateKeyboardMetrics(questionID *string) map[str
 		}
 
 		// Typing rhythm variability (coefficient of variation of intervals)
-		if len(intervals) >= 10 {
+		// Need at least 2 intervals to calculate variability
+		if len(intervals) >= 2 {
 			var intervalVariance float64
 			for _, interval := range intervals {
 				intervalVariance += math.Pow(interval-avgInterval, 2)
@@ -575,6 +587,7 @@ func (mc *MetricCalculator) calculateKeyboardMetrics(questionID *string) map[str
 		}
 
 		// Calculate pause rate (pauses per keystroke)
+		// Can calculate even with 1 interval
 		pauseThreshold := 1000.0 // 1 second threshold
 		pauseCount := 0
 
@@ -607,7 +620,8 @@ func (mc *MetricCalculator) calculateKeyboardMetrics(questionID *string) map[str
 		}
 	}
 
-	if len(keyHoldTimes) >= 5 {
+	// Need at least 1 key hold to calculate average
+	if len(keyHoldTimes) >= 1 {
 		// Average key hold time
 		var holdTimeSum float64
 		for _, holdTime := range keyHoldTimes {
@@ -622,7 +636,8 @@ func (mc *MetricCalculator) calculateKeyboardMetrics(questionID *string) map[str
 		}
 
 		// Key press variability
-		if len(keyHoldTimes) >= 10 {
+		// Need at least 2 hold times to calculate variability
+		if len(keyHoldTimes) >= 2 {
 			var holdTimeVariance float64
 			for _, holdTime := range keyHoldTimes {
 				holdTimeVariance += math.Pow(holdTime-avgHoldTime, 2)
@@ -654,7 +669,8 @@ func (mc *MetricCalculator) calculateKeyboardMetrics(questionID *string) map[str
 		}
 	}
 
-	if charCount >= 10 {
+	// Need at least 1 character to calculate correction rate
+	if charCount >= 1 {
 		metrics["correctionRate"] = MetricResult{
 			Value:      float64(correctionCount) / float64(charCount),
 			Calculated: true,
@@ -666,7 +682,6 @@ func (mc *MetricCalculator) calculateKeyboardMetrics(questionID *string) map[str
 }
 
 // Helper methods
-
 func (mc *MetricCalculator) filterInteractionsByQuestion(questionID *string) []Interaction {
 	if questionID == nil {
 		return mc.Data.Interactions
