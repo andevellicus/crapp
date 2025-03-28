@@ -76,15 +76,12 @@ func main() {
 	authHandler := handlers.NewAuthHandler(repo, log)
 	// Create form handler
 	formHandler := handlers.NewFormHandler(repo, log, questionLoader)
-	// Create metrics handler
-	metricsHandler := handlers.NewMetricsHandler(log)
 
 	// Apply middleware
 	router.Use(gin.Recovery())
 	router.Use(middleware.GinLogger(log))
 
 	// View routes
-	//router.GET("/", middleware.AuthRedirectMiddleware(), viewHandler.ServeIndex)
 	router.GET("/", middleware.AuthRedirectMiddleware(), formHandler.ServeForm)
 	router.GET("/login", viewHandler.ServeLogin)
 	router.GET("/register", viewHandler.ServeRegister)
@@ -113,13 +110,11 @@ func main() {
 		api.DELETE("/devices/:deviceId", authHandler.RemoveDevice)
 		api.POST("/devices/:deviceId/rename", authHandler.RenameDevice)
 
-		// Assessment routes
+		// Question routes
 		api.GET("/questions", apiHandler.GetQuestions)
 		api.GET("/questions/symptoms", apiHandler.GetSymptomQuestions)
-		api.POST("/submit", apiHandler.SubmitAssessment)
-		api.GET("/assessments", apiHandler.GetUserAssessments)
 
-		api.POST("/process-metrics", metricsHandler.ProcessInteractionData)
+		// Metric routes
 		api.GET("/metrics/correlation", apiHandler.GetMetricsCorrelation)
 		api.GET("/metrics/timeline", apiHandler.GetMetricsTimeline)
 	}

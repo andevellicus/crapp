@@ -104,65 +104,6 @@ func (r *Repository) GetMetricsTimeline(userID, symptomKey, metricKey string) ([
 	return result, nil
 }
 
-// GetMetricsForQuestion retrieves all metrics for a specific question
-func (r *Repository) GetMetricsForQuestion(questionID string) ([]models.AssessmentMetric, error) {
-	var metrics []models.AssessmentMetric
-	err := r.db.Where("question_id = ?", questionID).Find(&metrics).Error
-	return metrics, err
-}
-
-// GetMetricTimeline retrieves a timeline of a specific metric for a question
-func (r *Repository) GetMetricTimeline(userID, questionID, metricKey string) ([]struct {
-	Date        time.Time `json:"date"`
-	MetricValue float64   `json:"metric_value"`
-}, error) {
-	var results []struct {
-		Date        time.Time `json:"date"`
-		MetricValue float64   `json:"metric_value"`
-	}
-
-	// Join with assessments table to get the date and filter by user
-	err := r.db.Table("assessment_metrics").
-		Select("assessments.date, assessment_metrics.metric_value").
-		Joins("JOIN assessments ON assessment_metrics.assessment_id = assessments.id").
-		Where("assessments.user_email = ? AND assessment_metrics.question_id = ? AND assessment_metrics.metric_key = ?",
-			userID, questionID, metricKey).
-		Order("assessments.date ASC").
-		Find(&results).Error
-
-	return results, err
-}
-
-// GetCorrelationData retrieves symptom value and metric value pairs for correlation analysis
-func (r *Repository) GetCorrelationData(userID, symptomKey, metricKey string) ([]struct {
-	SymptomValue float64 `json:"symptom_value"`
-	MetricValue  float64 `json:"metric_value"`
-}, error) {
-	var results []struct {
-		SymptomValue float64 `json:"symptom_value"`
-		MetricValue  float64 `json:"metric_value"`
-	}
-
-	// Form the proper JSON path for SQLite
-	// This extracts the symptom value from the responses JSON field
-	jsonPath := "$." + symptomKey
-
-	// Get the data with a proper JSON extraction
-	err := r.db.Raw(`
-        SELECT 
-            CAST(json_extract(assessments.responses, ?) AS REAL) AS symptom_value,
-            assessment_metrics.metric_value
-        FROM assessment_metrics
-        JOIN assessments ON assessment_metrics.assessment_id = assessments.id
-        WHERE assessments.user_email = ?
-            AND assessment_metrics.question_id = ?
-            AND assessment_metrics.metric_key = ?
-            AND json_extract(assessments.responses, ?) IS NOT NULL
-    `, jsonPath, userID, symptomKey, metricKey, jsonPath).Find(&results).Error
-
-	return results, err
-}
-
 // Add a new function to handle the extraction and saving of metrics
 func (r *Repository) extractAndSaveMetrics(assessmentID uint, metadata json.RawMessage) error {
 	// Parse the metadata

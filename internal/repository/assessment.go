@@ -70,60 +70,6 @@ func (r *Repository) GetAssessment(assessmentID uint) (*models.Assessment, error
 	return &assessment, nil
 }
 
-// GetAssessmentsByUser retrieves assessments for a user
-func (r *Repository) GetAssessmentsByUser(userID string, skip, limit int) ([]models.AssessmentSummary, error) {
-	var assessments []models.Assessment
-
-	query := r.db.Where("user_email = ?", userID).
-		Order("date DESC").
-		Offset(skip).
-		Limit(limit)
-
-	result := query.Find(&assessments)
-	if result.Error != nil {
-		return nil, result.Error
-	}
-
-	// Convert to summary format
-	summaries := make([]models.AssessmentSummary, len(assessments))
-	for i, assessment := range assessments {
-		summary := models.AssessmentSummary{
-			ID:              assessment.ID,
-			Date:            assessment.Date,
-			Responses:       assessment.Responses,
-			QuestionMetrics: assessment.QuestionMetrics,
-			RawData:         assessment.RawData,
-		}
-
-		// Extract metrics from the Metrics JSON field
-		if len(assessment.Metrics) > 0 {
-			// Copy all metrics to the InteractionMetrics struct
-			metricsData := assessment.Metrics
-
-			// Check for specific metrics and assign them
-			if clickPrecision, ok := getFloat64FromJSON(metricsData, "click_precision"); ok {
-				summary.InteractionMetrics.ClickPrecision = clickPrecision
-			}
-			if pathEfficiency, ok := getFloat64FromJSON(metricsData, "path_efficiency"); ok {
-				summary.InteractionMetrics.PathEfficiency = pathEfficiency
-			}
-			if overShootRate, ok := getFloat64FromJSON(metricsData, "overshoot_rate"); ok {
-				summary.InteractionMetrics.OvershootRate = overShootRate
-			}
-			if avgVelocity, ok := getFloat64FromJSON(metricsData, "average_velocity"); ok {
-				summary.InteractionMetrics.AverageVelocity = avgVelocity
-			}
-			if velVariability, ok := getFloat64FromJSON(metricsData, "velocity_variability"); ok {
-				summary.InteractionMetrics.VelocityVariability = velVariability
-			}
-		}
-
-		summaries[i] = summary
-	}
-
-	return summaries, nil
-}
-
 // Save structured responses
 func (r *Repository) saveStructuredResponses(assessmentID uint, responses models.JSON) error {
 	questionResponses := make([]models.QuestionResponse, 0, len(responses))
