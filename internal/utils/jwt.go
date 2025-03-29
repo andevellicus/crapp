@@ -4,31 +4,41 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/andevellicus/crapp/internal/config"
 	"github.com/golang-jwt/jwt/v4"
 )
 
-// Define a secure key for JWT - in production this should be in environment variables
-var jwtSecret = []byte("your-256-bit-secret") // Replace with actual secure key in production
+// Store config reference
+var jwtConfig *config.JWTConfig
 
 // CustomClaims defines the claims in the JWT token
 type CustomClaims struct {
 	Email   string `json:"email"`
 	IsAdmin bool   `json:"is_admin"`
-	jwt.StandardClaims
+	jwt.RegisteredClaims
+}
+
+// InitJWT initializes JWT with config
+func InitJWT(cfg *config.JWTConfig) {
+	jwtConfig = cfg
 }
 
 // GenerateJWT generates a JWT token for a user
 func GenerateJWT(email string, isAdmin bool) (string, error) {
+	if jwtConfig == nil {
+		return "", fmt.Errorf("JWT not initialized")
+	}
+
 	// Set token expiration time (24 hours)
-	expirationTime := time.Now().Add(24 * time.Hour)
+	expirationTime := time.Now().Add(time.Duration(jwtConfig.Expires) * time.Hour)
 
 	// Create the claims
 	claims := &CustomClaims{
 		Email:   email,
 		IsAdmin: isAdmin,
-		StandardClaims: jwt.StandardClaims{
-			ExpiresAt: expirationTime.Unix(),
-			IssuedAt:  time.Now().Unix(),
+		RegisteredClaims: jwt.RegisteredClaims{
+			ExpiresAt: jwt.NewNumericDate(expirationTime),
+			IssuedAt:  jwt.NewNumericDate(time.Now()),
 			Issuer:    "crapp",
 			Subject:   email,
 		},
@@ -36,21 +46,25 @@ func GenerateJWT(email string, isAdmin bool) (string, error) {
 
 	// Create and sign the token
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	tokenString, err := token.SignedString(jwtSecret)
+	tokenString, err := token.SignedString([]byte(jwtConfig.Secret))
 
 	return tokenString, err
 }
 
 // ValidateJWT validates a JWT token and returns the claims
 func ValidateJWT(tokenString string) (*CustomClaims, error) {
+	if jwtConfig == nil {
+		return nil, fmt.Errorf("JWT not initialized")
+	}
+
 	// Parse the token
-	token, err := jwt.ParseWithClaims(tokenString, &CustomClaims{}, func(token *jwt.Token) (interface{}, error) {
+	token, err := jwt.ParseWithClaims(tokenString, &CustomClaims{}, func(token *jwt.Token) (any, error) {
 		// Validate the signing method
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
 		}
 
-		return jwtSecret, nil
+		return []byte(jwtConfig.Secret), nil
 	})
 
 	if err != nil {

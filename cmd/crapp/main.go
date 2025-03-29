@@ -60,6 +60,9 @@ func main() {
 	// Create repository
 	repo := repository.NewRepository(cfg, log, questionLoader)
 
+	// Initialize JWT -- MUST BE DONE BEFORE SETTING UP ROUTES AND MIDDLEWARE
+	utils.InitJWT(&cfg.JWT)
+
 	// Create Gin router
 	router := gin.New()
 

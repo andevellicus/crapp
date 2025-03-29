@@ -14,6 +14,7 @@ type Config struct {
 	Database DatabaseConfig
 	Server   ServerConfig
 	Logging  LoggingConfig
+	JWT      JWTConfig
 }
 
 // AppConfig contains application-specific settings
@@ -42,6 +43,12 @@ type LoggingConfig struct {
 	Format    string
 }
 
+// JWTConfig contains JWT settings and Secret
+type JWTConfig struct {
+	Secret  string
+	Expires int // expiration time in hours
+}
+
 // LoadConfig initializes and loads configuration using Viper
 func LoadConfig(configPath string) (*Config, error) {
 	// Initialize Viper
@@ -57,8 +64,6 @@ func LoadConfig(configPath string) (*Config, error) {
 
 	// Add default config paths
 	v.AddConfigPath(".")
-	// v.AddConfigPath("./config")
-	// v.AddConfigPath("/etc/crapp")
 
 	// Set environment variable prefix and auto-binding
 	v.SetEnvPrefix("CRAPP")
@@ -96,6 +101,10 @@ func LoadConfig(configPath string) (*Config, error) {
 			Level:     v.GetString("logging.level"),
 			Format:    v.GetString("logging.format"),
 		},
+		JWT: JWTConfig{
+			Secret:  v.GetString("jwt.secret"),
+			Expires: v.GetInt("jwt.expires"),
+		},
 	}
 
 	return config, nil
@@ -120,6 +129,10 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault("logging.directory", "logs")
 	v.SetDefault("logging.level", "info")
 	v.SetDefault("logging.format", "json")
+
+	// JWT defaults
+	v.SetDefault("jwt.secret", "your-256-bit-secret") // Default, should be overridden
+	v.SetDefault("jwt.expires", 24)                   // 24 hours
 }
 
 // IsDevelopment returns true if the app is in development mode
