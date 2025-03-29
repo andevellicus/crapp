@@ -1,8 +1,6 @@
 package repository
 
 import (
-	"time"
-
 	"github.com/andevellicus/crapp/internal/models"
 )
 
@@ -63,21 +61,4 @@ func (r *Repository) UserExists(email string) (bool, error) {
 func (r *Repository) UpdateUser(user *models.User) error {
 	result := r.db.Save(user)
 	return result.Error
-}
-
-// UpdateUserLogin updates a user's last login time
-func (r *Repository) UpdateUserLogin(userID string) (*models.User, error) {
-	var user models.User
-	result := r.db.First(&user, "id = ?", userID)
-	if result.Error != nil {
-		return nil, result.Error
-	}
-
-	user.LastLogin = time.Now()
-	result = r.db.Save(&user)
-	if result.Error != nil {
-		return nil, result.Error
-	}
-
-	return &user, nil
 }

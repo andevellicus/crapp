@@ -8,39 +8,6 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// AuthRedirectMiddleware redirects logged out users to login page
-// This is useful for index page, where we want logged out users to be redirected
-func AuthRedirectMiddleware(authService *auth.AuthService) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		// Check for auth token in cookie
-		token, err := c.Cookie("auth_token")
-
-		// If no token is found, redirect to login
-		if err != nil || token == "" {
-			c.Redirect(http.StatusFound, "/login")
-			c.Abort()
-			return
-		}
-
-		// Validate token
-		claims, err := authService.ValidateToken(token)
-		if err != nil || claims == nil {
-			// Clear invalid token cookie
-			c.SetCookie("auth_token", "", -1, "/", "", false, true)
-
-			c.Redirect(http.StatusFound, "/login")
-			c.Abort()
-			return
-		}
-
-		// If token is valid, set user info in context
-		c.Set("userEmail", claims.Email)
-		c.Set("isAdmin", claims.IsAdmin)
-
-		c.Next()
-	}
-}
-
 // AuthMiddleware verifies the JWT token in the Authorization header
 func AuthMiddleware(authService *auth.AuthService) gin.HandlerFunc {
 	return func(c *gin.Context) {
@@ -74,6 +41,39 @@ func AuthMiddleware(authService *auth.AuthService) gin.HandlerFunc {
 		}
 
 		// Set user info in context
+		c.Set("userEmail", claims.Email)
+		c.Set("isAdmin", claims.IsAdmin)
+
+		c.Next()
+	}
+}
+
+// AuthRedirectMiddleware redirects logged out users to login page
+// This is useful for index page, where we want logged out users to be redirected
+func AuthRedirectMiddleware(authService *auth.AuthService) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		// Check for auth token in cookie
+		token, err := c.Cookie("auth_token")
+
+		// If no token is found, redirect to login
+		if err != nil || token == "" {
+			c.Redirect(http.StatusFound, "/login")
+			c.Abort()
+			return
+		}
+
+		// Validate token
+		claims, err := authService.ValidateToken(token)
+		if err != nil || claims == nil {
+			// Clear invalid token cookie
+			c.SetCookie("auth_token", "", -1, "/", "", false, true)
+
+			c.Redirect(http.StatusFound, "/login")
+			c.Abort()
+			return
+		}
+
+		// If token is valid, set user info in context
 		c.Set("userEmail", claims.Email)
 		c.Set("isAdmin", claims.IsAdmin)
 
