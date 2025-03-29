@@ -93,7 +93,7 @@ func main() {
 	formHandler := handlers.NewFormHandler(repo, log, questionLoader)
 
 	// Initialize Push handler
-	pushHandler := handlers.NewPushHandler(pushService, repo, log)
+	pushHandler := handlers.NewPushHandler(repo, log, pushService, reminderScheduler)
 
 	// Apply middleware
 	router.Use(gin.Recovery())
@@ -101,6 +101,17 @@ func main() {
 
 	// Add BEFORE other routes
 	router.GET("/service-worker.js", func(c *gin.Context) {
+		// Set proper MIME type
+		c.Header("Content-Type", "application/javascript")
+
+		// Prevent caching for development
+		c.Header("Cache-Control", "no-cache, no-store, must-revalidate, max-age=0")
+		c.Header("Pragma", "no-cache")
+		c.Header("Expires", "0")
+
+		// Allow service worker to control the whole origin
+		c.Header("Service-Worker-Allowed", "/")
+
 		c.File("./static/js/service-worker.js")
 	})
 

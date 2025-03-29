@@ -7,6 +7,7 @@ import (
 
 	"github.com/andevellicus/crapp/internal/push"
 	"github.com/andevellicus/crapp/internal/repository"
+	"github.com/andevellicus/crapp/internal/scheduler"
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
 )
@@ -16,14 +17,16 @@ type PushHandler struct {
 	pushService *push.PushService
 	repo        *repository.Repository
 	log         *zap.SugaredLogger
+	scheduler   *scheduler.ReminderScheduler
 }
 
 // NewPushHandler creates a new push notification handler
-func NewPushHandler(pushService *push.PushService, repo *repository.Repository, log *zap.SugaredLogger) *PushHandler {
+func NewPushHandler(repo *repository.Repository, log *zap.SugaredLogger, pushService *push.PushService, scheduler *scheduler.ReminderScheduler) *PushHandler {
 	return &PushHandler{
 		pushService: pushService,
 		repo:        repo,
 		log:         log.Named("push"),
+		scheduler:   scheduler,
 	}
 }
 
@@ -87,6 +90,15 @@ func (h *PushHandler) UpdatePreferences(c *gin.Context) {
 		h.log.Errorw("Failed to save preferences", "error", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save preferences"})
 		return
+	}
+
+	if h.scheduler != nil {
+		if err := h.scheduler.UpdateSchedules(); err != nil {
+			h.log.Warnw("Failed to update reminder schedules", "error", err)
+			// Don't return error to client, just log it
+		} else {
+			h.log.Infow("Reminder schedules updated successfully")
+		}
 	}
 
 	c.JSON(http.StatusOK, gin.H{"success": true})

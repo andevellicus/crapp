@@ -34,15 +34,60 @@ func NewReminderScheduler(repo *repository.Repository, config *config.Config, pu
 
 // Start initializes and starts the scheduler
 func (s *ReminderScheduler) Start() error {
-	// Get reminder configuration
-	for i, timeStr := range s.config.Reminders.Times {
-		if err := s.scheduleReminderDaily(timeStr, i); err != nil {
-			return fmt.Errorf("failed to schedule reminder for %s: %w", timeStr, err)
-		}
+	// Get all unique user-defined reminder times
+	userTimes, err := s.repo.GetAllUniqueReminderTimes()
+	if err != nil {
+		log.Printf("Error getting user reminder times: %v", err)
+		// Fall back to config times if there's an error
+		userTimes = s.config.Reminders.Times
 	}
 
-	log.Printf("Scheduled %d reminders", len(s.config.Reminders.Times))
+	// Combine with default times from config
+	allTimes := make(map[string]bool)
+
+	// Add config times
+	for _, timeStr := range s.config.Reminders.Times {
+		allTimes[timeStr] = true
+	}
+
+	// Add user times
+	for _, timeStr := range userTimes {
+		allTimes[timeStr] = true
+	}
+
+	// Schedule all unique times
+	timeIndex := 0
+	for timeStr := range allTimes {
+		if err := s.scheduleReminderDaily(timeStr, timeIndex); err != nil {
+			return fmt.Errorf("failed to schedule reminder for %s: %w", timeStr, err)
+		}
+		timeIndex++
+	}
+
+	log.Printf("Scheduled %d reminders", len(allTimes))
 	return nil
+}
+
+// Stop stops all scheduled reminders
+func (s *ReminderScheduler) Stop() {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
+	for key, timer := range s.jobs {
+		timer.Stop()
+		delete(s.jobs, key)
+	}
+
+	log.Println("Stopped all reminders")
+}
+
+// UpdateSchedules refreshes all scheduled reminders
+func (s *ReminderScheduler) UpdateSchedules() error {
+	// Stop all current jobs
+	s.Stop()
+
+	// Restart with fresh schedules
+	return s.Start()
 }
 
 // scheduleReminderDaily schedules a daily reminder at the specified time
@@ -101,17 +146,4 @@ func (s *ReminderScheduler) scheduleReminderDaily(timeStr string, reminderIndex 
 
 	log.Printf("Scheduled reminder for %s (in %v)", timeStr, duration)
 	return nil
-}
-
-// Stop stops all scheduled reminders
-func (s *ReminderScheduler) Stop() {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
-
-	for key, timer := range s.jobs {
-		timer.Stop()
-		delete(s.jobs, key)
-	}
-
-	log.Println("Stopped all reminders")
 }

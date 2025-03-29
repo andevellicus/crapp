@@ -178,7 +178,6 @@ func (r *Repository) GetUsersForReminder(reminderTime string) ([]models.User, er
 	return eligibleUsers, nil
 }
 
-// Add to internal/repository/user.go
 func (r *Repository) GetAllUniqueReminderTimes() ([]string, error) {
 	var users []models.User
 

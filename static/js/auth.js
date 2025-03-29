@@ -258,4 +258,63 @@ document.addEventListener('DOMContentLoaded', function() {
             window.authManager.logout();
         });
     });
+
+    // Register form handling
+    const registerForm = document.getElementById('register-form');
+    if (registerForm) {
+        registerForm.addEventListener('submit', async function(event) {
+            event.preventDefault();
+            
+            const email = document.getElementById('email').value;
+            const firstName = document.getElementById('first-name').value;
+            const lastName = document.getElementById('last-name').value;
+            const password = document.getElementById('password').value;
+            const confirmPassword = document.getElementById('confirm-password').value;
+            
+            // Validate passwords match
+            if (password !== confirmPassword) {
+                const messageDiv = document.getElementById('message');
+                if (messageDiv) {
+                    messageDiv.textContent = 'Passwords do not match';
+                    messageDiv.className = 'message error';
+                    messageDiv.style.display = 'block';
+                }
+                return;
+            }
+            
+            // Prepare user data
+            const userData = {
+                email: email,
+                password: password,
+                first_name: firstName,
+                last_name: lastName
+            };
+            
+            try {
+                // Call register method
+                const result = await window.authManager.register(userData);
+                
+                // Show success message
+                const messageDiv = document.getElementById('message');
+                if (messageDiv) {
+                    messageDiv.textContent = 'Registration successful! Redirecting to login...';
+                    messageDiv.className = 'message success';
+                    messageDiv.style.display = 'block';
+                }
+                
+                // Redirect to login page after a short delay
+                setTimeout(() => {
+                    window.location.href = '/login';
+                }, 2000);
+            } catch (error) {
+                // Show error message
+                const messageDiv = document.getElementById('message');
+                if (messageDiv) {
+                    messageDiv.textContent = error.message || 'Registration failed. Please try again.';
+                    messageDiv.className = 'message error';
+                    messageDiv.style.display = 'block';
+                }
+            }
+        });
+    }
 });
