@@ -123,8 +123,8 @@ func main() {
 		api.GET("/questions/symptoms", apiHandler.GetSymptomQuestions)
 
 		// Metric routes
-		api.GET("/metrics/correlation", apiHandler.GetMetricsCorrelation)
-		api.GET("/metrics/timeline", apiHandler.GetMetricsTimeline)
+		api.GET("/metrics/chart/correlation", apiHandler.GetChartCorrelationData)
+		api.GET("/metrics/chart/timeline", apiHandler.GetChartTimelineData)
 	}
 
 	form := router.Group("/api/form")

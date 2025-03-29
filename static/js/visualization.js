@@ -1,4 +1,4 @@
-// Updated visualization.js for structured data approach
+// Updated visualization.js to use pre-formatted data
 
 document.addEventListener('DOMContentLoaded', function() {
     // DOM elements
@@ -17,7 +17,7 @@ document.addEventListener('DOMContentLoaded', function() {
     let correlationChart = null;
     let timelineChart = null;
     
-    // Metric definitions for UI only
+    // Metric definitions
     const mouseMetrics = [
         { value: 'click_precision', label: 'Click Precision' },
         { value: 'path_efficiency', label: 'Path Efficiency' },
@@ -40,19 +40,14 @@ document.addEventListener('DOMContentLoaded', function() {
     initCharts();
     loadSymptomQuestions();
     
-    // Initialize charts
+    // Initialize charts with default configuration
     function initCharts() {
         // Correlation chart
         const correlationCtx = document.getElementById('correlation-chart').getContext('2d');
         correlationChart = new Chart(correlationCtx, {
             type: 'scatter',
             data: {
-                datasets: [{
-                    label: 'Symptom vs. Metric',
-                    backgroundColor: 'rgba(74, 111, 165, 0.7)',
-                    borderColor: 'rgba(74, 111, 165, 1)',
-                    data: []
-                }]
+                datasets: []
             },
             options: {
                 responsive: true,
@@ -86,22 +81,7 @@ document.addEventListener('DOMContentLoaded', function() {
             type: 'line',
             data: {
                 labels: [],
-                datasets: [
-                    {
-                        label: 'Symptom',
-                        backgroundColor: 'rgba(74, 111, 165, 0.2)',
-                        borderColor: 'rgba(74, 111, 165, 1)',
-                        data: [],
-                        yAxisID: 'y'
-                    },
-                    {
-                        label: 'Metric',
-                        backgroundColor: 'rgba(90, 154, 104, 0.2)',
-                        borderColor: 'rgba(90, 154, 104, 1)',
-                        data: [],
-                        yAxisID: 'y1'
-                    }
-                ]
+                datasets: []
             },
             options: {
                 responsive: true,
@@ -243,7 +223,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
     
-    // Update charts with selected data
+    // Update charts with selected data - now using server-side preformatted data
     async function updateCharts() {
         const metricKey = metricSelect.value;
         const symptomKey = symptomSelect.value;
@@ -262,16 +242,16 @@ document.addEventListener('DOMContentLoaded', function() {
             // Show loading state
             dataContent.classList.add('loading');
             
-            // Fetch data using the new structured endpoints
+            // Fetch pre-formatted data from new endpoints
             const [correlationData, timelineData] = await Promise.all([
-                fetch(`/api/metrics/correlation?user_id=${userEmail}&symptom=${symptomKey}&metric=${metricKey}`, {
+                fetch(`/api/metrics/chart/correlation?user_id=${userEmail}&symptom=${symptomKey}&metric=${metricKey}`, {
                     headers: { 'Authorization': `Bearer ${window.authManager.getCurrentToken()}` }
                 }).then(response => {
                     if (!response.ok) throw new Error('Failed to load correlation data');
                     return response.json();
                 }),
                 
-                fetch(`/api/metrics/timeline?user_id=${userEmail}&symptom=${symptomKey}&metric=${metricKey}`, {
+                fetch(`/api/metrics/chart/timeline?user_id=${userEmail}&symptom=${symptomKey}&metric=${metricKey}`, {
                     headers: { 'Authorization': `Bearer ${window.authManager.getCurrentToken()}` }
                 }).then(response => {
                     if (!response.ok) throw new Error('Failed to load timeline data');
@@ -286,8 +266,17 @@ document.addEventListener('DOMContentLoaded', function() {
             dataContent.style.display = 'block';
             
             // Check if we have data
-            if ((!correlationData || correlationData.length === 0) && 
-                (!timelineData || timelineData.length === 0)) {
+            const hasCorrelationData = correlationData.data && 
+                                     correlationData.data.datasets && 
+                                     correlationData.data.datasets.length > 0 &&
+                                     correlationData.data.datasets[0].data.length > 0;
+                                     
+            const hasTimelineData = timelineData.data && 
+                                  timelineData.data.datasets && 
+                                  timelineData.data.datasets.length > 0 &&
+                                  timelineData.data.labels.length > 0;
+            
+            if (!hasCorrelationData && !hasTimelineData) {
                 showNoData(`No data available for this symptom and metric combination.`);
                 return;
             }
@@ -301,26 +290,22 @@ document.addEventListener('DOMContentLoaded', function() {
                 container.style.display = 'block';
             });
             
-            // Get labels for chart titles
-            const symptomLabel = symptomSelect.options[symptomSelect.selectedIndex].textContent;
-            const metricLabel = metricSelect.options[metricSelect.selectedIndex].textContent;
-            
-            // Update charts if data exists
-            if (correlationData && correlationData.length > 0) {
-                updateCorrelationChart(correlationData, symptomLabel, metricLabel);
+            // Update correlation chart if data exists
+            if (hasCorrelationData) {
+                updateCorrelationChart(correlationData);
             } else {
-                // If no correlation data, clear chart
-                correlationChart.data.datasets[0].data = [];
+                // Clear chart if no data
+                correlationChart.data.datasets = [];
                 correlationChart.update();
             }
             
-            if (timelineData && timelineData.length > 0) {
-                updateTimelineChart(timelineData, symptomLabel, metricLabel);
+            // Update timeline chart if data exists
+            if (hasTimelineData) {
+                updateTimelineChart(timelineData);
             } else {
-                // If no timeline data, clear chart
-                timelineChart.data.datasets[0].data = [];
-                timelineChart.data.datasets[1].data = [];
+                // Clear chart if no data
                 timelineChart.data.labels = [];
+                timelineChart.data.datasets = [];
                 timelineChart.update();
             }
             
@@ -330,76 +315,47 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
     
-    // Update correlation chart with data
-    function updateCorrelationChart(data, symptomLabel, metricLabel) {
-        // Log raw data for debugging
-        console.log("Correlation data:", data);
-        
-        // Format data for the chart - structured format with symptom_value and metric_value
-        const chartData = data.map(point => {
-            return {
-                x: point.metric_value,
-                y: point.symptom_value
-            };
-        });
-        
-        // Update chart data
-        correlationChart.data.datasets[0].data = chartData;
-        
-        // Update chart options
-        correlationChart.options.scales.x.title.text = metricLabel;
-        correlationChart.options.scales.y.title.text = `${symptomLabel} Severity`;
-        correlationChart.options.plugins.title.text = `Correlation: ${symptomLabel} vs ${metricLabel}`;
-        
-        // Update scales
-        const symptomValues = chartData.map(p => p.y);
-        const symptomMin = Math.floor(Math.min(-1, ...symptomValues) * 0.9);
-        const symptomMax = Math.ceil(Math.max(1, ...symptomValues) * 1.1);
-        
-        correlationChart.options.scales.y.min = symptomMin;
-        correlationChart.options.scales.y.max = symptomMax;
-        
-        // Force chart update
-        correlationChart.update();
+    // Update correlation chart with pre-formatted data
+    function updateCorrelationChart(chartData) {
+        try {
+            // Set chart data
+            correlationChart.data = chartData.data;
+            
+            // Update chart options
+            correlationChart.options.scales.x.title.text = chartData.xLabel;
+            correlationChart.options.scales.y.title.text = chartData.yLabel;
+            correlationChart.options.plugins.title.text = chartData.title;
+            
+            // Force chart update
+            correlationChart.update();
+        } catch (error) {
+            console.error("Error updating correlation chart:", error);
+            // Fallback to empty chart
+            correlationChart.data.datasets = [];
+            correlationChart.update();
+        }
     }
     
-    // Update timeline chart with data
-    function updateTimelineChart(data, symptomLabel, metricLabel) {
-        // Log raw data for debugging
-        console.log("Timeline data:", data);
-        
-        // Format dates for x-axis
-        const labels = data.map(point => formatDate(point.date));
-        
-        // Format data for datasets - structured format with symptom_value and metric_value
-        const symptomData = data.map(point => point.symptom_value);
-        const metricData = data.map(point => point.metric_value);
-        
-        // Update chart data
-        timelineChart.data.labels = labels;
-        timelineChart.data.datasets[0].data = symptomData;
-        timelineChart.data.datasets[1].data = metricData;
-        
-        // Update dataset labels
-        timelineChart.data.datasets[0].label = symptomLabel;
-        timelineChart.data.datasets[1].label = metricLabel;
-        
-        // Update chart title
-        timelineChart.options.plugins.title.text = `Timeline: ${symptomLabel} and ${metricLabel}`;
-        
-        // Update scales
-        const symptomMin = Math.floor(Math.min(-1, ...symptomData) * 0.9);
-        const symptomMax = Math.ceil(Math.max(1, ...symptomData) * 1.1);
-        const metricMin = Math.floor(Math.min(-1, ...metricData) * 0.9);
-        const metricMax = Math.ceil(Math.max(1, ...metricData) * 1.1);
-        
-        timelineChart.options.scales.y.min = symptomMin;
-        timelineChart.options.scales.y.max = symptomMax;
-        timelineChart.options.scales.y1.min = metricMin;
-        timelineChart.options.scales.y1.max = metricMax;
-        
-        // Update chart
-        timelineChart.update();
+    // Update timeline chart with pre-formatted data
+    function updateTimelineChart(chartData) {
+        try {
+            // Set chart data
+            timelineChart.data = chartData.data;
+            
+            // Update chart options
+            timelineChart.options.plugins.title.text = chartData.title;
+            timelineChart.options.scales.y.title.text = chartData.yLabel;
+            timelineChart.options.scales.y1.title.text = chartData.y2Label;
+            
+            // Force chart update
+            timelineChart.update();
+        } catch (error) {
+            console.error("Error updating timeline chart:", error);
+            // Fallback to empty chart
+            timelineChart.data.datasets = [];
+            timelineChart.update();
+        }
+
     }
     
     // Show no data message
@@ -421,16 +377,6 @@ document.addEventListener('DOMContentLoaded', function() {
         // Keep the metrics help visible
         const metricsHelp = document.querySelector('.metrics-help');
         if (metricsHelp) metricsHelp.style.display = 'block';
-    }
-    
-    // Format date for display
-    function formatDate(dateString) {
-        const date = new Date(dateString);
-        return date.toLocaleDateString('en-US', { 
-            month: 'short',
-            day: 'numeric',
-            year: 'numeric'
-        });
     }
     
     // Add event listeners
