@@ -1,0 +1,21 @@
+{
+    "name": "CRAPP - Cognitive Reporting Application",
+    "short_name": "CRAPP",
+    "start_url": "/",
+    "display": "standalone",
+    "background_color": "#ffffff",
+    "theme_color": "#4a6fa5",
+    "description": "Daily symptom and cognition tracking app",
+    "icons": [
+      {
+        "src": "/static/icons/icon-192x192.png",
+        "sizes": "192x192",
+        "type": "image/png"
+      },
+      {
+        "src": "/static/icons/icon-512x512.png",
+        "sizes": "512x512",
+        "type": "image/png"
+      }
+    ]
+  }

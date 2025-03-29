@@ -1,13 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Your Profile - CRAPP</title>
-    <link rel="stylesheet" href="/static/css/main.css">
-    <link rel="stylesheet" href="/static/css/auth.css">
-    <link rel="stylesheet" href="/static/css/profile.css">
-</head>
+{{ template "head" . }}
 <body>
     <div class="container">
         {{ template "header" .}}
@@ -71,6 +64,27 @@
                         </div>
                         <div class="field-note">Leave password fields empty if you don't want to change your password</div>
                     </div>
+
+                    <div class="form-section">
+                        <h4>Notification Preferences</h4>
+                        
+                        <div class="form-group checkbox-group">
+                            <input type="checkbox" id="enable-notifications" name="enable_notifications">
+                            <label for="enable-notifications">Enable Daily Reminders</label>
+                        </div>
+                        
+                        <div id="notification-settings" style="margin-top: 15px;">
+                            <label>Reminder Times:</label>
+                            <div id="reminder-times">
+                                <!-- Will be populated dynamically -->
+                            </div>
+                            <button type="button" id="add-reminder-time" class="action-button">Add Time</button>
+                        </div>
+                        
+                        <div class="field-note">
+                            Note: You'll need to allow notifications in your browser to receive reminders.
+                        </div>
+                    </div>
                     
                     <div class="form-actions">
                         <button type="submit" class="submit-button">Save Changes</button>
@@ -85,8 +99,5 @@
     </div>
     
     <!-- Include scripts -->
-    <script src="/static/js/utils.js"></script>
-    <script src="/static/js/auth.js"></script>
-    <script src="/static/js/profile.js"></script>
 </body>
 </html>

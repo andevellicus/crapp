@@ -1,0 +1,45 @@
+{{ define "head" }}
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta http-equiv="X-UA-Compatible" content="ie=edge">
+<title>{{ if .title }}{{ .title }} - CRAPP{{ else }}CRAPP: Cognitive Reporting Application{{ end }}</title>
+
+<!-- Stylesheets -->
+<link rel="stylesheet" href="/static/css/main.css">
+{{ if .includeAuth }}<link rel="stylesheet" href="/static/css/auth.css">{{ end }}
+{{ if .includeProfile }}<link rel="stylesheet" href="/static/css/profile.css">{{ end }}
+{{ if .includeAdmin }}<link rel="stylesheet" href="/static/css/admin.css">{{ end }}
+{{ if .includeViz }}<link rel="stylesheet" href="/static/css/visualization.css">{{ end }}
+{{ if .includePush }}<script src="/static/js/push.js"></script>{{ end }}
+
+<!-- PWA & Icons -->
+<link rel="manifest" href="/static/manifest.json">
+<meta name="theme-color" content="#4a6fa5">
+<link rel="apple-touch-icon" sizes="180x180" href="/static/icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="icon" type="image/png" sizes="32x32" href="/static/icons/favicon-32x32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="/static/icons/favicon-16x16.png">
+
+<!-- Register service worker for PWA functionality --> 
+<script>
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('/service-worker.js')
+    .then(registration => {
+      console.log('ServiceWorker registered with scope:', registration.scope);
+    })
+    .catch(error => {
+      console.error('ServiceWorker registration failed:', error);
+    });
+}
+</script>
+<!-- Common scripts -->
+ <script src="/static/js/utils.js"></script>
+<script src="/static/js/auth.js"></script>
+
+{{ if .includeProfile }}<script src="/static/js/profile.js"></script>{{ end }}
+{{ if .includeViz }}<script src="/static/js/visualization.js"></script>{{ end }}
+{{ if .includePush }}<script src="/static/js/push.js"></script>{{ end }}
+
+
+{{ end }}

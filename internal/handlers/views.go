@@ -30,28 +30,35 @@ func (h *GinViewHandler) ServeIndex(c *gin.Context) {
 // ServeLogin serves the login.html file
 func (h *GinViewHandler) ServeLogin(c *gin.Context) {
 	c.HTML(http.StatusOK, "login.html", gin.H{
-		"title": "Login - CRAPP",
+		"title":       "Login - CRAPP",
+		"includeAuth": true,
 	})
 }
 
 // ServeRegister serves the register.html file
 func (h *GinViewHandler) ServeRegister(c *gin.Context) {
 	c.HTML(http.StatusOK, "register.html", gin.H{
-		"title": "Register - CRAPP",
+		"title":       "Register - CRAPP",
+		"includeAuth": true,
 	})
 }
 
 // ServeProfile serves the user profile page
 func (h *GinViewHandler) ServeProfile(c *gin.Context) {
 	c.HTML(http.StatusOK, "profile.html", gin.H{
-		"title": "Profile - CRAPP",
+		"title":          "Profile - CRAPP",
+		"includeAuth":    true,
+		"includeProfile": true,
+		"includePush":    true,
 	})
 }
 
 // ServeDevices serves the user devices management page
 func (h *GinViewHandler) ServeDevices(c *gin.Context) {
 	c.HTML(http.StatusOK, "devices.html", gin.H{
-		"title": "Devices - CRAPP",
+		"title":          "Devices - CRAPP",
+		"includeAuth":    true,
+		"includeProfile": true,
 	})
 }
 
@@ -68,6 +75,7 @@ func (h *GinViewHandler) ServeVisualize(c *gin.Context) {
 	c.HTML(http.StatusOK, "visualize.html", gin.H{
 		"title":       "Visulization - CRAPP",
 		"isAdminPage": true,
+		"includeViz":  true,
 	})
 }
 

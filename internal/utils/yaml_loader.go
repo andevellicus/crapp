@@ -48,10 +48,7 @@ type Reminder struct {
 
 // QuestionsConfig represents the entire questions YAML file
 type QuestionsConfig struct {
-	SchemaVersion string     `yaml:"schema_version" json:"schema_version"`
-	AppName       string     `yaml:"app_name" json:"app_name"`
-	Reminders     Reminder   `yaml:"reminders" json:"reminders"`
-	Questions     []Question `yaml:"questions" json:"questions"`
+	Questions []Question `yaml:"questions" json:"questions"`
 }
 
 // QuestionLoader loads and processes question definitions
@@ -154,9 +151,4 @@ func (q *QuestionLoader) GetQuestionsByMetricsType(metricsType string) []Questio
 		}
 	}
 	return filteredQuestions
-}
-
-// GetRemindersConfig gets the reminders configuration
-func (q *QuestionLoader) GetRemindersConfig() Reminder {
-	return q.Config.Reminders
 }

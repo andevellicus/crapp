@@ -10,7 +10,9 @@ import (
 	"github.com/andevellicus/crapp/internal/handlers"
 	"github.com/andevellicus/crapp/internal/logger"
 	"github.com/andevellicus/crapp/internal/middleware"
+	"github.com/andevellicus/crapp/internal/push"
 	"github.com/andevellicus/crapp/internal/repository"
+	"github.com/andevellicus/crapp/internal/scheduler"
 	"github.com/andevellicus/crapp/internal/utils"
 	"github.com/gin-gonic/gin"
 )
@@ -61,10 +63,17 @@ func main() {
 	// Create repository
 	repo := repository.NewRepository(cfg, log, questionLoader)
 
-	// Initialize JWT -- MUST BE DONE BEFORE SETTING UP ROUTES AND MIDDLEWARE
-	//auth.InitJWT(&cfg.JWT)
-	// Create auth service
+	// Create auth service -- MUST BE DONE BEFORE SETTING UP ROUTES AND MIDDLEWARE
+	// BECAUSE JWT GETS INITIALIZED
 	authService := auth.NewAuthService(repo, &cfg.JWT)
+	// Load VAPID keys
+	vapidPublic := cfg.PWA.VAPIDPublicKey
+	vapidPrivate := cfg.PWA.VAPIDPrivateKey
+
+	// Initialize push service
+	pushService := push.NewPushService(repo, vapidPublic, vapidPrivate)
+	// Initialize the reminder scheduler
+	reminderScheduler := scheduler.NewReminderScheduler(repo, cfg, pushService)
 
 	// Create Gin router
 	router := gin.New()
@@ -83,9 +92,17 @@ func main() {
 	// Create form handler
 	formHandler := handlers.NewFormHandler(repo, log, questionLoader)
 
+	// Initialize Push handler
+	pushHandler := handlers.NewPushHandler(pushService, repo, log)
+
 	// Apply middleware
 	router.Use(gin.Recovery())
 	router.Use(middleware.GinLogger(log))
+
+	// Add BEFORE other routes
+	router.GET("/service-worker.js", func(c *gin.Context) {
+		c.File("./static/js/service-worker.js")
+	})
 
 	// View routes
 	router.GET("/", middleware.AuthRedirectMiddleware(authService), formHandler.ServeForm)
@@ -134,6 +151,16 @@ func main() {
 		form.POST("/state/:stateId/submit", formHandler.SubmitForm)
 	}
 
+	// Add push notification routes
+	pushRoutes := router.Group("/api/push")
+	pushRoutes.Use(middleware.AuthMiddleware(authService))
+	{
+		pushRoutes.GET("/vapid-public-key", pushHandler.GetVAPIDPublicKey)
+		pushRoutes.POST("/subscribe", pushHandler.SubscribeUser)
+		pushRoutes.GET("/preferences", pushHandler.GetPreferences)
+		pushRoutes.PUT("/preferences", pushHandler.UpdatePreferences)
+	}
+
 	// Admin routes
 	admin := router.Group("/admin")
 	admin.Use(middleware.AuthMiddleware(authService), middleware.AdminMiddleware())
@@ -143,6 +170,16 @@ func main() {
 		admin.GET("/users", viewHandler.ServeAdminUsers)
 		admin.GET("/api/users/search", apiHandler.SearchUsers)
 	}
+
+	// Start the reminder scheduler
+	if err := reminderScheduler.Start(); err != nil {
+		log.Warnw("Failed to start reminder scheduler", "error", err)
+	} else {
+		log.Infow("Reminder scheduler started successfully")
+	}
+
+	// Make sure to stop the scheduler when the application shuts down
+	defer reminderScheduler.Stop()
 
 	// Start server
 	addr := cfg.GetServerAddress()

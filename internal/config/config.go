@@ -10,11 +10,14 @@ import (
 
 // Config represents the application configuration
 type Config struct {
-	App      AppConfig
-	Database DatabaseConfig
-	Server   ServerConfig
-	Logging  LoggingConfig
-	JWT      JWTConfig
+	App           AppConfig
+	Database      DatabaseConfig
+	Server        ServerConfig
+	Logging       LoggingConfig
+	JWT           JWTConfig
+	PWA           PWAConfig
+	SchemaVersion string `mapstructure:"schema_version"`
+	Reminders     ReminderConfig
 }
 
 // AppConfig contains application-specific settings
@@ -47,6 +50,20 @@ type LoggingConfig struct {
 type JWTConfig struct {
 	Secret  string
 	Expires int // expiration time in hours
+}
+
+// PWAConfig contains PWA configuration
+type PWAConfig struct {
+	Enabled         bool
+	VAPIDPublicKey  string
+	VAPIDPrivateKey string
+}
+
+// ReminderConfig contains reminder settings
+type ReminderConfig struct {
+	Frequency  string   `mapstructure:"frequency"`
+	Times      []string `mapstructure:"times"`
+	CutoffTime string   `mapstructure:"cutoff_time"`
 }
 
 // LoadConfig initializes and loads configuration using Viper
@@ -105,6 +122,17 @@ func LoadConfig(configPath string) (*Config, error) {
 			Secret:  v.GetString("jwt.secret"),
 			Expires: v.GetInt("jwt.expires"),
 		},
+		PWA: PWAConfig{
+			Enabled:         v.GetBool("pwa.enabled"),
+			VAPIDPublicKey:  v.GetString("pwa.vapid_public_key"),
+			VAPIDPrivateKey: v.GetString("pwa.vapid_private_key"),
+		},
+		SchemaVersion: v.GetString("schema_version"),
+		Reminders: ReminderConfig{
+			Frequency:  v.GetString("reminders.frequency"),
+			Times:      v.GetStringSlice("reminders.times"),
+			CutoffTime: v.GetString("reminders.cutoff_time"),
+		},
 	}
 
 	return config, nil
@@ -133,6 +161,17 @@ func setDefaults(v *viper.Viper) {
 	// JWT defaults
 	v.SetDefault("jwt.secret", "your-256-bit-secret") // Default, should be overridden
 	v.SetDefault("jwt.expires", 24)                   // 24 hours
+
+	// Set default PWA settings
+	v.SetDefault("pwa.enabled", true)
+	v.SetDefault("pwa.vapid_public_key", "")  // Should be set in production
+	v.SetDefault("pwa.vapid_private_key", "") // Should be set in production
+
+	// Set default values for schema and reminders
+	v.SetDefault("schema_version", "1.0")
+	v.SetDefault("reminders.frequency", "daily")
+	v.SetDefault("reminders.times", []string{"20:00"})
+	v.SetDefault("reminders.cutoff_time", "10:00")
 }
 
 // IsDevelopment returns true if the app is in development mode

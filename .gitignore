@@ -32,3 +32,6 @@ data/
 # OS specific files
 .DS_Store
 Thumbs.db
+
+# Config file with secrets
+config.yaml

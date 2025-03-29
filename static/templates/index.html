@@ -1,11 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CRAPP: Cognitive Reporting Application</title>
-    <link rel="stylesheet" href="/static/css/main.css">
-</head>
+{{ template "head" . }}
 <body>
     <div class="container">
         {{ template "header" .}}
@@ -22,8 +17,6 @@
     </div>
     
     <!-- Include scripts -->
-    <script src="/static/js/utils.js"></script>
-    <script src="/static/js/auth.js"></script>
     <script src="/static/js/interaction-tracker.js"></script>
     <script src="/static/js/form.js"></script>
 </body>

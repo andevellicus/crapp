@@ -371,3 +371,52 @@ header {
         justify-content: center;
     }
 }
+
+/* Base mobile-first styles */
+body {
+    font-size: 16px;
+  }
+  
+  /* Media queries for different screen sizes */
+  /* Small devices (phones) */
+  @media (max-width: 576px) {
+    .container {
+      padding: 10px;
+    }
+    
+    /* Adjust form elements for better touch targets */
+    input, 
+    select, 
+    textarea, 
+    button {
+      font-size: 16px; /* Prevents iOS zoom on focus */
+      min-height: 44px; /* Minimum touch target size */
+    }
+    
+    /* Stack form layouts */
+    .form-row {
+      flex-direction: column;
+    }
+    
+    /* Adjust navigation */
+    .main-nav {
+      flex-direction: column;
+    }
+  }
+  
+  /* Medium devices (tablets) */
+  @media (min-width: 577px) and (max-width: 992px) {
+    /* Tablet-specific adjustments */
+    .profile-container {
+      flex-direction: column;
+    }
+  }
+  
+  /* Fix for iOS form inputs */
+  @supports (-webkit-touch-callout: none) {
+    /* iOS-specific fixes */
+    input {
+      -webkit-appearance: none;
+      border-radius: 0;
+    }
+  }
