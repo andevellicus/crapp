@@ -16,6 +16,7 @@ type AuthService struct {
 	repo      *repository.Repository
 	tokenTTL  time.Duration
 	secretKey string
+	jwtConfig *config.JWTConfig
 }
 
 // CustomClaims defines the claims in the JWT token
@@ -25,14 +26,16 @@ type CustomClaims struct {
 	jwt.RegisteredClaims
 }
 
-func NewAuthService(repo *repository.Repository, tokenTTL time.Duration, secretKey string) *AuthService {
+func NewAuthService(repo *repository.Repository, cfg *config.JWTConfig) *AuthService {
 	return &AuthService{
 		repo:      repo,
-		tokenTTL:  tokenTTL,
-		secretKey: secretKey,
+		tokenTTL:  time.Duration(cfg.Expires) * time.Hour,
+		secretKey: cfg.Secret,
+		jwtConfig: cfg,
 	}
 }
 
+/*
 // Store config reference
 var jwtConfig *config.JWTConfig
 
@@ -40,6 +43,7 @@ var jwtConfig *config.JWTConfig
 func InitJWT(cfg *config.JWTConfig) {
 	jwtConfig = cfg
 }
+*/
 
 // Authenticate validates credentials and returns user with session
 func (s *AuthService) Authenticate(email, password string, deviceInfo map[string]interface{}) (*models.User, *models.Device, string, error) {
@@ -78,12 +82,12 @@ func (s *AuthService) Authenticate(email, password string, deviceInfo map[string
 
 // GenerateToken creates a new JWT token
 func (s *AuthService) GenerateToken(email string, isAdmin bool) (string, error) {
-	if jwtConfig == nil {
+	if s.jwtConfig == nil {
 		return "", fmt.Errorf("JWT not initialized")
 	}
 
 	// Set token expiration time (24 hours)
-	expirationTime := time.Now().Add(time.Duration(jwtConfig.Expires) * time.Hour)
+	expirationTime := time.Now().Add(time.Duration(s.jwtConfig.Expires) * time.Hour)
 
 	// Create the claims
 	claims := &CustomClaims{
@@ -99,14 +103,14 @@ func (s *AuthService) GenerateToken(email string, isAdmin bool) (string, error) 
 
 	// Create and sign the token
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	tokenString, err := token.SignedString([]byte(jwtConfig.Secret))
+	tokenString, err := token.SignedString([]byte(s.jwtConfig.Secret))
 
 	return tokenString, err
 }
 
 // ValidateToken verifies a token and returns claims
 func (s *AuthService) ValidateToken(tokenString string) (*CustomClaims, error) {
-	if jwtConfig == nil {
+	if s.jwtConfig == nil {
 		return nil, fmt.Errorf("JWT not initialized")
 	}
 
@@ -117,7 +121,7 @@ func (s *AuthService) ValidateToken(tokenString string) (*CustomClaims, error) {
 			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
 		}
 
-		return []byte(jwtConfig.Secret), nil
+		return []byte(s.jwtConfig.Secret), nil
 	})
 
 	if err != nil {

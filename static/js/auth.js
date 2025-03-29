@@ -222,8 +222,35 @@ class AuthManager {
 // Create global instance
 window.authManager = new AuthManager();
 
-// Add logout functionality to any logout buttons
+// Add auth-related functionality when DOM is loaded
 document.addEventListener('DOMContentLoaded', function() {
+    // Login form handling
+    const loginForm = document.getElementById('login-form');
+    if (loginForm) {
+        loginForm.addEventListener('submit', async function(event) {
+            event.preventDefault();
+            
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            const rememberMe = document.getElementById('remember-me').checked;
+            
+            try {
+                await window.authManager.login(email, password, rememberMe);
+                // Redirect to home page after successful login
+                window.location.href = '/';
+            } catch (error) {
+                // Show error message
+                const messageDiv = document.getElementById('message');
+                if (messageDiv) {
+                    messageDiv.textContent = error.message || 'Login failed. Please try again.';
+                    messageDiv.className = 'message error';
+                    messageDiv.style.display = 'block';
+                }
+            }
+        });
+    }
+    
+    // Logout button functionality
     const logoutButtons = document.querySelectorAll('.logout-button');
     logoutButtons.forEach(button => {
         button.addEventListener('click', (e) => {

@@ -452,8 +452,6 @@ renderRadioOptions: function(container, question, previousAnswer) {
   },
 };
 
-
-
 // Initialize on page load
 document.addEventListener('DOMContentLoaded', function() {
   if (document.getElementById('symptom-form')) {

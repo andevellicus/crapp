@@ -114,8 +114,4 @@ window.CRAPP = window.CRAPP || {};
 window.CRAPP.utils = {
     showMessage,
     formatDate,
-    apiRequest,
-    validateForm,
-    showValidationMessage,
-    clearValidationMessage
 };

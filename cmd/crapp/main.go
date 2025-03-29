@@ -4,7 +4,6 @@ import (
 	"flag"
 	"fmt"
 	"os"
-	"time"
 
 	"github.com/andevellicus/crapp/internal/auth"
 	"github.com/andevellicus/crapp/internal/config"
@@ -63,7 +62,9 @@ func main() {
 	repo := repository.NewRepository(cfg, log, questionLoader)
 
 	// Initialize JWT -- MUST BE DONE BEFORE SETTING UP ROUTES AND MIDDLEWARE
-	auth.InitJWT(&cfg.JWT)
+	//auth.InitJWT(&cfg.JWT)
+	// Create auth service
+	authService := auth.NewAuthService(repo, &cfg.JWT)
 
 	// Create Gin router
 	router := gin.New()
@@ -77,9 +78,6 @@ func main() {
 	// Initialize handlers
 	apiHandler := handlers.NewAPIHandler(repo, log, questionLoader)
 	viewHandler := handlers.NewViewHandler("static")
-	// Create auth service
-	tokenTTL := time.Duration(cfg.JWT.Expires) * time.Hour
-	authService := auth.NewAuthService(repo, tokenTTL, cfg.JWT.Secret)
 	// Create auth handler
 	authHandler := handlers.NewAuthHandler(repo, log, authService)
 	// Create form handler
