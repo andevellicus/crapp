@@ -38,6 +38,7 @@
         class="text-input"
         {{ if .Placeholder }}placeholder="{{ .Placeholder }}"{{ end }}
         {{ if .MaxLength }}maxlength="{{ .MaxLength }}"{{ end }}
+        {{ if .Pattern }}pattern="{{ .Pattern }}"{{ end }}
         {{ if .Required }}required{{ end }}
     ></textarea>
 </div>

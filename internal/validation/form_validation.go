@@ -3,6 +3,8 @@ package validation
 
 import (
 	"fmt"
+	"regexp"
+	"strings"
 
 	"github.com/andevellicus/crapp/internal/utils"
 )
@@ -19,33 +21,32 @@ func NewFormValidator(questionLoader *utils.QuestionLoader) *FormValidator {
 	}
 }
 
-// ValidateAnswer validates a single answer against its question
+// ValidateAnswer validates a single answer against its question with enhanced checks
 func (v *FormValidator) ValidateAnswer(questionID string, answer interface{}) []ValidationError {
 	var errors []ValidationError
 
 	// Get question definition
 	question := v.questionLoader.GetQuestionByID(questionID)
 	if question == nil {
-		errors = append(errors, NewValidationError(questionID, "Invalid question ID"))
+		errors = append(errors, ValidationError{
+			Field:   questionID,
+			Message: "Invalid question ID",
+		})
 		return errors
 	}
 
 	// Check required fields
 	if question.Required {
-		// Handle nil or empty values
-		if answer == nil {
-			errors = append(errors, NewValidationError(questionID, "This question is required"))
-			return errors
-		}
-
-		// Check empty strings
-		if str, ok := answer.(string); ok && str == "" {
-			errors = append(errors, NewValidationError(questionID, "This question is required"))
+		if isEmptyAnswer(answer) {
+			errors = append(errors, ValidationError{
+				Field:   questionID,
+				Message: "This question is required",
+			})
 			return errors
 		}
 	}
 
-	// Type-specific validation
+	// Type-specific validation with enhanced checks
 	switch question.Type {
 	case "radio":
 		errors = append(errors, v.validateRadioAnswer(question, answer)...)
@@ -58,35 +59,20 @@ func (v *FormValidator) ValidateAnswer(questionID string, answer interface{}) []
 	return errors
 }
 
-// ValidateForm validates an entire form submission
-func (v *FormValidator) ValidateForm(answers map[string]interface{}) ValidationResponse {
-	var allErrors []ValidationError
-
-	// Validate each answer
-	for questionID, answer := range answers {
-		errors := v.ValidateAnswer(questionID, answer)
-		allErrors = append(allErrors, errors...)
+// Helper to check if answer is empty
+func isEmptyAnswer(answer interface{}) bool {
+	if answer == nil {
+		return true
 	}
 
-	// Check if all required questions are answered
-	questions := v.questionLoader.GetQuestions()
-	for _, question := range questions {
-		if question.Required {
-			if _, exists := answers[question.ID]; !exists {
-				allErrors = append(allErrors, NewValidationError(
-					question.ID, "This question is required"))
-			}
-		}
+	switch v := answer.(type) {
+	case string:
+		return strings.TrimSpace(v) == ""
+	case []interface{}:
+		return len(v) == 0
+	default:
+		return false
 	}
-
-	// Create response
-	valid := len(allErrors) == 0
-	message := "Validation successful"
-	if !valid {
-		message = "Validation failed"
-	}
-
-	return NewValidationResponse(valid, message, allErrors)
 }
 
 // Validate radio button answer
@@ -103,8 +89,10 @@ func (v *FormValidator) validateRadioAnswer(question *utils.Question, answer int
 	case int:
 		answerStr = fmt.Sprintf("%d", v)
 	default:
-		errors = append(errors, NewValidationError(
-			question.ID, "Invalid answer type"))
+		errors = append(errors, ValidationError{
+			Field:   question.ID,
+			Message: "Invalid answer type",
+		})
 		return errors
 	}
 
@@ -131,34 +119,95 @@ func (v *FormValidator) validateRadioAnswer(question *utils.Question, answer int
 	}
 
 	if !valid {
-		errors = append(errors, NewValidationError(
-			question.ID, "Invalid option selected"))
+		errors = append(errors, ValidationError{
+			Field:   question.ID,
+			Message: "Invalid option selected",
+		})
 	}
 
 	return errors
 }
 
-// Similarly implement validateDropdownAnswer and validateTextAnswer
+// Similarly implement validateDropdownAnswer
 func (v *FormValidator) validateDropdownAnswer(question *utils.Question, answer interface{}) []ValidationError {
 	// Similar to radio validation
 	return v.validateRadioAnswer(question, answer)
 }
 
+// Enhanced text validation
 func (v *FormValidator) validateTextAnswer(question *utils.Question, answer interface{}) []ValidationError {
 	var errors []ValidationError
 
 	str, ok := answer.(string)
 	if !ok {
-		errors = append(errors, NewValidationError(
-			question.ID, "Answer must be text"))
+		errors = append(errors, ValidationError{
+			Field:   question.ID,
+			Message: "Answer must be text",
+		})
 		return errors
 	}
 
-	// Check max length if specified
+	// Check max length
 	if question.MaxLength > 0 && len(str) > question.MaxLength {
-		errors = append(errors, NewValidationError(
-			question.ID, fmt.Sprintf("Text exceeds maximum length of %d characters", question.MaxLength)))
+		errors = append(errors, ValidationError{
+			Field:   question.ID,
+			Message: fmt.Sprintf("Text exceeds maximum length of %d characters", question.MaxLength),
+		})
+	}
+
+	// Add pattern validation if defined in the question model
+	if question.Pattern != "" {
+		re, err := regexp.Compile(question.Pattern)
+		if err == nil && !re.MatchString(str) {
+			var errorMessage string
+			if question.PatternMessage != "" {
+				errorMessage = question.PatternMessage
+			} else {
+				errorMessage = "Text does not match required format"
+			}
+			errors = append(errors, ValidationError{
+				Field:   question.ID,
+				Message: errorMessage,
+			})
+		}
 	}
 
 	return errors
+}
+
+// ValidateForm validates an entire form submission
+func (v *FormValidator) ValidateForm(answers map[string]interface{}) ValidationResponse {
+	var allErrors []ValidationError
+
+	// Validate each answer
+	for questionID, answer := range answers {
+		errors := v.ValidateAnswer(questionID, answer)
+		allErrors = append(allErrors, errors...)
+	}
+
+	// Check if all required questions are answered
+	questions := v.questionLoader.GetQuestions()
+	for _, question := range questions {
+		if question.Required {
+			if _, exists := answers[question.ID]; !exists {
+				allErrors = append(allErrors, ValidationError{
+					Field:   question.ID,
+					Message: "This question is required",
+				})
+			}
+		}
+	}
+
+	// Create response
+	valid := len(allErrors) == 0
+	message := "Validation successful"
+	if !valid {
+		message = "Validation failed"
+	}
+
+	return ValidationResponse{
+		Valid:   valid,
+		Message: message,
+		Errors:  allErrors,
+	}
 }

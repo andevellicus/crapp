@@ -217,23 +217,6 @@ class AuthManager {
         // This will update the header based on authentication status
         // Implement if you have a header component that shows user info
     }
-    
-    // Show message to user
-    showMessage(message, type = 'success') {
-        const messageDiv = document.getElementById('message');
-        if (!messageDiv) return;
-        
-        messageDiv.textContent = message;
-        messageDiv.className = `message ${type}`;
-        messageDiv.style.display = 'block';
-        
-        // Auto-hide after 5 seconds for success messages
-        if (type === 'success') {
-            setTimeout(() => {
-                messageDiv.style.display = 'none';
-            }, 5000);
-        }
-    }
 }
 
 // Create global instance

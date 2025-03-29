@@ -297,12 +297,8 @@ renderRadioOptions: function(container, question, previousAnswer) {
     // Get current question ID
     const questionEl = document.querySelector('[data-question-id]');
     if (!questionEl) {
-        // Handle no question element case
-        if (direction === 'prev') {
-            this.loadCurrentQuestion();
-            return true;
-        }
-        return false;
+      // If no question element exists, just load current question
+      return this.loadCurrentQuestion();
     }
   
     const questionId = questionEl.dataset.questionId;
@@ -311,45 +307,55 @@ renderRadioOptions: function(container, question, previousAnswer) {
     let answer = this.getQuestionAnswer(questionEl);
     
     try {
-        // Send answer to server
-        const response = await fetch(`/api/form/state/${this.stateId}/answer`, {
-            method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${window.authManager.getCurrentToken()}`,
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                question_id: questionId,
-                answer: answer,
-                direction: direction
-            })
-        });
-        
-        const data = await response.json();
-        
-        // Handle validation errors
-        if (!response.ok) {
-            if (data.errors && data.errors.length > 0) {
-                // Display validation errors
-                data.errors.forEach(error => {
-                    this.showValidationMessage(questionEl, error.message);
-                });
-            } else {
-                this.showMessage('Failed to save your answer. Please try again.', 'error');
-            }
-            return false;
+      // Send answer to server for validation and progress update
+      const response = await fetch(`/api/form/state/${this.stateId}/answer`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${window.authManager.getCurrentToken()}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          question_id: questionId,
+          answer: answer,
+          direction: direction
+        })
+      });
+      
+      const data = await response.json();
+      
+      // Handle validation errors
+      if (!response.ok) {
+        if (data.errors && data.errors.length > 0) {
+          // Clear previous validation messages
+          this.clearValidationMessages();
+          
+          // Display each validation error
+          data.errors.forEach(error => {
+            this.showValidationMessage(questionEl, error.message);
+          });
+          
+          // Focus on the first invalid field if possible
+          if (data.field) {
+            const fieldEl = questionEl.querySelector(`[name="${data.field}"]`);
+            if (fieldEl) fieldEl.focus();
+          }
+          return false;
+        } else {
+          this.showMessage('Failed to save your answer. Please try again.', 'error');
+          return false;
         }
-        
-        // Load the next/previous question
-        this.loadCurrentQuestion();
-        return true;
-        
+      }
+      
+      // Load the next/previous question
+      this.loadCurrentQuestion();
+      return true;
+      
     } catch (error) {
-        console.error('Error navigating:', error);
-        this.showMessage('Failed to save your answer. Please try again.', 'error');
-        return false;
+      console.error('Error navigating:', error);
+      this.showMessage('Failed to save your answer. Please try again.', 'error');
+      return false;
     }
-},
+  },
   
   submitForm: async function() {
     try {
@@ -417,6 +423,16 @@ renderRadioOptions: function(container, question, previousAnswer) {
     msgEl.style.display = 'block';
     container.classList.add('highlight-required');
   },
+  
+  clearValidationMessages: function() {
+    document.querySelectorAll('.validation-message').forEach(msg => {
+      msg.style.display = 'none';
+    });
+    
+    document.querySelectorAll('.highlight-required').forEach(el => {
+      el.classList.remove('highlight-required');
+    });
+  },
 
   showValidationErrors: function(errors) {
     if (!errors || errors.length === 0) return;
@@ -433,7 +449,7 @@ renderRadioOptions: function(container, question, previousAnswer) {
     if (firstErrorEl) {
         firstErrorEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
-  }
+  },
 };
 
 

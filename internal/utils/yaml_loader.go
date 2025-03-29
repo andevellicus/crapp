@@ -16,18 +16,20 @@ type QuestionOption struct {
 
 // Question represents a question definition from YAML
 type Question struct {
-	ID          string           `yaml:"id" json:"id"`
-	Title       string           `yaml:"title" json:"title"`
-	Description string           `yaml:"description,omitempty" json:"description,omitempty"`
-	MetricKey   string           `yaml:"metric_key,omitempty" json:"metric_key,omitempty"`
-	Type        string           `yaml:"type" json:"type"`
-	MetricsType string           `yaml:"metrics_type,omitempty" json:"metrics_type,omitempty"`
-	Required    bool             `yaml:"required" json:"required"`
-	Placeholder string           `yaml:"placeholder,omitempty" json:"placeholder,omitempty"`
-	MaxLength   int              `yaml:"max_length,omitempty" json:"max_length,omitempty"`
-	Scale       *Scale           `yaml:"scale,omitempty" json:"scale,omitempty"`
-	Options     []QuestionOption `yaml:"options,omitempty" json:"options,omitempty"`
-	Default     string           `yaml:"default_option,omitempty" json:"default_option,omitempty"`
+	ID             string           `yaml:"id" json:"id"`
+	Title          string           `yaml:"title" json:"title"`
+	Description    string           `yaml:"description,omitempty" json:"description,omitempty"`
+	MetricKey      string           `yaml:"metric_key,omitempty" json:"metric_key,omitempty"`
+	Type           string           `yaml:"type" json:"type"`
+	MetricsType    string           `yaml:"metrics_type,omitempty" json:"metrics_type,omitempty"`
+	Required       bool             `yaml:"required" json:"required"`
+	Placeholder    string           `yaml:"placeholder,omitempty" json:"placeholder,omitempty"`
+	MaxLength      int              `yaml:"max_length,omitempty" json:"max_length,omitempty"`
+	Pattern        string           `yaml:"pattern,omitempty" json:"pattern,omitempty"`
+	PatternMessage string           `yaml:"pattern_message,omitempty" json:"pattern_message,omitempty"`
+	Scale          *Scale           `yaml:"scale,omitempty" json:"scale,omitempty"`
+	Options        []QuestionOption `yaml:"options,omitempty" json:"options,omitempty"`
+	Default        string           `yaml:"default_option,omitempty" json:"default_option,omitempty"`
 }
 
 // Scale represents a numeric scale for a question

@@ -193,9 +193,11 @@ func (h *FormHandler) SaveAnswer(c *gin.Context) {
 	if saveRequest.Direction == "next" {
 		errors := h.validator.ValidateAnswer(saveRequest.QuestionID, saveRequest.Answer)
 		if len(errors) > 0 {
-			c.JSON(http.StatusBadRequest, gin.H{
-				"valid":  false,
-				"errors": errors,
+			c.JSON(http.StatusBadRequest, validation.ValidationResponse{
+				Valid:   false,
+				Errors:  errors,
+				Message: "Validation failed",
+				Field:   saveRequest.QuestionID,
 			})
 			return
 		}

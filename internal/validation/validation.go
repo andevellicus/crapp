@@ -12,6 +12,7 @@ type ValidationResponse struct {
 	Valid   bool              `json:"valid"`
 	Errors  []ValidationError `json:"errors,omitempty"`
 	Message string            `json:"message,omitempty"`
+	Field   string            `json:"field,omitempty"` // Field to focus on client-side
 }
 
 // NewValidationError creates a new validation error
