@@ -2,97 +2,22 @@
 
 class AuthManager {
     constructor() {
+        // Only handle UI state based on token existence
+        this.refreshAuthState();
+    }
+    
+    refreshAuthState() {
         this.token = localStorage.getItem('authToken') || sessionStorage.getItem('authToken');
-        this.currentUser = this.getCurrentUser();
+        this.currentUser = this.getUserFromStorage();
         this.deviceId = localStorage.getItem('deviceId') || sessionStorage.getItem('deviceId');
         
-        // Initialize event listeners based on current page
-        this.initPage();
-        
-        // Check authentication status and redirect if needed
-        this.checkAuthStatus();
+        // Update UI based on auth state
+        this.updateHeader();
     }
     
-    // Initialize the current page
-    initPage() {
-        const path = window.location.pathname;
-        
-        if (path === '/login') {
-            this.initLoginPage();
-        } else if (path === '/register') {
-            this.initRegisterPage();
-        } else {
-            // For other pages, initialize header if user is logged in
-            this.updateHeader();
-        }
-    }
-    
-    // Initialize login page
-    initLoginPage() {
-        const loginForm = document.getElementById('login-form');
-        if (!loginForm) return;
-        
-        loginForm.addEventListener('submit', async (event) => {
-            event.preventDefault();
-            
-            const email = document.getElementById('email').value;
-            const password = document.getElementById('password').value;
-            const rememberMe = document.getElementById('remember-me').checked;
-            
-            try {
-                await this.login(email, password, rememberMe);
-                // Redirect to home page with assessment
-                window.location.href = '/';
-            } catch (error) {
-                this.showMessage(error.message || 'Login failed. Please check your credentials.', 'error');
-            }
-        });
-    }
-    
-    // Initialize registration page
-    initRegisterPage() {
-        const registerForm = document.getElementById('register-form');
-        if (!registerForm) return;
-        
-        // Add password confirmation validation
-        const password = document.getElementById('password');
-        const confirmPassword = document.getElementById('confirm-password');
-        
-        confirmPassword.addEventListener('input', () => {
-            if (password.value !== confirmPassword.value) {
-                confirmPassword.setCustomValidity('Passwords do not match');
-            } else {
-                confirmPassword.setCustomValidity('');
-            }
-        });
-        
-        registerForm.addEventListener('submit', async (event) => {
-            event.preventDefault();
-            
-            // Validate passwords match
-            if (password.value !== confirmPassword.value) {
-                this.showMessage('Passwords do not match', 'error');
-                return;
-            }
-            
-            const formData = {
-                email: document.getElementById('email').value,
-                first_name: document.getElementById('first-name').value,
-                last_name: document.getElementById('last-name').value,
-                password: password.value
-            };
-            
-            try {
-                await this.register(formData);
-                // Show success message and redirect after delay
-                this.showMessage('Registration successful! Redirecting to login...', 'success');
-                setTimeout(() => {
-                    window.location.href = '/login';
-                }, 2000);
-            } catch (error) {
-                this.showMessage(error.message || 'Registration failed. Please try again.', 'error');
-            }
-        });
+    getUserFromStorage() {
+        const userJSON = localStorage.getItem('currentUser') || sessionStorage.getItem('currentUser');
+        return userJSON ? JSON.parse(userJSON) : null;
     }
     
     // Login function
@@ -100,11 +25,9 @@ class AuthManager {
         try {
             const response = await fetch('/api/auth/login', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    email,
+                    email, 
                     password,
                     device_info: this.getDeviceInfo()
                 })
@@ -116,31 +39,15 @@ class AuthManager {
             }
             
             const data = await response.json();
-            this.token = data.token;
-            this.currentUser = data.user;
-            this.deviceId = data.device_id;
             
             // Store auth data
-            localStorage.setItem('authToken', this.token);
-            localStorage.setItem('currentUser', JSON.stringify(this.currentUser));
-            localStorage.setItem('deviceId', this.deviceId);
+            const storage = rememberMe ? localStorage : sessionStorage;
+            storage.setItem('authToken', data.token);
+            storage.setItem('currentUser', JSON.stringify(data.user));
+            storage.setItem('deviceId', data.device_id);
             
-            // Also set a cookie for server-side authentication
-            document.cookie = `auth_token=${this.token}; path=/; max-age=${rememberMe ? 86400*30 : 86400}`;
-            
-            // If not "remember me", set session storage instead of local storage
-            if (!rememberMe) {
-                sessionStorage.setItem('authToken', this.token);
-                sessionStorage.setItem('currentUser', JSON.stringify(this.currentUser));
-                sessionStorage.setItem('deviceId', this.deviceId);
-                
-                // Clear local storage
-                localStorage.removeItem('authToken');
-                localStorage.removeItem('currentUser');
-                localStorage.removeItem('deviceId');
-            }
-            
-            return this.currentUser;
+            this.refreshAuthState();
+            return data.user;
         } catch (error) {
             console.error('Login error:', error);
             throw error;
@@ -171,44 +78,32 @@ class AuthManager {
     }
     
     // Logout function
-    async logout() {
-        // Clear auth data
+    logout() {
+        // Clear client storage
         localStorage.removeItem('authToken');
         localStorage.removeItem('currentUser');
-        
         sessionStorage.removeItem('authToken');
         sessionStorage.removeItem('currentUser');
         
-        // Clear auth cookie
+        // Clear cookie (will be handled by server)
         document.cookie = 'auth_token=; path=/; max-age=0';
         
-        // Keep deviceId for possible reconnection
-        
+        // Clear state
         this.token = null;
         this.currentUser = null;
         
-        // Redirect to login page
+        // Redirect to login
         window.location.href = '/login';
     }
 
     // Returns current token from local storage or session storage
     getCurrentToken() {
-        return this.token || localStorage.getItem('authToken') || sessionStorage.getItem('authToken');
+        return this.token;
     }
 
     // Get current user
     getCurrentUser() {
-        if (this.currentUser) return this.currentUser;
-        
-        const userJSON = localStorage.getItem('currentUser') || sessionStorage.getItem('currentUser');
-        if (userJSON) {
-          try {
-            return JSON.parse(userJSON);
-          } catch (e) {
-            return null;
-          }
-        }
-        return null;
+        return this.currentUser;
       }
     
     // Get device info for device registration

@@ -1,15 +1,22 @@
-package utils
+// internal/auth/service.go
+package auth
 
 import (
 	"fmt"
 	"time"
 
 	"github.com/andevellicus/crapp/internal/config"
+	"github.com/andevellicus/crapp/internal/models"
+	"github.com/andevellicus/crapp/internal/repository"
 	"github.com/golang-jwt/jwt/v4"
+	"golang.org/x/crypto/bcrypt"
 )
 
-// Store config reference
-var jwtConfig *config.JWTConfig
+type AuthService struct {
+	repo      *repository.Repository
+	tokenTTL  time.Duration
+	secretKey string
+}
 
 // CustomClaims defines the claims in the JWT token
 type CustomClaims struct {
@@ -18,13 +25,59 @@ type CustomClaims struct {
 	jwt.RegisteredClaims
 }
 
+func NewAuthService(repo *repository.Repository, tokenTTL time.Duration, secretKey string) *AuthService {
+	return &AuthService{
+		repo:      repo,
+		tokenTTL:  tokenTTL,
+		secretKey: secretKey,
+	}
+}
+
+// Store config reference
+var jwtConfig *config.JWTConfig
+
 // InitJWT initializes JWT with config
 func InitJWT(cfg *config.JWTConfig) {
 	jwtConfig = cfg
 }
 
-// GenerateJWT generates a JWT token for a user
-func GenerateJWT(email string, isAdmin bool) (string, error) {
+// Authenticate validates credentials and returns user with session
+func (s *AuthService) Authenticate(email, password string, deviceInfo map[string]interface{}) (*models.User, *models.Device, string, error) {
+	// Get user
+	user, err := s.repo.GetUser(email)
+	if err != nil {
+		return nil, nil, "", err
+	}
+
+	// Verify password
+	err = bcrypt.CompareHashAndPassword(user.Password, []byte(password))
+	if err != nil {
+		return nil, nil, "", err
+	}
+
+	// Register device
+	device, err := s.repo.RegisterDevice(email, deviceInfo)
+	if err != nil {
+		return nil, nil, "", err
+	}
+
+	// Generate token
+	token, err := s.GenerateToken(email, user.IsAdmin)
+	if err != nil {
+		return nil, nil, "", err
+	}
+
+	// Update last login time
+	user.LastLogin = time.Now()
+	if err := s.repo.UpdateUser(user); err != nil {
+		return nil, nil, "", err
+	}
+
+	return user, device, token, nil
+}
+
+// GenerateToken creates a new JWT token
+func (s *AuthService) GenerateToken(email string, isAdmin bool) (string, error) {
 	if jwtConfig == nil {
 		return "", fmt.Errorf("JWT not initialized")
 	}
@@ -51,8 +104,8 @@ func GenerateJWT(email string, isAdmin bool) (string, error) {
 	return tokenString, err
 }
 
-// ValidateJWT validates a JWT token and returns the claims
-func ValidateJWT(tokenString string) (*CustomClaims, error) {
+// ValidateToken verifies a token and returns claims
+func (s *AuthService) ValidateToken(tokenString string) (*CustomClaims, error) {
 	if jwtConfig == nil {
 		return nil, fmt.Errorf("JWT not initialized")
 	}

@@ -4,13 +4,13 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/andevellicus/crapp/internal/utils"
+	"github.com/andevellicus/crapp/internal/auth"
 	"github.com/gin-gonic/gin"
 )
 
 // AuthRedirectMiddleware redirects logged out users to login page
 // This is useful for index page, where we want logged out users to be redirected
-func AuthRedirectMiddleware() gin.HandlerFunc {
+func AuthRedirectMiddleware(authService *auth.AuthService) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		// Check for auth token in cookie
 		token, err := c.Cookie("auth_token")
@@ -23,7 +23,7 @@ func AuthRedirectMiddleware() gin.HandlerFunc {
 		}
 
 		// Validate token
-		claims, err := utils.ValidateJWT(token)
+		claims, err := authService.ValidateToken(token)
 		if err != nil || claims == nil {
 			// Clear invalid token cookie
 			c.SetCookie("auth_token", "", -1, "/", "", false, true)
@@ -42,7 +42,7 @@ func AuthRedirectMiddleware() gin.HandlerFunc {
 }
 
 // AuthMiddleware verifies the JWT token in the Authorization header
-func AuthMiddleware() gin.HandlerFunc {
+func AuthMiddleware(authService *auth.AuthService) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var tokenString string
 
@@ -66,7 +66,7 @@ func AuthMiddleware() gin.HandlerFunc {
 		}
 
 		// Validate token
-		claims, err := utils.ValidateJWT(tokenString)
+		claims, err := authService.ValidateToken(tokenString)
 		if err != nil {
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid or expired token"})
 			c.Abort()

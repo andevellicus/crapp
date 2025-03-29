@@ -266,7 +266,7 @@ func (h *FormHandler) SubmitForm(c *gin.Context) {
 		calculatedMetrics := calculator.CalculateAllMetrics()
 
 		// Create proper metadata structure
-		metadata := map[string]interface{}{
+		metadata := map[string]any{
 			"interaction_metrics": calculatedMetrics,
 			"question_metrics":    calculatedMetrics["questionMetrics"],
 			"question_order":      questionOrder,

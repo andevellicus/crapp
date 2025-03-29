@@ -4,9 +4,9 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/andevellicus/crapp/internal/auth"
 	"github.com/andevellicus/crapp/internal/models"
 	"github.com/andevellicus/crapp/internal/repository"
-	"github.com/andevellicus/crapp/internal/utils"
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
 	"golang.org/x/crypto/bcrypt"
@@ -14,16 +14,9 @@ import (
 
 // AuthHandler handles authentication-related endpoints
 type AuthHandler struct {
-	repo *repository.Repository
-	log  *zap.SugaredLogger
-}
-
-// NewAuthHandler creates a new authentication handler
-func NewAuthHandler(repo *repository.Repository, log *zap.SugaredLogger) *AuthHandler {
-	return &AuthHandler{
-		repo: repo,
-		log:  log.Named("auth"),
-	}
+	repo        *repository.Repository
+	log         *zap.SugaredLogger
+	authService *auth.AuthService
 }
 
 // RegisterRequest represents a user registration request
@@ -32,6 +25,15 @@ type RegisterRequest struct {
 	Password  string `json:"password" binding:"required,min=8"`
 	FirstName string `json:"first_name"`
 	LastName  string `json:"last_name"`
+}
+
+// RegisterDeviceRequest represents a device registration request
+type RegisterDeviceRequest struct {
+	DeviceName string                 `json:"device_name"`
+	DeviceType string                 `json:"device_type"`
+	UserAgent  string                 `json:"user_agent"`
+	OS         string                 `json:"os"`
+	ScreenSize map[string]interface{} `json:"screen_size"`
 }
 
 // LoginRequest represents a user login request
@@ -46,6 +48,15 @@ type AuthResponse struct {
 	Token    string      `json:"token"`
 	User     models.User `json:"user"`
 	DeviceID string      `json:"device_id"`
+}
+
+// NewAuthHandler creates a new authentication handler
+func NewAuthHandler(repo *repository.Repository, log *zap.SugaredLogger, authService *auth.AuthService) *AuthHandler {
+	return &AuthHandler{
+		repo:        repo,
+		log:         log.Named("auth"),
+		authService: authService,
+	}
 }
 
 // Register handles user registration
@@ -98,7 +109,7 @@ func (h *AuthHandler) Register(c *gin.Context) {
 	}
 
 	// Register device and generate JWT
-	device, token := h.registerDeviceAndGenerateToken(c, user.Email, user.IsAdmin)
+	device, token := h.registerDeviceAndGenerateToken(c, h.authService, user.Email, user.IsAdmin)
 
 	// Return response
 	c.JSON(http.StatusCreated, AuthResponse{
@@ -111,39 +122,21 @@ func (h *AuthHandler) Register(c *gin.Context) {
 // Login handles user login
 func (h *AuthHandler) Login(c *gin.Context) {
 	var req LoginRequest
-
 	if err := c.ShouldBindJSON(&req); err != nil {
-		h.log.Warnw("Invalid login data", "error", err)
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid login data"})
 		return
 	}
 
-	// Get user from database
-	user, err := h.repo.GetUser(req.Email)
+	user, device, token, err := h.authService.Authenticate(req.Email, req.Password, req.DeviceInfo)
 	if err != nil {
-		h.log.Warnw("User not found", "email", req.Email)
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid email or password"})
 		return
 	}
 
-	// Check password
-	err = bcrypt.CompareHashAndPassword(user.Password, []byte(req.Password))
-	if err != nil {
-		h.log.Warnw("Invalid password", "email", req.Email)
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid email or password"})
-		return
-	}
+	// Set cookie for server-side auth
+	c.SetCookie("auth_token", token, 86400, "/", "", false, true)
 
-	// Update last login time
-	user.LastLogin = time.Now()
-	if err := h.repo.UpdateUser(user); err != nil {
-		h.log.Errorw("Error updating last login", "error", err)
-	}
-
-	// Register device and generate JWT
-	device, token := h.registerDeviceAndGenerateToken(c, user.Email, user.IsAdmin)
-
-	// Return response
+	// Return response for client-side handling
 	c.JSON(http.StatusOK, AuthResponse{
 		Token:    token,
 		User:     *user,
@@ -152,7 +145,7 @@ func (h *AuthHandler) Login(c *gin.Context) {
 }
 
 // Helper to register device and generate token
-func (h *AuthHandler) registerDeviceAndGenerateToken(c *gin.Context, email string, isAdmin bool) (*models.Device, string) {
+func (h *AuthHandler) registerDeviceAndGenerateToken(c *gin.Context, authService *auth.AuthService, email string, isAdmin bool) (*models.Device, string) {
 	// Extract device info
 	deviceInfo := extractDeviceInfo(c)
 
@@ -168,7 +161,7 @@ func (h *AuthHandler) registerDeviceAndGenerateToken(c *gin.Context, email strin
 	}
 
 	// Generate JWT token
-	token, err := utils.GenerateJWT(email, isAdmin)
+	token, err := authService.GenerateToken(email, isAdmin)
 	if err != nil {
 		h.log.Errorw("Error generating JWT", "error", err)
 		token = ""
@@ -187,15 +180,6 @@ func extractDeviceInfo(c *gin.Context) map[string]interface{} {
 	}
 
 	return deviceInfo
-}
-
-// RegisterDeviceRequest represents a device registration request
-type RegisterDeviceRequest struct {
-	DeviceName string                 `json:"device_name"`
-	DeviceType string                 `json:"device_type"`
-	UserAgent  string                 `json:"user_agent"`
-	OS         string                 `json:"os"`
-	ScreenSize map[string]interface{} `json:"screen_size"`
 }
 
 // RegisterDevice handles registration of a new device

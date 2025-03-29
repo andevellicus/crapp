@@ -4,7 +4,9 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"time"
 
+	"github.com/andevellicus/crapp/internal/auth"
 	"github.com/andevellicus/crapp/internal/config"
 	"github.com/andevellicus/crapp/internal/handlers"
 	"github.com/andevellicus/crapp/internal/logger"
@@ -61,7 +63,7 @@ func main() {
 	repo := repository.NewRepository(cfg, log, questionLoader)
 
 	// Initialize JWT -- MUST BE DONE BEFORE SETTING UP ROUTES AND MIDDLEWARE
-	utils.InitJWT(&cfg.JWT)
+	auth.InitJWT(&cfg.JWT)
 
 	// Create Gin router
 	router := gin.New()
@@ -75,8 +77,11 @@ func main() {
 	// Initialize handlers
 	apiHandler := handlers.NewAPIHandler(repo, log, questionLoader)
 	viewHandler := handlers.NewViewHandler("static")
+	// Create auth service
+	tokenTTL := time.Duration(cfg.JWT.Expires) * time.Hour
+	authService := auth.NewAuthService(repo, tokenTTL, cfg.JWT.Secret)
 	// Create auth handler
-	authHandler := handlers.NewAuthHandler(repo, log)
+	authHandler := handlers.NewAuthHandler(repo, log, authService)
 	// Create form handler
 	formHandler := handlers.NewFormHandler(repo, log, questionLoader)
 
@@ -85,11 +90,11 @@ func main() {
 	router.Use(middleware.GinLogger(log))
 
 	// View routes
-	router.GET("/", middleware.AuthRedirectMiddleware(), formHandler.ServeForm)
+	router.GET("/", middleware.AuthRedirectMiddleware(authService), formHandler.ServeForm)
 	router.GET("/login", viewHandler.ServeLogin)
 	router.GET("/register", viewHandler.ServeRegister)
-	router.GET("/profile", middleware.AuthMiddleware(), viewHandler.ServeProfile)
-	router.GET("/devices", middleware.AuthMiddleware(), viewHandler.ServeDevices)
+	router.GET("/profile", middleware.AuthMiddleware(authService), viewHandler.ServeProfile)
+	router.GET("/devices", middleware.AuthMiddleware(authService), viewHandler.ServeDevices)
 
 	// Auth API routes
 	auth := router.Group("/api/auth")
@@ -101,7 +106,7 @@ func main() {
 
 	// Protected API routes
 	api := router.Group("/api")
-	api.Use(middleware.AuthMiddleware())
+	api.Use(middleware.AuthMiddleware(authService))
 	{
 		// User routes
 		api.GET("/user", authHandler.GetCurrentUser)
@@ -123,7 +128,7 @@ func main() {
 	}
 
 	form := router.Group("/api/form")
-	form.Use(middleware.AuthMiddleware())
+	form.Use(middleware.AuthMiddleware(authService))
 	{
 		form.POST("/init", formHandler.InitForm)
 		form.GET("/state/:stateId", formHandler.GetCurrentQuestion)
@@ -133,7 +138,7 @@ func main() {
 
 	// Admin routes
 	admin := router.Group("/admin")
-	admin.Use(middleware.AuthMiddleware(), middleware.AdminMiddleware())
+	admin.Use(middleware.AuthMiddleware(authService), middleware.AdminMiddleware())
 	{
 		// Admin endpoints can be added here
 		admin.GET("/visualize", viewHandler.ServeVisualize)
