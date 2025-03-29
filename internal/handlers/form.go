@@ -10,6 +10,7 @@ import (
 	"github.com/andevellicus/crapp/internal/models"
 	"github.com/andevellicus/crapp/internal/repository"
 	"github.com/andevellicus/crapp/internal/utils"
+	"github.com/andevellicus/crapp/internal/validation"
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
 )
@@ -18,6 +19,7 @@ type FormHandler struct {
 	questionLoader *utils.QuestionLoader
 	repo           *repository.Repository
 	log            *zap.SugaredLogger
+	validator      *validation.FormValidator
 }
 
 func NewFormHandler(repo *repository.Repository, log *zap.SugaredLogger, questionLoader *utils.QuestionLoader) *FormHandler {
@@ -25,6 +27,7 @@ func NewFormHandler(repo *repository.Repository, log *zap.SugaredLogger, questio
 		questionLoader: questionLoader,
 		repo:           repo,
 		log:            log.Named("form"),
+		validator:      validation.NewFormValidator(questionLoader),
 	}
 }
 
@@ -186,6 +189,18 @@ func (h *FormHandler) SaveAnswer(c *gin.Context) {
 		return
 	}
 
+	// Validate answer (only if going forward)
+	if saveRequest.Direction == "next" {
+		errors := h.validator.ValidateAnswer(saveRequest.QuestionID, saveRequest.Answer)
+		if len(errors) > 0 {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"valid":  false,
+				"errors": errors,
+			})
+			return
+		}
+	}
+
 	// Save the answer
 	formState.Answers[saveRequest.QuestionID] = saveRequest.Answer
 
@@ -235,24 +250,11 @@ func (h *FormHandler) SubmitForm(c *gin.Context) {
 		return
 	}
 
-	// Validate all required questions are answered
-	questions := h.questionLoader.GetQuestions()
-	for _, questionIndex := range questionOrder {
-		// Check bounds
-		if questionIndex < 0 || questionIndex >= len(questions) {
-			continue
-		}
-
-		question := questions[questionIndex]
-		if question.Required {
-			if _, ok := formState.Answers[question.ID]; !ok {
-				c.JSON(http.StatusBadRequest, gin.H{
-					"error":       "Required questions not answered",
-					"question_id": question.ID,
-				})
-				return
-			}
-		}
+	// Validate all answers
+	validationResult := h.validator.ValidateForm(formState.Answers)
+	if !validationResult.Valid {
+		c.JSON(http.StatusBadRequest, validationResult)
+		return
 	}
 
 	// Process any metrics data

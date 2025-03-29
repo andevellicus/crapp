@@ -63,6 +63,26 @@ CRAPP.form = {
       this.showMessage('Failed to load question. Please try again.', 'error');
     }
   },
+
+  getQuestionAnswer: function(questionEl) {
+    // Find input element based on question type
+    const inputEl = questionEl.querySelector('input:checked') || 
+                   questionEl.querySelector('select') || 
+                   questionEl.querySelector('textarea');
+    
+    if (!inputEl) {
+        return null;
+    }
+    
+    // Get value based on input type
+    if (inputEl.type === 'radio') {
+        return inputEl.value;
+    } else if (inputEl.tagName === 'SELECT') {
+        return inputEl.value;
+    } else {
+        return inputEl.value;
+    }
+  },
   
   renderQuestion: function(data) {
     const formEl = document.getElementById('symptom-form');
@@ -102,8 +122,6 @@ CRAPP.form = {
     
     formEl.appendChild(navButtons);
   },
-
-  // Add these functions to your CRAPP.form object:
 
 renderRadioOptions: function(container, question, previousAnswer) {
     const optionsDiv = document.createElement('div');
@@ -278,107 +296,60 @@ renderRadioOptions: function(container, question, previousAnswer) {
   navigate: async function(direction) {
     // Get current question ID
     const questionEl = document.querySelector('[data-question-id]');
-    
-    // If there's no element with data-question-id (e.g., on submit screen)
     if (!questionEl) {
-      if (direction === 'prev') {
-        // If navigating backward from submit screen
-        this.loadCurrentQuestion();
-        return true;
-      }
-      return false;
+        // Handle no question element case
+        if (direction === 'prev') {
+            this.loadCurrentQuestion();
+            return true;
+        }
+        return false;
     }
   
     const questionId = questionEl.dataset.questionId;
     
     // Get answer based on question type
-    let answer = null;
-    
-    // Find input element based on question type
-    const inputEl = questionEl.querySelector('input:checked') || 
-                   questionEl.querySelector('select') || 
-                   questionEl.querySelector('textarea');
-    
-    if (!inputEl) {
-      // No input found - could be an empty form or invalid element
-      console.warn('No input element found for question', questionId);
-      
-      // If going backward, we don't need to validate
-      if (direction === 'prev') {
-        try {
-          // Just navigate without saving
-          const response = await fetch(`/api/form/state/${this.stateId}/answer`, {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${window.authManager.getCurrentToken()}`,
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-              question_id: questionId,
-              answer: null,
-              direction: direction
-            })
-          });
-          
-          if (!response.ok) throw new Error('Failed to navigate');
-          
-          // Load the next/previous question
-          this.loadCurrentQuestion();
-          return true;
-        } catch (error) {
-          console.error('Error navigating:', error);
-          return false;
-        }
-      }
-      
-      return false;
-    }
-    
-    // Get value based on input type
-    if (inputEl.type === 'radio') {
-      answer = inputEl.value;
-    } else if (inputEl.tagName === 'SELECT') {
-      answer = inputEl.value;
-    } else {
-      answer = inputEl.value;
-    }
-    
-    // If going forward, validate
-    if (direction === 'next') {
-      const isRequired = questionEl.classList.contains('required-question');
-      if (isRequired && !answer) {
-        this.showValidationMessage(questionEl, 'Please answer this question before continuing.');
-        return false;
-      }
-    }
+    let answer = this.getQuestionAnswer(questionEl);
     
     try {
-      // Save answer and navigate
-      const response = await fetch(`/api/form/state/${this.stateId}/answer`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${window.authManager.getCurrentToken()}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          question_id: questionId,
-          answer: answer,
-          direction: direction
-        })
-      });
-      
-      if (!response.ok) throw new Error('Failed to save answer');
-      
-      // Load the next/previous question
-      this.loadCurrentQuestion();
-      return true;
-      
+        // Send answer to server
+        const response = await fetch(`/api/form/state/${this.stateId}/answer`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${window.authManager.getCurrentToken()}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                question_id: questionId,
+                answer: answer,
+                direction: direction
+            })
+        });
+        
+        const data = await response.json();
+        
+        // Handle validation errors
+        if (!response.ok) {
+            if (data.errors && data.errors.length > 0) {
+                // Display validation errors
+                data.errors.forEach(error => {
+                    this.showValidationMessage(questionEl, error.message);
+                });
+            } else {
+                this.showMessage('Failed to save your answer. Please try again.', 'error');
+            }
+            return false;
+        }
+        
+        // Load the next/previous question
+        this.loadCurrentQuestion();
+        return true;
+        
     } catch (error) {
-      console.error('Error navigating:', error);
-      this.showMessage('Failed to save your answer. Please try again.', 'error');
-      return false;
+        console.error('Error navigating:', error);
+        this.showMessage('Failed to save your answer. Please try again.', 'error');
+        return false;
     }
-  },
+},
   
   submitForm: async function() {
     try {
@@ -445,8 +416,27 @@ renderRadioOptions: function(container, question, previousAnswer) {
     msgEl.textContent = message;
     msgEl.style.display = 'block';
     container.classList.add('highlight-required');
+  },
+
+  showValidationErrors: function(errors) {
+    if (!errors || errors.length === 0) return;
+    
+    errors.forEach(error => {
+        const questionEl = document.querySelector(`[data-question-id="${error.field}"]`);
+        if (questionEl) {
+            this.showValidationMessage(questionEl, error.message);
+        }
+    });
+    
+    // Scroll to first error
+    const firstErrorEl = document.querySelector(`[data-question-id="${errors[0].field}"]`);
+    if (firstErrorEl) {
+        firstErrorEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
   }
 };
+
+
 
 // Initialize on page load
 document.addEventListener('DOMContentLoaded', function() {
