@@ -65,6 +65,6 @@ type PushSubscriptionRequest struct {
 
 // For the UpdatePreferences endpoint
 type PushPreferencesRequest struct {
-	Enabled       bool     `json:"enabled" validate:"required"`
+	Enabled       bool     `json:"enabled"`
 	ReminderTimes []string `json:"reminder_times" validate:"required,dive,datetime=15:04"`
 }
