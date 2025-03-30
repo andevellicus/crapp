@@ -3,13 +3,13 @@ package scheduler
 
 import (
 	"fmt"
-	"log"
 	"sync"
 	"time"
 
 	"github.com/andevellicus/crapp/internal/config"
 	"github.com/andevellicus/crapp/internal/push"
 	"github.com/andevellicus/crapp/internal/repository"
+	"go.uber.org/zap"
 )
 
 // ReminderScheduler handles scheduling of reminders
@@ -17,15 +17,17 @@ type ReminderScheduler struct {
 	pushService *push.PushService
 	config      *config.Config
 	repo        *repository.Repository
+	log         *zap.SugaredLogger
 	jobs        map[string]*time.Timer
 	mutex       sync.Mutex
 }
 
 // NewReminderScheduler creates a new reminder scheduler
-func NewReminderScheduler(repo *repository.Repository, config *config.Config, pushService *push.PushService) *ReminderScheduler {
+func NewReminderScheduler(repo *repository.Repository, log *zap.SugaredLogger, config *config.Config, pushService *push.PushService) *ReminderScheduler {
 	return &ReminderScheduler{
 		pushService: pushService,
 		repo:        repo,
+		log:         log.Named("sched"),
 		config:      config,
 		jobs:        make(map[string]*time.Timer),
 		mutex:       sync.Mutex{},
@@ -37,7 +39,7 @@ func (s *ReminderScheduler) Start() error {
 	// Get all unique user-defined reminder times
 	userTimes, err := s.repo.GetAllUniqueReminderTimes()
 	if err != nil {
-		log.Printf("Error getting user reminder times: %v", err)
+		s.log.Errorw("Error getting user reminder times", "error", err)
 		// Fall back to config times if there's an error
 		userTimes = s.config.Reminders.Times
 	}
@@ -63,8 +65,7 @@ func (s *ReminderScheduler) Start() error {
 		}
 		timeIndex++
 	}
-
-	log.Printf("Scheduled %d reminders", len(allTimes))
+	s.log.Infof("Scheduled %d reminders", len(allTimes))
 	return nil
 }
 
@@ -78,7 +79,7 @@ func (s *ReminderScheduler) Stop() {
 		delete(s.jobs, key)
 	}
 
-	log.Println("Stopped all reminders")
+	s.log.Info("Stopped all reminders")
 }
 
 // UpdateSchedules refreshes all scheduled reminders
@@ -132,18 +133,19 @@ func (s *ReminderScheduler) scheduleReminderDaily(timeStr string, reminderIndex 
 	timer := time.AfterFunc(duration, func() {
 		// Send reminder using the time string instead of index
 		if err := s.pushService.SendReminderToAllEligibleUsers(timeStr); err != nil {
-			log.Printf("Error sending reminder: %v", err)
+			s.log.Errorw("Error sending reminder", "error", err)
 		}
 
 		// Reschedule for tomorrow
 		if err := s.scheduleReminderDaily(timeStr, reminderIndex); err != nil {
-			log.Printf("Error rescheduling reminder: %v", err)
+			s.log.Errorw("Error rescheduling reminder", "error", err)
+
 		}
 	})
 
 	// Store timer
 	s.jobs[key] = timer
 
-	log.Printf("Scheduled reminder for %s (in %v)", timeStr, duration)
+	s.log.Infof("Scheduled reminder for %s (in %v)", timeStr, duration)
 	return nil
 }

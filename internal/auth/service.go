@@ -35,16 +35,6 @@ func NewAuthService(repo *repository.Repository, cfg *config.JWTConfig) *AuthSer
 	}
 }
 
-/*
-// Store config reference
-var jwtConfig *config.JWTConfig
-
-// InitJWT initializes JWT with config
-func InitJWT(cfg *config.JWTConfig) {
-	jwtConfig = cfg
-}
-*/
-
 // Authenticate validates credentials and returns user with session
 func (s *AuthService) Authenticate(email, password string, deviceInfo map[string]interface{}) (*models.User, *models.Device, string, error) {
 	// Get user

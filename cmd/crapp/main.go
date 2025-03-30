@@ -75,7 +75,7 @@ func main() {
 	// Initialize push service
 	pushService := push.NewPushService(repo, vapidPublic, vapidPrivate)
 	// Initialize the reminder scheduler
-	reminderScheduler := scheduler.NewReminderScheduler(repo, cfg, pushService)
+	reminderScheduler := scheduler.NewReminderScheduler(repo, log, cfg, pushService)
 
 	// Create Gin router
 	router := gin.New()

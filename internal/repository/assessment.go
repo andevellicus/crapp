@@ -11,9 +11,16 @@ import (
 
 // CreateAssessment creates a new assessment with structured data
 func (r *Repository) CreateAssessment(assessment *models.AssessmentSubmission) (uint, error) {
+	log := r.log.With(
+		"operation", "CreateAssessment",
+		"userEmail", assessment.UserEmail,
+		"deviceID", assessment.DeviceID,
+	)
+
 	// Check if user exists
 	exists, err := r.UserExists(assessment.UserEmail)
 	if err != nil || !exists {
+		log.Errorw("Failed to check user existence", "error", err)
 		return 0, fmt.Errorf("error checking user: %w", err)
 	}
 
@@ -21,6 +28,7 @@ func (r *Repository) CreateAssessment(assessment *models.AssessmentSubmission) (
 	var device models.Device
 	result := r.db.Where("id = ? AND user_email = ?", assessment.DeviceID, assessment.UserEmail).First(&device)
 	if result.Error != nil {
+		log.Errorw("Failed to device", "error", err)
 		return 0, fmt.Errorf("device not found or doesn't belong to user: %w", result.Error)
 	}
 
