@@ -2,9 +2,11 @@
 package repository
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/andevellicus/crapp/internal/models"
+	"github.com/google/uuid"
 )
 
 // SaveRefreshToken stores a refresh token in the database
@@ -97,4 +99,56 @@ func (r *Repository) CleanupExpiredTokens() error {
 	}
 
 	return nil
+}
+
+// CreatePasswordResetToken creates a new password reset token
+func (r *Repository) CreatePasswordResetToken(userEmail string, expiresInMinutes int) (*models.PasswordResetToken, error) {
+	// Check if user exists
+	if _, err := r.GetUser(userEmail); err != nil {
+		return nil, fmt.Errorf("user not found: %w", err)
+	}
+
+	// Generate a new token
+	tokenStr := uuid.New().String()
+
+	// Expire old tokens for this user
+	if err := r.db.Model(&models.PasswordResetToken{}).
+		Where("user_email = ? AND used_at IS NULL", userEmail).
+		Update("used_at", time.Now()).Error; err != nil {
+		r.log.Warnw("Failed to expire old password reset tokens", "error", err)
+	}
+
+	// Create new token
+	token := &models.PasswordResetToken{
+		Token:     tokenStr,
+		UserEmail: userEmail,
+		ExpiresAt: time.Now().Add(time.Duration(expiresInMinutes) * time.Minute),
+		CreatedAt: time.Now(),
+	}
+
+	if err := r.db.Create(token).Error; err != nil {
+		return nil, err
+	}
+
+	return token, nil
+}
+
+// ValidatePasswordResetToken validates a password reset token
+func (r *Repository) ValidatePasswordResetToken(tokenStr string) (*models.PasswordResetToken, error) {
+	var token models.PasswordResetToken
+
+	err := r.db.Where("token = ? AND used_at IS NULL AND expires_at > ?", tokenStr, time.Now()).First(&token).Error
+	if err != nil {
+		return nil, err
+	}
+
+	return &token, nil
+}
+
+// MarkTokenAsUsed marks a password reset token as used
+func (r *Repository) MarkTokenAsUsed(tokenStr string) error {
+	now := time.Now()
+	return r.db.Model(&models.PasswordResetToken{}).
+		Where("token = ?", tokenStr).
+		Update("used_at", &now).Error
 }

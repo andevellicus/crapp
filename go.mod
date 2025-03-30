@@ -5,6 +5,7 @@ go 1.24.1
 require (
 	github.com/SherClockHolmes/webpush-go v1.4.0
 	github.com/gin-gonic/gin v1.9.1
+	github.com/go-mail/mail v2.3.1+incompatible
 	github.com/go-playground/validator/v10 v10.14.0
 	github.com/golang-jwt/jwt/v4 v4.5.2
 	github.com/google/uuid v1.6.0
@@ -54,4 +55,6 @@ require (
 	golang.org/x/sys v0.29.0 // indirect
 	golang.org/x/text v0.21.0 // indirect
 	google.golang.org/protobuf v1.36.1 // indirect
+	gopkg.in/alexcesaro/quotedprintable.v3 v3.0.0-20150716171945-2caba252f4dc // indirect
+	gopkg.in/mail.v2 v2.3.1 // indirect
 )

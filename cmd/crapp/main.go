@@ -9,6 +9,7 @@ import (
 
 	"github.com/andevellicus/crapp/internal/auth"
 	"github.com/andevellicus/crapp/internal/config"
+	"github.com/andevellicus/crapp/internal/email"
 	"github.com/andevellicus/crapp/internal/handlers"
 	"github.com/andevellicus/crapp/internal/logger"
 	"github.com/andevellicus/crapp/internal/middleware"
@@ -73,10 +74,18 @@ func main() {
 	vapidPublic := cfg.PWA.VAPIDPublicKey
 	vapidPrivate := cfg.PWA.VAPIDPrivateKey
 
+	// Initialize email service if enabled
+	var emailService *email.EmailService
+	if cfg.Email.Enabled {
+		emailService = email.NewEmailService(&cfg.Email, log)
+		log.Infow("Email service initialized", "host", cfg.Email.SMTPHost)
+	} else {
+		log.Infow("Email service disabled")
+	}
 	// Initialize push service
 	pushService := push.NewPushService(repo, vapidPublic, vapidPrivate)
 	// Initialize the reminder scheduler
-	reminderScheduler := scheduler.NewReminderScheduler(repo, log, cfg, pushService)
+	reminderScheduler := scheduler.NewReminderScheduler(repo, log, cfg, pushService, emailService)
 
 	// Create Gin router
 	router := gin.New()
@@ -102,6 +111,13 @@ func main() {
 	router.Use(gin.Recovery())
 	router.Use(middleware.GinLogger(log))
 	router.Use(middleware.SecurityHeadersMiddleware())
+	// Add email service middleware to make it available in handlers
+	router.Use(func(c *gin.Context) {
+		if emailService != nil {
+			c.Set("emailService", emailService)
+		}
+		c.Next()
+	})
 
 	// Add BEFORE other routes
 	router.GET("/service-worker.js", func(c *gin.Context) {
@@ -125,6 +141,8 @@ func main() {
 	router.GET("/register", viewHandler.ServeRegister)
 	router.GET("/profile", middleware.AuthMiddleware(authService), viewHandler.ServeProfile)
 	router.GET("/devices", middleware.AuthMiddleware(authService), viewHandler.ServeDevices)
+	router.GET("/forgot-password", viewHandler.ServeForgotPassword)
+	router.GET("/reset-password", viewHandler.ServeResetPassword)
 
 	// Auth API routes
 	auth := router.Group("/api/auth")
@@ -134,7 +152,10 @@ func main() {
 		auth.POST("/login", middleware.ValidateRequest(validation.LoginRequest{}), authHandler.Login)
 		auth.POST("/refresh", middleware.ValidateRequest(validation.RefreshTokenRequest{}), authHandler.RefreshToken)
 		auth.POST("/logout", middleware.AuthMiddleware(authService), authHandler.Logout)
-		// Password reset endpoints could be added here
+		// Password reset API endpoints
+		auth.POST("/forgot-password", middleware.ValidateRequest(validation.ForgotPasswordRequest{}), authHandler.ForgotPassword)
+		auth.GET("/validate-reset-token", authHandler.ValidateResetToken)
+		auth.POST("/reset-password", middleware.ValidateRequest(validation.ResetPasswordRequest{}), authHandler.ResetPassword)
 	}
 
 	// Protected API routes
@@ -176,7 +197,7 @@ func main() {
 		pushRoutes.GET("/vapid-public-key", pushHandler.GetVAPIDPublicKey)
 		pushRoutes.POST("/subscribe", middleware.ValidateRequest(validation.PushSubscriptionRequest{}), pushHandler.SubscribeUser)
 		pushRoutes.GET("/preferences", pushHandler.GetPreferences)
-		pushRoutes.PUT("/preferences", middleware.ValidateRequest(validation.PushPreferencesRequest{}), pushHandler.UpdatePreferences)
+		pushRoutes.PUT("/preferences", middleware.ValidateRequest(validation.NotificationPreferencesRequest{}), pushHandler.UpdatePreferences)
 	}
 
 	// Admin routes
@@ -194,6 +215,17 @@ func main() {
 		log.Warnw("Failed to start reminder scheduler", "error", err)
 	} else {
 		log.Infow("Reminder scheduler started successfully")
+
+		// Log status of notification channels
+		if pushService != nil {
+			log.Infow("Push notifications enabled")
+		}
+
+		if emailService != nil {
+			log.Infow("Email notifications enabled",
+				"smtp_host", cfg.Email.SMTPHost,
+				"from_email", cfg.Email.FromEmail)
+		}
 	}
 
 	// Add token cleanup scheduler

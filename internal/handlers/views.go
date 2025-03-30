@@ -79,6 +79,22 @@ func (h *GinViewHandler) ServeVisualize(c *gin.Context) {
 	})
 }
 
+// ServeForgotPassword serves the forgot password page
+func (h *GinViewHandler) ServeForgotPassword(c *gin.Context) {
+	c.HTML(http.StatusOK, "forgot_password.html", gin.H{
+		"title":       "Forgot Password - CRAPP",
+		"includeAuth": true,
+	})
+}
+
+// ServeResetPassword serves the reset password page
+func (h *GinViewHandler) ServeResetPassword(c *gin.Context) {
+	c.HTML(http.StatusOK, "reset_password.html", gin.H{
+		"title":       "Reset Password - CRAPP",
+		"includeAuth": true,
+	})
+}
+
 // setupTemplates initializes templates with custom functions
 func SetupTemplates() *template.Template {
 	// Define custom template functions

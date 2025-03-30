@@ -67,7 +67,7 @@ func (h *PushHandler) SubscribeUser(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"success": true})
 }
 
-// UpdatePreferences updates a user's push notification preferences
+// UpdatePreferences updates a user's notification preferences
 func (h *PushHandler) UpdatePreferences(c *gin.Context) {
 	userEmail, exists := c.Get("userEmail")
 	if !exists {
@@ -76,16 +76,17 @@ func (h *PushHandler) UpdatePreferences(c *gin.Context) {
 	}
 
 	// Get validated preferences
-	prefs := c.MustGet("validatedRequest").(*validation.PushPreferencesRequest)
+	prefs := c.MustGet("validatedRequest").(*validation.NotificationPreferencesRequest)
 
 	// Convert to repository model
-	preferences := repository.UserPushPreferences{
-		Enabled:       prefs.Enabled,
+	preferences := repository.UserNotificationPreferences{
+		PushEnabled:   prefs.PushEnabled,
+		EmailEnabled:  prefs.EmailEnabled,
 		ReminderTimes: prefs.ReminderTimes,
 	}
 
 	// Save preferences
-	if err := h.repo.SavePushPreferences(userEmail.(string), &preferences); err != nil {
+	if err := h.repo.SaveNotificationPreferences(userEmail.(string), &preferences); err != nil {
 		h.log.Errorw("Failed to save preferences", "error", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save preferences"})
 		return
@@ -109,13 +110,17 @@ func (h *PushHandler) GetPreferences(c *gin.Context) {
 		return
 	}
 
-	// Get preferences
-	preferences, err := h.repo.GetPushPreferences(userEmail.(string))
+	// Get preferences using the new method
+	preferences, err := h.repo.GetNotificationPreferences(userEmail.(string))
 	if err != nil {
 		h.log.Errorw("Failed to get preferences", "error", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get preferences"})
 		return
 	}
 
-	c.JSON(http.StatusOK, preferences)
+	c.JSON(http.StatusOK, gin.H{
+		"push_enabled":   preferences.PushEnabled,
+		"email_enabled":  preferences.EmailEnabled,
+		"reminder_times": preferences.ReminderTimes,
+	})
 }

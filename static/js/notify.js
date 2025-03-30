@@ -1,4 +1,4 @@
-// static/js/push.js
+// static/js/notify.js
 
 // Push notification handling
 window.CRAPP = window.CRAPP || {};
@@ -15,14 +15,20 @@ CRAPP.pushNotifications = {
             // More lenient check for notification support
             if (!window.Notification) {
                 console.warn('Notifications API not supported');
-                this.showNotSupportedMessage("Notifications are not supported in your browser.");
+                this.showNotSupportedMessage("Push notifications are not supported in your browser.");
+                // Still load preferences for email notifications
+                await this.loadPreferences();
+                this.initUI(false);
                 return false;
             }
             
             // Check for service worker support with more detail
             if (!navigator.serviceWorker) {
                 console.warn('Service Workers not supported');
-                this.showNotSupportedMessage("Service Workers are not supported in your browser.");
+                this.showNotSupportedMessage("Push notifications are not supported in your browser.");
+                // Still load preferences for email notifications
+                await this.loadPreferences();
+                this.initUI(false);
                 return false;
             }
                        
@@ -30,6 +36,9 @@ CRAPP.pushNotifications = {
             if (!('PushManager' in window)) {
                 console.warn('Push Manager not supported');
                 this.showNotSupportedMessage("Push notifications are not supported in your browser.");
+                // Still load preferences for email notifications
+                await this.loadPreferences();
+                this.initUI(false);
                 return false;
             }
             
@@ -38,7 +47,7 @@ CRAPP.pushNotifications = {
             await this.loadPreferences();
             
             // Initialize UI
-            this.initUI();
+            this.initUI(true);
             
             // Check notification permission
             this.checkPermission();
@@ -73,18 +82,34 @@ CRAPP.pushNotifications = {
     // Load user preferences
     loadPreferences: async function() {
         try {
-            const response = await window.authManager.fetchWithAuth('/api/push/preferences')
+            const response = await window.authManager.fetchWithAuth('/api/push/preferences');
                         
             if (!response.ok) {
                 throw new Error('Failed to load preferences');
             }
             
             this.preferences = await response.json();
+            
+            // Make sure preferences has all needed properties
+            if (!this.preferences) {
+                this.preferences = {};
+            }
+            
+            if (!this.preferences.reminder_times || !Array.isArray(this.preferences.reminder_times)) {
+                this.preferences.reminder_times = ['20:00']; // Default 8 PM
+            }
+            
+            // Add email_enabled if not present
+            if (this.preferences.email_enabled === undefined) {
+                this.preferences.email_enabled = false;
+            }
+            
         } catch (error) {
             console.error('Error loading preferences:', error);
             // Set default preferences
             this.preferences = {
                 enabled: false,
+                email_enabled: false,
                 reminder_times: ['20:00'] // Default 8 PM
             };
         }
@@ -93,6 +118,15 @@ CRAPP.pushNotifications = {
     // Save user preferences
     savePreferences: async function() {
         try {           
+            // Make sure we have a valid preferences object
+            if (!this.preferences) {
+                this.preferences = {
+                    enabled: false,
+                    email_enabled: false,
+                    reminder_times: ['20:00']
+                };
+            }
+            
             const response = await window.authManager.fetchWithAuth('/api/push/preferences', {
                 method: 'PUT',
                 headers: {
@@ -105,6 +139,8 @@ CRAPP.pushNotifications = {
                 console.error('Failed to save preferences:', response.status);
                 throw new Error('Failed to save preferences');
             }
+            
+            console.log('Preferences saved successfully', this.preferences);
             return true;
         } catch (error) {
             console.error('Error saving preferences:', error);
@@ -231,73 +267,131 @@ CRAPP.pushNotifications = {
     },
     
     // Initialize UI
-    initUI: function() {
+    // Initialize UI
+    initUI: function(pushSupported) {
         const enableNotificationsCheckbox = document.getElementById('enable-notifications');
+        const enableEmailCheckbox = document.getElementById('enable-email-notifications');
         const notificationSettings = document.getElementById('notification-settings');
         const addReminderTimeButton = document.getElementById('add-reminder-time');
         
-        if (!enableNotificationsCheckbox) return; // Not on profile page
+        // Disable push notification checkbox if not supported
+        if (!pushSupported && enableNotificationsCheckbox) {
+            enableNotificationsCheckbox.disabled = true;
+            enableNotificationsCheckbox.checked = false;
+            const label = document.querySelector('label[for="enable-notifications"]');
+            if (label) {
+                label.style.color = '#999';
+            }
+        }
+        
+        // If no notification checkboxes exist, we're not on the profile page
+        if (!enableNotificationsCheckbox && !enableEmailCheckbox) {
+            return;
+        }
         
         // Set initial state from preferences
-        enableNotificationsCheckbox.checked = this.preferences && this.preferences.enabled;
+        if (enableNotificationsCheckbox) {
+            enableNotificationsCheckbox.checked = this.preferences && this.preferences.enabled;
+        }
+        
+        if (enableEmailCheckbox) {
+            enableEmailCheckbox.checked = this.preferences && this.preferences.email_enabled;
+        }
 
-        // Make sure to show/hide the settings based on checkbox state
+        // Make sure to show/hide the settings based on whether any notification is enabled
         if (notificationSettings) {
-            notificationSettings.style.display = this.preferences && this.preferences.enabled ? 'block' : 'none';
+            const anyNotificationEnabled = 
+                (enableNotificationsCheckbox && enableNotificationsCheckbox.checked) || 
+                (enableEmailCheckbox && enableEmailCheckbox.checked);
+                
+            notificationSettings.style.display = anyNotificationEnabled ? 'block' : 'none';
         }
         
         // Render reminder times
         this.renderReminderTimes();
         
-        // Add checkbox event listener (with safeguard against duplicates)
-        if (!enableNotificationsCheckbox.hasAttribute('data-initialized')) {
+        // Add push notification checkbox event listener (with safeguard against duplicates)
+        if (enableNotificationsCheckbox && !enableNotificationsCheckbox.hasAttribute('data-initialized')) {
             enableNotificationsCheckbox.setAttribute('data-initialized', 'true');
             
-        // Update the checkbox handler in initUI
-        enableNotificationsCheckbox.addEventListener('change', async (e) => {
-            const enabled = e.target.checked;
-            
-            // Update preferences structure regardless of permission status
-            if (!this.preferences) this.preferences = {};
-            if (!this.preferences.reminder_times || !Array.isArray(this.preferences.reminder_times)) {
-                this.preferences.reminder_times = ['20:00']; // Default 8 PM
-            }
-            
-            if (enabled) {
-                // Request permission when user enables notifications
-                const permissionGranted = await this.requestPermission();
+            enableNotificationsCheckbox.addEventListener('change', async (e) => {
+                const enabled = e.target.checked;
                 
-                // If permission was denied or subscription failed
-                if (!permissionGranted) {
-                    console.warn('Permission denied or subscription failed');
-                    e.target.checked = false;
-                    this.preferences.enabled = false;
-                    if (notificationSettings) {
-                        notificationSettings.style.display = 'none';
-                    }
-                    return;
+                // Update preferences structure regardless of permission status
+                if (!this.preferences) this.preferences = {};
+                if (!this.preferences.reminder_times || !Array.isArray(this.preferences.reminder_times)) {
+                    this.preferences.reminder_times = ['20:00']; // Default 8 PM
                 }
                 
-                // Permission granted and subscription succeeded
-                this.preferences.enabled = true;
-            } else {
-                // User unchecked the box
-                this.preferences.enabled = false;
-            }
+                if (enabled) {
+                    // Request permission when user enables notifications
+                    const permissionGranted = await this.requestPermission();
+                    
+                    // If permission was denied or subscription failed
+                    if (!permissionGranted) {
+                        console.warn('Permission denied or subscription failed');
+                        e.target.checked = false;
+                        this.preferences.enabled = false;
+                    } else {
+                        // Permission granted and subscription succeeded
+                        this.preferences.enabled = true;
+                    }
+                } else {
+                    // User unchecked the box
+                    this.preferences.enabled = false;
+                }
+                
+                // Always update UI visibility
+                if (notificationSettings) {
+                    const anyNotificationEnabled = 
+                        (enableNotificationsCheckbox && enableNotificationsCheckbox.checked) || 
+                        (enableEmailCheckbox && enableEmailCheckbox.checked);
+                        
+                    notificationSettings.style.display = anyNotificationEnabled ? 'block' : 'none';
+                }
+                
+                // Always render time entries if settings are visible
+                if (this.preferences.enabled || this.preferences.email_enabled) {
+                    this.renderReminderTimes();
+                }
+                
+                // Save preferences
+                await this.savePreferences();
+            });
+        }
+        
+        // Add email notification checkbox event listener
+        if (enableEmailCheckbox && !enableEmailCheckbox.hasAttribute('data-initialized')) {
+            enableEmailCheckbox.setAttribute('data-initialized', 'true');
             
-            // Always update UI visibility
-            if (notificationSettings) {
-                notificationSettings.style.display = this.preferences.enabled ? 'block' : 'none';
-            }
-            
-            // Always render time entries if settings are visible
-            if (this.preferences.enabled) {
-                this.renderReminderTimes();
-            }
-            
-            // Save preferences
-            await this.savePreferences();
-        });
+            enableEmailCheckbox.addEventListener('change', async (e) => {
+                const enabled = e.target.checked;
+                
+                // Update preferences
+                if (!this.preferences) this.preferences = {};
+                if (!this.preferences.reminder_times || !Array.isArray(this.preferences.reminder_times)) {
+                    this.preferences.reminder_times = ['20:00']; // Default 8 PM
+                }
+                
+                this.preferences.email_enabled = enabled;
+                
+                // Update UI visibility
+                if (notificationSettings) {
+                    const anyNotificationEnabled = 
+                        (enableNotificationsCheckbox && enableNotificationsCheckbox.checked) || 
+                        (enableEmailCheckbox && enableEmailCheckbox.checked);
+                        
+                    notificationSettings.style.display = anyNotificationEnabled ? 'block' : 'none';
+                }
+                
+                // Always render time entries if settings are visible
+                if (this.preferences.enabled || this.preferences.email_enabled) {
+                    this.renderReminderTimes();
+                }
+                
+                // Save preferences
+                await this.savePreferences();
+            });
         }
         
         // Add reminder time button (with safeguard against duplicates)
@@ -361,14 +455,27 @@ CRAPP.pushNotifications = {
             deleteButton.type = 'button';
             deleteButton.className = 'remove-time-btn';
             deleteButton.textContent = 'Remove';
-            deleteButton.style.color = '#e53e3e';
-            deleteButton.style.border = '1px solid #e53e3e';
-            deleteButton.style.background = 'white';
             deleteButton.style.padding = '4px 8px';
             deleteButton.style.borderRadius = '4px';
             deleteButton.style.cursor = 'pointer';
+            deleteButton.style.border = '1px solid #e53e3e';
+            deleteButton.style.color = '#e53e3e';
+            deleteButton.style.background = 'white';
+
+            // Prevent removing last item
+            if (this.preferences.reminder_times.length <= 1) {
+                deleteButton.disabled = true;
+                deleteButton.style.opacity = '0.5';
+                deleteButton.style.cursor = 'not-allowed';
+                deleteButton.title = 'At least one reminder time is required';
+            }
             
             deleteButton.addEventListener('click', () => {
+                // Prevent removing last item
+                if (this.preferences.reminder_times.length <= 1) {
+                    return;
+                }
+
                 this.preferences.reminder_times.splice(index, 1);
                 this.renderReminderTimes();
                 this.savePreferences();
@@ -387,17 +494,11 @@ CRAPP.pushNotifications = {
             return; // Don't add another error message
         }
         
-        // Remove checkbox functionalities
+        // Disable push notification checkbox
         const checkbox = document.getElementById('enable-notifications');
         if (checkbox) {
             checkbox.disabled = true;
             checkbox.checked = false;
-        }
-        
-        // Hide settings
-        const container = document.getElementById('notification-settings');
-        if (container) {
-            container.style.display = 'none';
         }
         
         // Show single error message
@@ -413,23 +514,56 @@ CRAPP.pushNotifications = {
         if (label && label.parentNode) {
             label.parentNode.insertBefore(errorDiv, label.nextSibling);
         }
+        
+        // Add note that email notifications are still available
+        const noteDiv = document.createElement('div');
+        noteDiv.className = 'notification-note';
+        noteDiv.style.marginTop = '10px';
+        noteDiv.style.color = '#2f855a';
+        noteDiv.textContent = 'However, you can still use email notifications.';
+        
+        // Check if email checkbox exists before adding note
+        const emailCheckbox = document.getElementById('enable-email-notifications');
+        if (emailCheckbox && errorDiv.parentNode) {
+            errorDiv.parentNode.insertBefore(noteDiv, errorDiv.nextSibling);
+        }
     },
     
     // Show message if notifications permission is denied
     showPermissionDeniedMessage: function() {
-        const container = document.getElementById('notification-settings');
-        if (!container) return;
-        
         // Check if message already exists
         if (document.querySelector('.permission-denied-message')) return;
         
-        const message = document.createElement('div');
-        message.className = 'permission-denied-message';
-        message.innerHTML = 'Notification permission is denied. Please enable notifications in your browser settings to receive reminders.';
-        message.style.color = '#e53e3e';
-        message.style.marginTop = '10px';
-        
-        container.parentNode.insertBefore(message, container);
+        const pushCheckbox = document.getElementById('enable-notifications');
+        if (pushCheckbox) {
+            pushCheckbox.checked = false;
+            
+            // Create and insert message
+            const message = document.createElement('div');
+            message.className = 'permission-denied-message';
+            message.innerHTML = 'Notification permission is denied. Please enable notifications in your browser settings to receive push notifications.';
+            message.style.color = '#e53e3e';
+            message.style.marginTop = '10px';
+            
+            // Insert after checkbox
+            const container = pushCheckbox.closest('.notification-group');
+            if (container) {
+                container.appendChild(message);
+            }
+            
+            // Add note that email notifications are still available
+            const noteDiv = document.createElement('div');
+            noteDiv.className = 'notification-note';
+            noteDiv.style.marginTop = '5px';
+            noteDiv.style.color = '#2f855a';
+            noteDiv.textContent = 'You can still use email notifications.';
+            
+            // Check if email checkbox exists before adding note
+            const emailCheckbox = document.getElementById('enable-email-notifications');
+            if (emailCheckbox && message.parentNode) {
+                message.parentNode.insertBefore(noteDiv, message.nextSibling);
+            }
+        }
     },
     
     // Utility: Convert base64 to Uint8Array for VAPID key

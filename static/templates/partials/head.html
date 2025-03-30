@@ -10,7 +10,6 @@
 {{ if .includeProfile }}<link rel="stylesheet" href="/static/css/profile.css">{{ end }}
 {{ if .includeAdmin }}<link rel="stylesheet" href="/static/css/admin.css">{{ end }}
 {{ if .includeViz }}<link rel="stylesheet" href="/static/css/visualization.css">{{ end }}
-{{ if .includePush }}<script src="/static/js/push.js"></script>{{ end }}
 
 <!-- PWA & Icons -->
 <link rel="manifest" href="/static/manifest.json">
@@ -39,7 +38,7 @@ if ('serviceWorker' in navigator) {
 
 {{ if .includeProfile }}<script src="/static/js/profile.js"></script>{{ end }}
 {{ if .includeViz }}<script src="/static/js/visualization.js"></script>{{ end }}
-{{ if .includePush }}<script src="/static/js/push.js"></script>{{ end }}
+{{ if .includePush }}<script src="/static/js/notify.js"></script>{{ end }}
 
 
 {{ end }}

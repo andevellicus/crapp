@@ -23,3 +23,12 @@ type RevokedToken struct {
 	RevokedAt time.Time `json:"revoked_at"`
 	ExpiresAt time.Time `json:"expires_at"` // For cleanup purposes
 }
+
+// PasswordResetToken represents a password reset token
+type PasswordResetToken struct {
+	Token     string     `json:"token" gorm:"primaryKey"`
+	UserEmail string     `json:"user_email" gorm:"index"`
+	ExpiresAt time.Time  `json:"expires_at"`
+	CreatedAt time.Time  `json:"created_at"`
+	UsedAt    *time.Time `json:"used_at"`
+}

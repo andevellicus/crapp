@@ -7,6 +7,8 @@ import (
 	"time"
 
 	"github.com/andevellicus/crapp/internal/config"
+	"github.com/andevellicus/crapp/internal/email"
+	"github.com/andevellicus/crapp/internal/models"
 	"github.com/andevellicus/crapp/internal/push"
 	"github.com/andevellicus/crapp/internal/repository"
 	"go.uber.org/zap"
@@ -14,23 +16,30 @@ import (
 
 // ReminderScheduler handles scheduling of reminders
 type ReminderScheduler struct {
-	pushService *push.PushService
-	config      *config.Config
-	repo        *repository.Repository
-	log         *zap.SugaredLogger
-	jobs        map[string]*time.Timer
-	mutex       sync.Mutex
+	pushService  *push.PushService
+	emailService *email.EmailService
+	config       *config.Config
+	repo         *repository.Repository
+	log          *zap.SugaredLogger
+	jobs         map[string]*time.Timer
+	mutex        sync.Mutex
 }
 
 // NewReminderScheduler creates a new reminder scheduler
-func NewReminderScheduler(repo *repository.Repository, log *zap.SugaredLogger, config *config.Config, pushService *push.PushService) *ReminderScheduler {
+func NewReminderScheduler(repo *repository.Repository,
+	log *zap.SugaredLogger,
+	config *config.Config,
+	pushService *push.PushService,
+	emailService *email.EmailService) *ReminderScheduler {
+
 	return &ReminderScheduler{
-		pushService: pushService,
-		repo:        repo,
-		log:         log.Named("sched"),
-		config:      config,
-		jobs:        make(map[string]*time.Timer),
-		mutex:       sync.Mutex{},
+		pushService:  pushService,
+		emailService: emailService,
+		repo:         repo,
+		log:          log.Named("sched"),
+		config:       config,
+		jobs:         make(map[string]*time.Timer),
+		mutex:        sync.Mutex{},
 	}
 }
 
@@ -131,15 +140,14 @@ func (s *ReminderScheduler) scheduleReminderDaily(timeStr string, reminderIndex 
 
 	// Create new timer
 	timer := time.AfterFunc(duration, func() {
-		// Send reminder using the time string instead of index
-		if err := s.pushService.SendReminderToAllEligibleUsers(timeStr); err != nil {
-			s.log.Errorw("Error sending reminder", "error", err)
+		// Call sendReminders instead of directly using pushService
+		if err := s.sendReminders(timeStr); err != nil {
+			s.log.Errorw("Error sending reminders", "error", err)
 		}
 
 		// Reschedule for tomorrow
 		if err := s.scheduleReminderDaily(timeStr, reminderIndex); err != nil {
 			s.log.Errorw("Error rescheduling reminder", "error", err)
-
 		}
 	})
 
@@ -147,5 +155,56 @@ func (s *ReminderScheduler) scheduleReminderDaily(timeStr string, reminderIndex 
 	s.jobs[key] = timer
 
 	s.log.Infof("Scheduled reminder for %s (in %v)", timeStr, duration)
+	return nil
+}
+
+// sendReminders sends push and email reminders to eligible users
+func (s *ReminderScheduler) sendReminders(timeStr string) error {
+	// Send push notifications if service is available
+	if s.pushService != nil {
+		if err := s.pushService.SendReminderToAllEligibleUsers(timeStr); err != nil {
+			s.log.Errorw("Error sending push reminders", "error", err, "time", timeStr)
+			// Continue to email reminders even if push fails
+		} else {
+			s.log.Infow("Push reminders sent successfully", "time", timeStr)
+		}
+	}
+
+	// Send email reminders if service is available
+	if s.emailService != nil && s.config.Email.Enabled {
+		// Get users who have enabled email reminders for this time
+		users, err := s.repo.GetUsersForEmailReminder(timeStr)
+		if err != nil {
+			s.log.Errorw("Error getting users for email reminders", "error", err, "time", timeStr)
+		} else if len(users) > 0 {
+			s.log.Infow("Sending email reminders", "count", len(users), "time", timeStr)
+
+			// Send email to each eligible user
+			for _, user := range users {
+				// Use goroutine to send emails asynchronously
+				go func(u *models.User) {
+					// Default to email as first name if first name is empty
+					firstName := u.FirstName
+					if firstName == "" {
+						firstName = u.Email
+					}
+
+					if err := s.emailService.SendReminderEmail(u.Email, firstName); err != nil {
+						s.log.Warnw("Failed to send reminder email",
+							"error", err,
+							"user", u.Email,
+							"time", timeStr)
+					} else {
+						s.log.Infow("Sent reminder email",
+							"user", u.Email,
+							"time", timeStr)
+					}
+				}(user)
+			}
+		} else {
+			s.log.Infow("No users eligible for email reminders at this time", "time", timeStr)
+		}
+	}
+
 	return nil
 }

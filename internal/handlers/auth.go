@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/andevellicus/crapp/internal/auth"
+	"github.com/andevellicus/crapp/internal/email"
 	"github.com/andevellicus/crapp/internal/models"
 	"github.com/andevellicus/crapp/internal/repository"
 	"github.com/andevellicus/crapp/internal/validation"
@@ -143,6 +144,10 @@ func (h *AuthHandler) Register(c *gin.Context) {
 	// Set cookie for server-side auth
 	if tokenPair != nil {
 		c.SetCookie("auth_token", tokenPair.AccessToken, tokenPair.ExpiresIn, "/", "", true, true)
+	}
+
+	if emailService, exists := c.Get("emailService"); exists && emailService != nil {
+		go emailService.(*email.EmailService).SendWelcomeEmail(user.Email, user.FirstName)
 	}
 
 	// Return response with tokens

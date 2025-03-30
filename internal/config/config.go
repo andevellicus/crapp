@@ -18,6 +18,7 @@ type Config struct {
 	TLS           TLSConfig `mapstructure:"tls"`
 	PWA           PWAConfig
 	SchemaVersion string `mapstructure:"schema_version"`
+	Email         EmailConfig
 	Reminders     ReminderConfig
 }
 
@@ -77,6 +78,18 @@ type ReminderConfig struct {
 	Frequency  string   `mapstructure:"frequency"`
 	Times      []string `mapstructure:"times"`
 	CutoffTime string   `mapstructure:"cutoff_time"`
+}
+
+// EmailConfig contains email settings
+type EmailConfig struct {
+	Enabled      bool   `mapstructure:"enabled"`
+	SMTPHost     string `mapstructure:"smtp_host"`
+	SMTPPort     int    `mapstructure:"smtp_port"`
+	SMTPUsername string `mapstructure:"smtp_username"`
+	SMTPPassword string `mapstructure:"smtp_password"`
+	FromEmail    string `mapstructure:"from_email"`
+	FromName     string `mapstructure:"from_name"`
+	AppURL       string `mapstructure:"app_url"` // Base URL for links in emails
 }
 
 // LoadConfig initializes and loads configuration using Viper
@@ -152,6 +165,16 @@ func LoadConfig(configPath string) (*Config, error) {
 			Times:      v.GetStringSlice("reminders.times"),
 			CutoffTime: v.GetString("reminders.cutoff_time"),
 		},
+		Email: EmailConfig{
+			Enabled:      v.GetBool("email.enabled"),
+			SMTPHost:     v.GetString("email.smtp_host"),
+			SMTPPort:     v.GetInt("email.smtp_port"),
+			SMTPUsername: v.GetString("email.smtp_username"),
+			SMTPPassword: v.GetString("email.smtp_password"),
+			FromEmail:    v.GetString("email.from_email"),
+			FromName:     v.GetString("email.from_name"),
+			AppURL:       v.GetString("email.app_url"),
+		},
 	}
 
 	return config, nil
@@ -201,6 +224,16 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault("reminders.frequency", "daily")
 	v.SetDefault("reminders.times", []string{"20:00"})
 	v.SetDefault("reminders.cutoff_time", "10:00")
+
+	// Set email defaults
+	v.SetDefault("email.enabled", false)
+	v.SetDefault("email.smtp_host", "smtp.example.com")
+	v.SetDefault("email.smtp_port", 587)
+	v.SetDefault("email.smtp_username", "")
+	v.SetDefault("email.smtp_password", "")
+	v.SetDefault("email.from_email", "noreply@example.com")
+	v.SetDefault("email.from_name", "CRAPP Notification")
+	v.SetDefault("email.app_url", "http://localhost:5000")
 }
 
 // IsDevelopment returns true if the app is in development mode

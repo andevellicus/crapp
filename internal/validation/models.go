@@ -63,8 +63,20 @@ type PushSubscriptionRequest struct {
 	ExpirationTime *int64 `json:"expirationTime,omitempty"`
 }
 
-// For the UpdatePreferences endpoint
-type PushPreferencesRequest struct {
-	Enabled       bool     `json:"enabled"`
+// NotificationPreferencesRequest for the UpdatePreferences endpoint
+type NotificationPreferencesRequest struct {
+	PushEnabled   bool     `json:"push_enabled"`
+	EmailEnabled  bool     `json:"email_enabled"`
 	ReminderTimes []string `json:"reminder_times" validate:"required,dive,datetime=15:04"`
+}
+
+// ForgotPasswordRequest represents a password reset request
+type ForgotPasswordRequest struct {
+	Email string `json:"email" validate:"required,email"`
+}
+
+// ResetPasswordRequest represents a password reset submission
+type ResetPasswordRequest struct {
+	Token       string `json:"token" validate:"required"`
+	NewPassword string `json:"new_password" validate:"required,min=8"`
 }
