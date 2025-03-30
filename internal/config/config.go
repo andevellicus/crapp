@@ -49,8 +49,12 @@ type LoggingConfig struct {
 
 // JWTConfig contains JWT settings and Secret
 type JWTConfig struct {
-	Secret  string
-	Expires int // expiration time in hours
+	Secret           string        `mapstructure:"secret"`
+	Expires          int           `mapstructure:"expires"`
+	SigningAlgorithm string        `mapstructure:"signing_algorithm"`
+	Issuer           string        `mapstructure:"issuer"`
+	Audience         string        `mapstructure:"audience"`
+	NotBefore        time.Duration `mapstructure:"not_before"`
 }
 
 type TLSConfig struct {

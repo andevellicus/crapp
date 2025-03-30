@@ -35,18 +35,16 @@ func (r *Repository) SearchUsers(query string, skip, limit int) ([]models.User, 
 	var users []models.User
 	var total int64
 
-	db := r.db
-
 	if query != "" {
 		query = "%" + query + "%"
-		db = db.Where("email LIKE ? OR first_name LIKE ? OR last_name LIKE ?", query, query, query)
+		r.db = r.db.Where("email LIKE ? OR first_name LIKE ? OR last_name LIKE ?", query, query, query)
 	}
 
-	if err := db.Model(&models.User{}).Count(&total).Error; err != nil {
+	if err := r.db.Model(&models.User{}).Count(&total).Error; err != nil {
 		return nil, 0, err
 	}
 
-	result := db.Order("email").Offset(skip).Limit(limit).Find(&users)
+	result := r.db.Order("email").Offset(skip).Limit(limit).Find(&users)
 	if result.Error != nil {
 		return nil, 0, result.Error
 	}

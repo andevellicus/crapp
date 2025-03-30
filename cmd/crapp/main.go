@@ -100,6 +100,7 @@ func main() {
 	// Apply middleware
 	router.Use(gin.Recovery())
 	router.Use(middleware.GinLogger(log))
+	router.Use(middleware.SecurityHeadersMiddleware())
 
 	// Add BEFORE other routes
 	router.GET("/service-worker.js", func(c *gin.Context) {
@@ -126,6 +127,7 @@ func main() {
 
 	// Auth API routes
 	auth := router.Group("/api/auth")
+	auth.Use(middleware.RateLimiterMiddleware())
 	{
 		auth.POST("/register", authHandler.Register)
 		auth.POST("/login", authHandler.Login)
@@ -134,7 +136,7 @@ func main() {
 
 	// Protected API routes
 	api := router.Group("/api")
-	api.Use(middleware.AuthMiddleware(authService))
+	api.Use(middleware.AuthMiddleware(authService), middleware.CSRFMiddleware())
 	{
 		// User routes
 		api.GET("/user", authHandler.GetCurrentUser)

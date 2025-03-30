@@ -9,6 +9,7 @@ import (
 	"github.com/andevellicus/crapp/internal/models"
 	"github.com/andevellicus/crapp/internal/repository"
 	"github.com/golang-jwt/jwt/v4"
+	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -72,26 +73,24 @@ func (s *AuthService) Authenticate(email, password string, deviceInfo map[string
 
 // GenerateToken creates a new JWT token
 func (s *AuthService) GenerateToken(email string, isAdmin bool) (string, error) {
-	if s.jwtConfig == nil {
-		return "", fmt.Errorf("JWT not initialized")
-	}
-
-	// Set token expiration time (24 hours)
+	// Add more claims for security
 	expirationTime := time.Now().Add(time.Duration(s.jwtConfig.Expires) * time.Hour)
+	notBeforeTime := time.Now().Add(s.jwtConfig.NotBefore)
 
-	// Create the claims
 	claims := &CustomClaims{
 		Email:   email,
 		IsAdmin: isAdmin,
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(expirationTime),
 			IssuedAt:  jwt.NewNumericDate(time.Now()),
-			Issuer:    "crapp",
+			NotBefore: jwt.NewNumericDate(notBeforeTime),
+			Issuer:    s.jwtConfig.Issuer,
+			Audience:  []string{s.jwtConfig.Audience},
 			Subject:   email,
+			ID:        uuid.New().String(), // Unique token ID
 		},
 	}
 
-	// Create and sign the token
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 	tokenString, err := token.SignedString([]byte(s.jwtConfig.Secret))
 

@@ -66,7 +66,7 @@ func AuthRedirectMiddleware(authService *auth.AuthService) gin.HandlerFunc {
 		claims, err := authService.ValidateToken(token)
 		if err != nil || claims == nil {
 			// Clear invalid token cookie
-			c.SetCookie("auth_token", "", -1, "/", "", false, true)
+			c.SetCookie("auth_token", "", -1, "/", "", true, true)
 
 			c.Redirect(http.StatusFound, "/login")
 			c.Abort()

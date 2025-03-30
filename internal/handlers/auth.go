@@ -134,7 +134,7 @@ func (h *AuthHandler) Login(c *gin.Context) {
 	}
 
 	// Set cookie for server-side auth
-	c.SetCookie("auth_token", token, 86400, "/", "", false, true)
+	c.SetCookie("auth_token", token, 86400, "/", "", true, true)
 
 	// Return response for client-side handling
 	c.JSON(http.StatusOK, AuthResponse{

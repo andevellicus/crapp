@@ -12,6 +12,7 @@ import (
 	"github.com/andevellicus/crapp/internal/utils"
 	"github.com/andevellicus/crapp/internal/validation"
 	"github.com/gin-gonic/gin"
+	"github.com/microcosm-cc/bluemonday"
 	"go.uber.org/zap"
 )
 
@@ -189,6 +190,11 @@ func (h *FormHandler) SaveAnswer(c *gin.Context) {
 		return
 	}
 
+	// Sanitize text inputs
+	if answer, ok := saveRequest.Answer.(string); ok {
+		saveRequest.Answer = sanitizeHTML(answer)
+	}
+
 	// Validate answer (only if going forward)
 	if saveRequest.Direction == "next" {
 		errors := h.validator.ValidateAnswer(saveRequest.QuestionID, saveRequest.Answer)
@@ -335,4 +341,10 @@ func (h *FormHandler) SubmitForm(c *gin.Context) {
 			"assessment_id": assessmentID,
 		})
 	}
+}
+
+func sanitizeHTML(input string) string {
+	// Use bluemonday for HTML sanitization
+	p := bluemonday.UGCPolicy()
+	return p.Sanitize(input)
 }
