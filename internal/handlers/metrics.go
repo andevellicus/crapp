@@ -11,13 +11,13 @@ import (
 
 // ChartData contains preformatted data ready for Chart.js consumption
 type ChartData struct {
-	Title    string      `json:"title"`
-	XLabel   string      `json:"xLabel"`
-	YLabel   string      `json:"yLabel"`
-	Y2Label  string      `json:"y2Label,omitempty"`
-	Data     interface{} `json:"data"`
-	Question string      `json:"question,omitempty"`
-	Metric   string      `json:"metric,omitempty"`
+	Title    string `json:"title"`
+	XLabel   string `json:"xLabel"`
+	YLabel   string `json:"yLabel"`
+	Y2Label  string `json:"y2Label,omitempty"`
+	Data     any    `json:"data"`
+	Question string `json:"question,omitempty"`
+	Metric   string `json:"metric,omitempty"`
 }
 
 // GetChartCorrelationData returns preformatted data for Chart.js scatter plot
@@ -145,7 +145,7 @@ func formatCorrelationDataForChart(data []repository.CorrelationDataPoint, quest
 		YLabel:   fmt.Sprintf("%s Severity", questionLabel),
 		Question: questionLabel,
 		Metric:   metricLabel,
-		Data: map[string]interface{}{
+		Data: map[string]any{
 			"datasets": []ScatterDataset{
 				{
 					Label:           "Symptom vs. Metric",
@@ -190,7 +190,7 @@ func formatTimelineDataForChart(data []repository.TimelineDataPoint, questionLab
 		Y2Label:  metricLabel,
 		Question: questionLabel,
 		Metric:   metricLabel,
-		Data: map[string]interface{}{
+		Data: map[string]any{
 			"labels": labels,
 			"datasets": []LineDataset{
 				{

@@ -10,7 +10,7 @@ import (
 )
 
 // RegisterDevice registers a new device or updates an existing one
-func (r *Repository) RegisterDevice(userEmail string, deviceInfo map[string]interface{}) (*models.Device, error) {
+func (r *Repository) RegisterDevice(userEmail string, deviceInfo map[string]any) (*models.Device, error) {
 	// Check if user exists
 	if _, err := r.GetUser(userEmail); err != nil {
 		return nil, fmt.Errorf("user not found: %w", err)

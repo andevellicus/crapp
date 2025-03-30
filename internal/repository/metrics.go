@@ -27,7 +27,7 @@ type MetricsData struct {
 	MetricName   string                 `json:"metric_name"`
 	Timeline     []TimelineDataPoint    `json:"timeline"`
 	Correlation  []CorrelationDataPoint `json:"correlation"`
-	SymptomScale map[string]interface{} `json:"symptom_scale"`
+	SymptomScale map[string]any         `json:"symptom_scale"`
 	MetricMinMax map[string]float64     `json:"metric_min_max"`
 }
 
@@ -107,7 +107,7 @@ func (r *Repository) GetMetricsTimeline(userID, symptomKey, metricKey string) ([
 // Add a new function to handle the extraction and saving of metrics
 func (r *Repository) extractAndSaveMetrics(assessmentID uint, metadata json.RawMessage) error {
 	// Parse the metadata
-	var metadataMap map[string]interface{}
+	var metadataMap map[string]any
 	if err := json.Unmarshal(metadata, &metadataMap); err != nil {
 		return fmt.Errorf("failed to parse metadata: %w", err)
 	}
@@ -115,10 +115,10 @@ func (r *Repository) extractAndSaveMetrics(assessmentID uint, metadata json.RawM
 	metrics := make([]*models.AssessmentMetric, 0)
 
 	// Process global metrics (interaction_metrics)
-	if interactionMetrics, ok := metadataMap["interaction_metrics"].(map[string]interface{}); ok {
+	if interactionMetrics, ok := metadataMap["interaction_metrics"].(map[string]any); ok {
 		for metricKey, metricValue := range interactionMetrics {
 			// Handle metric result objects
-			if metricObj, ok := metricValue.(map[string]interface{}); ok {
+			if metricObj, ok := metricValue.(map[string]any); ok {
 				if calculated, cOk := metricObj["calculated"].(bool); cOk && calculated {
 					if value, vOk := metricObj["value"].(float64); vOk {
 						sampleSize := 0
@@ -151,11 +151,11 @@ func (r *Repository) extractAndSaveMetrics(assessmentID uint, metadata json.RawM
 	}
 
 	// Process question metrics
-	if questionMetrics, ok := metadataMap["question_metrics"].(map[string]interface{}); ok {
+	if questionMetrics, ok := metadataMap["question_metrics"].(map[string]any); ok {
 		for questionID, qData := range questionMetrics {
-			if qMetrics, ok := qData.(map[string]interface{}); ok {
+			if qMetrics, ok := qData.(map[string]any); ok {
 				for metricKey, metricValue := range qMetrics {
-					if metricObj, ok := metricValue.(map[string]interface{}); ok {
+					if metricObj, ok := metricValue.(map[string]any); ok {
 						if calculated, cOk := metricObj["calculated"].(bool); cOk && calculated {
 							if value, vOk := metricObj["value"].(float64); vOk {
 								sampleSize := 0

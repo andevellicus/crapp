@@ -50,7 +50,8 @@ type LoggingConfig struct {
 // JWTConfig contains JWT settings and Secret
 type JWTConfig struct {
 	Secret           string        `mapstructure:"secret"`
-	Expires          int           `mapstructure:"expires"`
+	Expires          int           `mapstructure:"expires"`         // Access token expiration in minutes
+	RefreshExpires   int           `mapstructure:"refresh_expires"` // Refresh token expiration in days
 	SigningAlgorithm string        `mapstructure:"signing_algorithm"`
 	Issuer           string        `mapstructure:"issuer"`
 	Audience         string        `mapstructure:"audience"`
@@ -178,7 +179,12 @@ func setDefaults(v *viper.Viper) {
 
 	// JWT defaults
 	v.SetDefault("jwt.secret", "your-256-bit-secret") // Default, should be overridden
-	v.SetDefault("jwt.expires", 24)                   // 24 hours
+	v.SetDefault("jwt.expires", 15)                   // 15 minutes
+	v.SetDefault("jwt.refresh_expires", 7)            // 7 days
+	v.SetDefault("jwt.signing_algorithm", "HS256")
+	v.SetDefault("jwt.issuer", "crapp-api")
+	v.SetDefault("jwt.audience", "crapp-clients")
+	v.SetDefault("jwt.not_before", time.Second*0) // Token valid immediately
 
 	v.SetDefault("tls.enabled", false)
 	v.SetDefault("tls.cert_file", "certs/server.crt")

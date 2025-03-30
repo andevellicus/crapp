@@ -50,12 +50,14 @@ func setupDatabase(cfg *config.Config) (*gorm.DB, error) {
 	}
 
 	// Migrate database schema
-	// Add FormState to the list of models
-	err = db.AutoMigrate(&models.User{},
+	err = db.AutoMigrate(
+		&models.User{},
 		&models.Assessment{},
 		&models.FormState{},
 		&models.AssessmentMetric{},
-		&models.QuestionResponse{})
+		&models.QuestionResponse{},
+		&models.RefreshToken{},
+		&models.RevokedToken{})
 	if err != nil {
 		return nil, err
 	}

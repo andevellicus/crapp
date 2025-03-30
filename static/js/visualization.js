@@ -244,16 +244,13 @@ document.addEventListener('DOMContentLoaded', function() {
             
             // Fetch pre-formatted data from new endpoints
             const [correlationData, timelineData] = await Promise.all([
-                fetch(`/api/metrics/chart/correlation?user_id=${userEmail}&symptom=${symptomKey}&metric=${metricKey}`, {
-                    headers: { 'Authorization': `Bearer ${window.authManager.getCurrentToken()}` }
-                }).then(response => {
+                window.authManager.fetchWithAuth(`/api/metrics/chart/correlation?user_id=${userEmail}&symptom=${symptomKey}&metric=${metricKey}`)
+                .then(response => {
                     if (!response.ok) throw new Error('Failed to load correlation data');
                     return response.json();
                 }),
-                
-                fetch(`/api/metrics/chart/timeline?user_id=${userEmail}&symptom=${symptomKey}&metric=${metricKey}`, {
-                    headers: { 'Authorization': `Bearer ${window.authManager.getCurrentToken()}` }
-                }).then(response => {
+                window.authManager.fetchWithAuth(`/api/metrics/chart/timeline?user_id=${userEmail}&symptom=${symptomKey}&metric=${metricKey}`)
+                .then(response => {
                     if (!response.ok) throw new Error('Failed to load timeline data');
                     return response.json();
                 })

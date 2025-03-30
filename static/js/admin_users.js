@@ -84,11 +84,7 @@ async function searchUsers() {
         }
         
         // Fetch users
-        const response = await fetch(url, {
-            headers: {
-                'Authorization': `Bearer ${window.authManager.getCurrentToken()}`
-            }
-        });
+        const response = await window.authManager.fetchWithAuth(url)
         
         if (!response.ok) {
             throw new Error('Failed to search users');

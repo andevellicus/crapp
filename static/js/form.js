@@ -18,12 +18,10 @@ CRAPP.form = {
     
     try {
       // Initialize form state on server
-      const response = await fetch('/api/form/init', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${window.authManager.getCurrentToken()}`
-        }
+      const response = await window.authManager.fetchWithAuth('/api/form/init', {
+        method: 'POST'
       });
+      
       
       if (!response.ok) throw new Error('Failed to initialize form');
       
@@ -41,11 +39,7 @@ CRAPP.form = {
   
   loadCurrentQuestion: async function() {
     try {
-      const response = await fetch(`/api/form/state/${this.stateId}`, {
-        headers: {
-          'Authorization': `Bearer ${window.authManager.getCurrentToken()}`
-        }
-      });
+      const response = await window.authManager.fetchWithAuth(`/api/form/state/${this.stateId}`)
       
       if (!response.ok) throw new Error('Failed to load question');
       
@@ -308,10 +302,9 @@ renderRadioOptions: function(container, question, previousAnswer) {
     
     try {
       // Send answer to server for validation and progress update
-      const response = await fetch(`/api/form/state/${this.stateId}/answer`, {
+      const response = await window.authManager.fetchWithAuth(`/api/form/state/${this.stateId}/answer`, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${window.authManager.getCurrentToken()}`,
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
@@ -366,10 +359,9 @@ renderRadioOptions: function(container, question, previousAnswer) {
       }
       
       // Submit form
-      const response = await fetch(`/api/form/state/${this.stateId}/submit`, {
+      const response = await window.authManager.fetchWithAuth(`/api/form/state/${this.stateId}/submit`, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${window.authManager.getCurrentToken()}`,
           'Content-Type': 'application/json',
           'X-Device-ID': window.authManager.getDeviceId() || 'unknown'
         },

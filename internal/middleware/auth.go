@@ -44,6 +44,10 @@ func AuthMiddleware(authService *auth.AuthService) gin.HandlerFunc {
 		c.Set("userEmail", claims.Email)
 		c.Set("isAdmin", claims.IsAdmin)
 
+		if claims.TokenID != "" {
+			c.Set("tokenID", claims.TokenID)
+		}
+
 		c.Next()
 	}
 }
@@ -76,6 +80,7 @@ func AuthRedirectMiddleware(authService *auth.AuthService) gin.HandlerFunc {
 		// If token is valid, set user info in context
 		c.Set("userEmail", claims.Email)
 		c.Set("isAdmin", claims.IsAdmin)
+		c.Set("tokenID", claims.TokenID) // Store token ID for revocation
 
 		c.Next()
 	}

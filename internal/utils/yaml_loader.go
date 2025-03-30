@@ -9,9 +9,9 @@ import (
 
 // QuestionOption represents a possible answer to a question
 type QuestionOption struct {
-	Value       interface{} `yaml:"value" json:"value"`
-	Label       string      `yaml:"label" json:"label"`
-	Description string      `yaml:"description,omitempty" json:"description,omitempty"`
+	Value       any    `yaml:"value" json:"value"`
+	Label       string `yaml:"label" json:"label"`
+	Description string `yaml:"description,omitempty" json:"description,omitempty"`
 }
 
 // Question represents a question definition from YAML

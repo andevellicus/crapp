@@ -24,7 +24,7 @@ type GormLogAdapter struct {
 }
 
 // Printf implements GORM's logger interface
-func (l *GormLogAdapter) Printf(format string, args ...interface{}) {
+func (l *GormLogAdapter) Printf(format string, args ...any) {
 	l.ZapLogger.Sugar().Infof(format, args...)
 }
 

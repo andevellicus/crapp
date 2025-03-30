@@ -54,12 +54,8 @@ CRAPP.pushNotifications = {
     // Get VAPID public key from server
     getVAPIDPublicKey: async function() {
         try {
-            const response = await fetch('/api/push/vapid-public-key', {
-                headers: {
-                    'Authorization': `Bearer ${window.authManager.getCurrentToken()}`
-                }
-            });
-            
+            const response = await window.authManager.fetchWithAuth('/api/push/vapid-public-key')
+                        
             if (!response.ok) {
                 throw new Error('Failed to get VAPID public key');
             }
@@ -77,12 +73,8 @@ CRAPP.pushNotifications = {
     // Load user preferences
     loadPreferences: async function() {
         try {
-            const response = await fetch('/api/push/preferences', {
-                headers: {
-                    'Authorization': `Bearer ${window.authManager.getCurrentToken()}`
-                }
-            });
-            
+            const response = await window.authManager.fetchWithAuth('/api/push/preferences')
+                        
             if (!response.ok) {
                 throw new Error('Failed to load preferences');
             }
@@ -101,10 +93,9 @@ CRAPP.pushNotifications = {
     // Save user preferences
     savePreferences: async function() {
         try {           
-            const response = await fetch('/api/push/preferences', {
+            const response = await window.authManager.fetchWithAuth('/api/push/preferences', {
                 method: 'PUT',
                 headers: {
-                    'Authorization': `Bearer ${window.authManager.getCurrentToken()}`,
                     'Content-Type': 'application/json'
                 },
                 body: JSON.stringify(this.preferences)
@@ -220,10 +211,9 @@ CRAPP.pushNotifications = {
     // Save subscription to server
     saveSubscription: async function(subscription) {
         try {
-            const response = await fetch('/api/push/subscribe', {
+            const response = await window.authManager.fetchWithAuth('/api/push/subscribe', {
                 method: 'POST',
                 headers: {
-                    'Authorization': `Bearer ${window.authManager.getCurrentToken()}`,
                     'Content-Type': 'application/json'
                 },
                 body: JSON.stringify(subscription)

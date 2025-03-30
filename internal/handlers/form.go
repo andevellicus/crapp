@@ -12,7 +12,6 @@ import (
 	"github.com/andevellicus/crapp/internal/utils"
 	"github.com/andevellicus/crapp/internal/validation"
 	"github.com/gin-gonic/gin"
-	"github.com/microcosm-cc/bluemonday"
 	"go.uber.org/zap"
 )
 
@@ -146,7 +145,7 @@ func (h *FormHandler) GetCurrentQuestion(c *gin.Context) {
 	question := questions[questionIndex]
 
 	// Get previous answer if available
-	var previousAnswer interface{}
+	var previousAnswer any
 	if val, ok := formState.Answers[question.ID]; ok {
 		previousAnswer = val
 	}
@@ -164,6 +163,13 @@ func (h *FormHandler) GetCurrentQuestion(c *gin.Context) {
 func (h *FormHandler) SaveAnswer(c *gin.Context) {
 	stateID := c.Param("stateId")
 
+	// Get validated request data
+	req := c.MustGet("validatedRequest").(*validation.SaveAnswerRequest)
+
+	if answer, ok := req.Answer.(string); ok {
+		req.Answer = utils.SanitizeHTML(answer)
+	}
+
 	// Get form state
 	formState, err := h.repo.GetFormState(stateID)
 	if err != nil {
@@ -178,44 +184,17 @@ func (h *FormHandler) SaveAnswer(c *gin.Context) {
 		return
 	}
 
-	// Parse request body
-	var saveRequest struct {
-		QuestionID string      `json:"question_id"`
-		Answer     interface{} `json:"answer"`
-		Direction  string      `json:"direction"` // "next" or "prev"
-	}
+	questionId := req.QuestionID
+	answer := req.Answer
+	direction := req.Direction
 
-	if err := c.ShouldBindJSON(&saveRequest); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request"})
-		return
-	}
-
-	// Sanitize text inputs
-	if answer, ok := saveRequest.Answer.(string); ok {
-		saveRequest.Answer = sanitizeHTML(answer)
-	}
-
-	// Validate answer (only if going forward)
-	if saveRequest.Direction == "next" {
-		errors := h.validator.ValidateAnswer(saveRequest.QuestionID, saveRequest.Answer)
-		if len(errors) > 0 {
-			c.JSON(http.StatusBadRequest, validation.ValidationResponse{
-				Valid:   false,
-				Errors:  errors,
-				Message: "Validation failed",
-				Field:   saveRequest.QuestionID,
-			})
-			return
-		}
-	}
-
-	// Save the answer
-	formState.Answers[saveRequest.QuestionID] = saveRequest.Answer
+	// Save the answer to the form state
+	formState.Answers[questionId] = answer
 
 	// Update step based on direction
-	if saveRequest.Direction == "next" {
+	if direction == "next" {
 		formState.CurrentStep++
-	} else if saveRequest.Direction == "prev" && formState.CurrentStep > 0 {
+	} else if direction == "prev" && formState.CurrentStep > 0 {
 		formState.CurrentStep--
 	}
 
@@ -232,7 +211,7 @@ func (h *FormHandler) SaveAnswer(c *gin.Context) {
 	})
 }
 
-// SubmitForm submits the completed form
+// SubmitForm handles form submission with validated data
 func (h *FormHandler) SubmitForm(c *gin.Context) {
 	stateID := c.Param("stateId")
 
@@ -265,86 +244,50 @@ func (h *FormHandler) SubmitForm(c *gin.Context) {
 		return
 	}
 
-	// Process any metrics data
-	var metricsData struct {
-		InteractionData metrics.InteractionData `json:"interaction_data"`
+	// Get validated interaction data
+	req := c.MustGet("validatedRequest").(*validation.SubmitFormRequest)
+
+	// Process metrics data
+	calculator := metrics.NewMetricCalculator(req.InteractionData)
+	calculatedMetrics := calculator.CalculateAllMetrics()
+
+	// Create metadata structure
+	metadata := map[string]any{
+		"interaction_metrics": calculatedMetrics,
+		"question_metrics":    calculatedMetrics["questionMetrics"],
+		"question_order":      questionOrder,
 	}
 
-	if err := c.ShouldBindJSON(&metricsData); err == nil {
-		// Process metrics data if available
-		calculator := metrics.NewMetricCalculator(metricsData.InteractionData)
-		calculatedMetrics := calculator.CalculateAllMetrics()
-
-		// Create proper metadata structure
-		metadata := map[string]any{
-			"interaction_metrics": calculatedMetrics,
-			"question_metrics":    calculatedMetrics["questionMetrics"],
-			"question_order":      questionOrder,
-		}
-
-		// Marshal to JSON properly
-		metadataBytes, err := json.Marshal(metadata)
-		if err != nil {
-			h.log.Errorw("Error marshaling metadata", "error", err)
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Error processing form data"})
-			return
-		}
-
-		// Create submission with metrics
-		submission := &models.AssessmentSubmission{
-			UserEmail: userEmail.(string),
-			DeviceID:  c.GetHeader("X-Device-ID"), // Assume device ID is in header
-			Responses: formState.Answers,
-			Metadata:  json.RawMessage(metadataBytes),
-		}
-
-		// Save assessment
-		assessmentID, err := h.repo.CreateAssessment(submission)
-		if err != nil {
-			h.log.Errorw("Error saving assessment", "error", err)
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Error saving assessment"})
-			return
-		}
-
-		// Mark form state as completed
-		formState.Completed = true
-		h.repo.UpdateFormState(formState)
-
-		c.JSON(http.StatusOK, gin.H{
-			"success":       true,
-			"assessment_id": assessmentID,
-		})
-	} else {
-		h.log.Infow("No interaction data in request", "error", err)
-
-		// Just create submission without metrics
-		submission := &models.AssessmentSubmission{
-			UserEmail: userEmail.(string),
-			DeviceID:  c.GetHeader("X-Device-ID"),
-			Responses: formState.Answers,
-		}
-
-		// Save assessment
-		assessmentID, err := h.repo.CreateAssessment(submission)
-		if err != nil {
-			h.log.Errorw("Error saving assessment", "error", err)
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Error saving assessment"})
-			return
-		}
-
-		// Mark form state as completed
-		formState.Completed = true
-		h.repo.UpdateFormState(formState)
-
-		c.JSON(http.StatusOK, gin.H{
-			"success":       true,
-			"assessment_id": assessmentID,
-		})
+	// Marshal to JSON
+	metadataBytes, err := json.Marshal(metadata)
+	if err != nil {
+		h.log.Errorw("Error marshaling metadata", "error", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error processing form data"})
+		return
 	}
-}
 
-func sanitizeHTML(input string) string {
-	// Use bluemonday for HTML sanitization
-	p := bluemonday.UGCPolicy()
-	return p.Sanitize(input)
+	// Create submission
+	submission := &models.AssessmentSubmission{
+		UserEmail: userEmail.(string),
+		DeviceID:  c.GetHeader("X-Device-ID"), // Use device ID from header
+		Responses: formState.Answers,
+		Metadata:  json.RawMessage(metadataBytes),
+	}
+
+	// Save assessment
+	assessmentID, err := h.repo.CreateAssessment(submission)
+	if err != nil {
+		h.log.Errorw("Error saving assessment", "error", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error saving assessment"})
+		return
+	}
+
+	// Mark form state as completed
+	formState.Completed = true
+	h.repo.UpdateFormState(formState)
+
+	c.JSON(http.StatusOK, gin.H{
+		"success":       true,
+		"assessment_id": assessmentID,
+	})
 }

@@ -50,7 +50,7 @@ func (r *Repository) UpdateFormState(formState *models.FormState) error {
 }
 
 // SaveFormAnswer saves an answer for a specific question
-func (r *Repository) SaveFormAnswer(stateID string, questionID string, answer interface{}) error {
+func (r *Repository) SaveFormAnswer(stateID string, questionID string, answer any) error {
 	var formState models.FormState
 
 	err := r.db.Where("id = ?", stateID).First(&formState).Error

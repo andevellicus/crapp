@@ -14,72 +14,118 @@ import (
 )
 
 type AuthService struct {
-	repo      *repository.Repository
-	tokenTTL  time.Duration
-	secretKey string
-	jwtConfig *config.JWTConfig
+	repo            *repository.Repository
+	tokenTTL        time.Duration
+	refreshTokenTTL time.Duration
+	secretKey       string
+	jwtConfig       *config.JWTConfig
 }
 
 // CustomClaims defines the claims in the JWT token
 type CustomClaims struct {
 	Email   string `json:"email"`
 	IsAdmin bool   `json:"is_admin"`
+	TokenID string `json:"token_id"`
 	jwt.RegisteredClaims
+}
+
+// TokenPair contains both access and refresh tokens
+type TokenPair struct {
+	AccessToken  string `json:"access_token"`
+	RefreshToken string `json:"refresh_token"`
+	ExpiresIn    int    `json:"expires_in"` // Expiration in seconds
 }
 
 func NewAuthService(repo *repository.Repository, cfg *config.JWTConfig) *AuthService {
 	return &AuthService{
-		repo:      repo,
-		tokenTTL:  time.Duration(cfg.Expires) * time.Hour,
-		secretKey: cfg.Secret,
-		jwtConfig: cfg,
+		repo:            repo,
+		tokenTTL:        time.Duration(cfg.Expires) * time.Minute,           // Short-lived access token
+		refreshTokenTTL: time.Duration(cfg.RefreshExpires) * time.Hour * 24, // Longer-lived refresh token (days)
+		secretKey:       cfg.Secret,
+		jwtConfig:       cfg,
 	}
 }
 
 // Authenticate validates credentials and returns user with session
-func (s *AuthService) Authenticate(email, password string, deviceInfo map[string]interface{}) (*models.User, *models.Device, string, error) {
+func (s *AuthService) Authenticate(email, password string, deviceInfo map[string]any) (*models.User, *models.Device, *TokenPair, error) {
 	// Get user
 	user, err := s.repo.GetUser(email)
 	if err != nil {
-		return nil, nil, "", err
+		return nil, nil, nil, err
 	}
 
 	// Verify password
 	err = bcrypt.CompareHashAndPassword(user.Password, []byte(password))
 	if err != nil {
-		return nil, nil, "", err
+		return nil, nil, nil, err
 	}
 
 	// Register device
 	device, err := s.repo.RegisterDevice(email, deviceInfo)
 	if err != nil {
-		return nil, nil, "", err
+		return nil, nil, nil, err
 	}
 
-	// Generate token
-	token, err := s.GenerateToken(email, user.IsAdmin)
+	// Generate token pair
+	tokenPair, err := s.GenerateTokenPair(email, user.IsAdmin, device.ID)
 	if err != nil {
-		return nil, nil, "", err
+		return nil, nil, nil, err
 	}
 
 	// Update last login time
 	user.LastLogin = time.Now()
 	if err := s.repo.UpdateUser(user); err != nil {
-		return nil, nil, "", err
+		return nil, nil, nil, err
 	}
 
-	return user, device, token, nil
+	return user, device, tokenPair, nil
 }
 
-// GenerateToken creates a new JWT token
-func (s *AuthService) GenerateToken(email string, isAdmin bool) (string, error) {
+// GenerateTokenPair creates a new JWT access token and refresh token
+func (s *AuthService) GenerateTokenPair(email string, isAdmin bool, deviceID string) (*TokenPair, error) {
+	// Create a token ID (jti)
+	tokenID := uuid.New().String()
+
+	// Generate access token
+	accessToken, err := s.generateAccessToken(email, isAdmin, tokenID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Generate refresh token
+	refreshToken := uuid.New().String()
+
+	// Store refresh token in database
+	refreshTokenModel := &models.RefreshToken{
+		Token:     refreshToken,
+		UserEmail: email,
+		DeviceID:  deviceID,
+		TokenID:   tokenID,
+		ExpiresAt: time.Now().Add(s.refreshTokenTTL),
+		CreatedAt: time.Now(),
+	}
+
+	if err := s.repo.SaveRefreshToken(refreshTokenModel); err != nil {
+		return nil, err
+	}
+
+	return &TokenPair{
+		AccessToken:  accessToken,
+		RefreshToken: refreshToken,
+		ExpiresIn:    int(s.tokenTTL.Seconds()),
+	}, nil
+}
+
+// generateAccessToken creates a JWT access token
+func (s *AuthService) generateAccessToken(email string, isAdmin bool, tokenID string) (string, error) {
 	// Add more claims for security
-	expirationTime := time.Now().Add(time.Duration(s.jwtConfig.Expires) * time.Hour)
+	expirationTime := time.Now().Add(s.tokenTTL)
 	notBeforeTime := time.Now().Add(s.jwtConfig.NotBefore)
 
 	claims := &CustomClaims{
 		Email:   email,
 		IsAdmin: isAdmin,
+		TokenID: tokenID,
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(expirationTime),
 			IssuedAt:  jwt.NewNumericDate(time.Now()),
@@ -87,7 +133,7 @@ func (s *AuthService) GenerateToken(email string, isAdmin bool) (string, error) 
 			Issuer:    s.jwtConfig.Issuer,
 			Audience:  []string{s.jwtConfig.Audience},
 			Subject:   email,
-			ID:        uuid.New().String(), // Unique token ID
+			ID:        tokenID, // JWT ID
 		},
 	}
 
@@ -95,6 +141,39 @@ func (s *AuthService) GenerateToken(email string, isAdmin bool) (string, error) 
 	tokenString, err := token.SignedString([]byte(s.jwtConfig.Secret))
 
 	return tokenString, err
+}
+
+// RefreshToken generates a new access token using a refresh token
+func (s *AuthService) RefreshToken(refreshToken string, deviceID string) (*TokenPair, error) {
+	// Validate the refresh token
+	storedToken, err := s.repo.GetRefreshToken(refreshToken)
+	if err != nil {
+		return nil, fmt.Errorf("invalid refresh token")
+	}
+
+	// Check if token is expired
+	if storedToken.ExpiresAt.Before(time.Now()) {
+		// Delete expired token
+		s.repo.DeleteRefreshToken(refreshToken)
+		return nil, fmt.Errorf("refresh token expired")
+	}
+
+	// Check if token belongs to this device
+	if storedToken.DeviceID != deviceID {
+		return nil, fmt.Errorf("invalid device for refresh token")
+	}
+
+	// Get user
+	user, err := s.repo.GetUser(storedToken.UserEmail)
+	if err != nil {
+		return nil, err
+	}
+
+	// Invalidate old refresh token
+	s.repo.DeleteRefreshToken(refreshToken)
+
+	// Generate new token pair
+	return s.GenerateTokenPair(user.Email, user.IsAdmin, deviceID)
 }
 
 // ValidateToken verifies a token and returns claims
@@ -128,5 +207,21 @@ func (s *AuthService) ValidateToken(tokenString string) (*CustomClaims, error) {
 		return nil, fmt.Errorf("invalid claims")
 	}
 
+	// Check if token has been revoked
+	isRevoked, err := s.repo.IsTokenRevoked(claims.TokenID)
+	if err != nil || isRevoked {
+		return nil, fmt.Errorf("token has been revoked")
+	}
+
 	return claims, nil
+}
+
+// RevokeToken invalidates a token by its ID
+func (s *AuthService) RevokeToken(tokenID string) error {
+	return s.repo.RevokeToken(tokenID)
+}
+
+// RevokeAllUserTokens invalidates all tokens for a user
+func (s *AuthService) RevokeAllUserTokens(email string) error {
+	return s.repo.RevokeAllUserTokens(email)
 }

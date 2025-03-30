@@ -59,12 +59,8 @@ async function loadUserData() {
         
         // If not, fetch from API
         if (!userData) {
-            const response = await fetch('/api/user', {
-                headers: {
-                    'Authorization': `Bearer ${window.authManager.getCurrentToken()}`
-                }
-            });
-            
+            const response = await window.authManager.fetchWithAuth('/api/user')
+                       
             if (!response.ok) {
                 throw new Error('Failed to load user data');
             }
@@ -118,11 +114,10 @@ async function updateProfile() {
     }
     
     try {
-        const response = await fetch('/api/user', {
+        const response = await fetchWithAuth('/api/user', {
             method: 'PUT',
             headers: {
                 'Content-Type': 'application/json',
-                'Authorization': `Bearer ${window.authManager.token}`
             },
             body: JSON.stringify(updateData)
         });

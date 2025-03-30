@@ -8,6 +8,7 @@ import (
 	"github.com/andevellicus/crapp/internal/push"
 	"github.com/andevellicus/crapp/internal/repository"
 	"github.com/andevellicus/crapp/internal/scheduler"
+	"github.com/andevellicus/crapp/internal/validation"
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
 )
@@ -45,15 +46,11 @@ func (h *PushHandler) SubscribeUser(c *gin.Context) {
 		return
 	}
 
-	// Get subscription from request body
-	var subscription map[string]interface{}
-	if err := c.ShouldBindJSON(&subscription); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid subscription data"})
-		return
-	}
+	// Get validated subscription data
+	sub := c.MustGet("validatedRequest").(*validation.PushSubscriptionRequest)
 
 	// Convert to JSON string
-	subscriptionBytes, err := json.Marshal(subscription)
+	subscriptionBytes, err := json.Marshal(sub)
 	if err != nil {
 		h.log.Errorw("Failed to marshal subscription", "error", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to process subscription"})
@@ -78,11 +75,13 @@ func (h *PushHandler) UpdatePreferences(c *gin.Context) {
 		return
 	}
 
-	// Get preferences from request body
-	var preferences repository.UserPushPreferences
-	if err := c.ShouldBindJSON(&preferences); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid preference data"})
-		return
+	// Get validated preferences
+	prefs := c.MustGet("validatedRequest").(*validation.PushPreferencesRequest)
+
+	// Convert to repository model
+	preferences := repository.UserPushPreferences{
+		Enabled:       prefs.Enabled,
+		ReminderTimes: prefs.ReminderTimes,
 	}
 
 	// Save preferences
@@ -92,12 +91,10 @@ func (h *PushHandler) UpdatePreferences(c *gin.Context) {
 		return
 	}
 
+	// Update schedules if needed
 	if h.scheduler != nil {
 		if err := h.scheduler.UpdateSchedules(); err != nil {
 			h.log.Warnw("Failed to update reminder schedules", "error", err)
-			// Don't return error to client, just log it
-		} else {
-			h.log.Infow("Reminder schedules updated successfully")
 		}
 	}
 

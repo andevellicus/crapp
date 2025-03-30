@@ -26,11 +26,7 @@ async function loadUserDevices() {
     const noDevices = document.getElementById('no-devices');
     
     try {
-        const response = await fetch('/api/devices', {
-            headers: {
-                'Authorization': `Bearer ${window.authManager.getCurrentToken()}`
-            }
-        });
+        const response = await window.authManager.fetchWithAuth('/api/devices')
         
         if (!response.ok) {
             throw new Error('Failed to load devices');
@@ -183,14 +179,13 @@ function setupModals() {
 // Rename a device
 async function renameDevice(deviceId, newName) {
     try {
-        const response = await fetch(`/api/devices/${deviceId}/rename`, {
+        const response = await fetchWithAuth(`/api/devices/${deviceId}/rename`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                'Authorization': `Bearer ${window.authManager.token}`
             },
             body: JSON.stringify({ device_name: newName })
-        });
+        })
         
         if (!response.ok) {
             throw new Error('Failed to rename device');
@@ -213,11 +208,8 @@ async function renameDevice(deviceId, newName) {
 // Remove a device
 async function removeDevice(deviceId) {
     try {
-        const response = await fetch(`/api/devices/${deviceId}`, {
+        const response = await fetchWithAuth(`/api/devices/${deviceId}`, {
             method: 'DELETE',
-            headers: {
-                'Authorization': `Bearer ${window.authManager.token}`
-            }
         });
         
         if (!response.ok) {

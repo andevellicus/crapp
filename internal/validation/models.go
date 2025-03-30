@@ -1,0 +1,70 @@
+// internal/validation/models.go
+package validation
+
+import "github.com/andevellicus/crapp/internal/metrics"
+
+// Auth validation models
+type RegisterRequest struct {
+	Email     string `json:"email" validate:"required,email"`
+	Password  string `json:"password" validate:"required,min=8"`
+	FirstName string `json:"first_name" validate:"required"`
+	LastName  string `json:"last_name" validate:"required"`
+}
+
+type LoginRequest struct {
+	Email      string         `json:"email" validate:"required,email"`
+	Password   string         `json:"password" validate:"required"`
+	DeviceInfo map[string]any `json:"device_info"`
+}
+
+type RefreshTokenRequest struct {
+	RefreshToken string `json:"refresh_token" validate:"required"`
+}
+
+// User validation models
+type UpdateUserRequest struct {
+	FirstName       string `json:"first_name" validate:"required"`
+	LastName        string `json:"last_name" validate:"required"`
+	CurrentPassword string `json:"current_password" validate:"omitempty"`
+	NewPassword     string `json:"new_password" validate:"omitempty,min=8"`
+}
+
+// Device validation models
+type RegisterDeviceRequest struct {
+	DeviceName string         `json:"device_name" validate:"required"`
+	DeviceType string         `json:"device_type" validate:"required"`
+	UserAgent  string         `json:"user_agent"`
+	OS         string         `json:"os"`
+	ScreenSize map[string]any `json:"screen_size"`
+}
+
+type RenameDeviceRequest struct {
+	DeviceName string `json:"device_name" validate:"required"`
+}
+
+// Form validation models
+type SaveAnswerRequest struct {
+	QuestionID string `json:"question_id" validate:"required"`
+	Answer     any    `json:"answer"`
+	Direction  string `json:"direction" validate:"required,oneof=next prev"`
+}
+
+type SubmitFormRequest struct {
+	InteractionData metrics.InteractionData `json:"interaction_data"`
+}
+
+// Push validation models
+type PushSubscriptionRequest struct {
+	Endpoint string `json:"endpoint" validate:"required"`
+	Keys     struct {
+		P256dh string `json:"p256dh" validate:"required"`
+		Auth   string `json:"auth" validate:"required"`
+	} `json:"keys" validate:"required"`
+	ExpirationTime *int64 `json:"expirationTime,omitempty"`
+}
+
+// For the UpdatePreferences endpoint
+type PushPreferencesRequest struct {
+	Enabled       bool     `json:"enabled" validate:"required"`
+	ReminderTimes []string `json:"reminder_times" validate:"required,dive,datetime=15:04"`
+}

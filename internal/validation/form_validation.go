@@ -22,7 +22,7 @@ func NewFormValidator(questionLoader *utils.QuestionLoader) *FormValidator {
 }
 
 // ValidateAnswer validates a single answer against its question with enhanced checks
-func (v *FormValidator) ValidateAnswer(questionID string, answer interface{}) []ValidationError {
+func (v *FormValidator) ValidateAnswer(questionID string, answer any) []ValidationError {
 	var errors []ValidationError
 
 	// Get question definition
@@ -60,7 +60,7 @@ func (v *FormValidator) ValidateAnswer(questionID string, answer interface{}) []
 }
 
 // Helper to check if answer is empty
-func isEmptyAnswer(answer interface{}) bool {
+func isEmptyAnswer(answer any) bool {
 	if answer == nil {
 		return true
 	}
@@ -68,7 +68,7 @@ func isEmptyAnswer(answer interface{}) bool {
 	switch v := answer.(type) {
 	case string:
 		return strings.TrimSpace(v) == ""
-	case []interface{}:
+	case []any:
 		return len(v) == 0
 	default:
 		return false
@@ -76,7 +76,7 @@ func isEmptyAnswer(answer interface{}) bool {
 }
 
 // Validate radio button answer
-func (v *FormValidator) validateRadioAnswer(question *utils.Question, answer interface{}) []ValidationError {
+func (v *FormValidator) validateRadioAnswer(question *utils.Question, answer any) []ValidationError {
 	var errors []ValidationError
 
 	// Convert answer to string for comparison
@@ -129,13 +129,13 @@ func (v *FormValidator) validateRadioAnswer(question *utils.Question, answer int
 }
 
 // Similarly implement validateDropdownAnswer
-func (v *FormValidator) validateDropdownAnswer(question *utils.Question, answer interface{}) []ValidationError {
+func (v *FormValidator) validateDropdownAnswer(question *utils.Question, answer any) []ValidationError {
 	// Similar to radio validation
 	return v.validateRadioAnswer(question, answer)
 }
 
 // Enhanced text validation
-func (v *FormValidator) validateTextAnswer(question *utils.Question, answer interface{}) []ValidationError {
+func (v *FormValidator) validateTextAnswer(question *utils.Question, answer any) []ValidationError {
 	var errors []ValidationError
 
 	str, ok := answer.(string)
@@ -176,7 +176,7 @@ func (v *FormValidator) validateTextAnswer(question *utils.Question, answer inte
 }
 
 // ValidateForm validates an entire form submission
-func (v *FormValidator) ValidateForm(answers map[string]interface{}) ValidationResponse {
+func (v *FormValidator) ValidateForm(answers map[string]any) ValidationResponse {
 	var allErrors []ValidationError
 
 	// Validate each answer

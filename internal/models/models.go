@@ -67,7 +67,7 @@ func (j JSON) Value() (driver.Value, error) {
 }
 
 // Scan implements the sql.Scanner interface for JSON
-func (j *JSON) Scan(value interface{}) error {
+func (j *JSON) Scan(value any) error {
 	var bytes []byte
 
 	switch v := value.(type) {

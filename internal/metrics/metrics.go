@@ -60,8 +60,8 @@ func NewMetricCalculator(data InteractionData) *MetricCalculator {
 }
 
 // CalculateAllMetrics calculates all interaction metrics
-func (mc *MetricCalculator) CalculateAllMetrics() map[string]interface{} {
-	metrics := make(map[string]interface{})
+func (mc *MetricCalculator) CalculateAllMetrics() map[string]any {
+	metrics := make(map[string]any)
 
 	// Global metrics
 	metrics["click_precision"] = mc.calculateClickPrecision(nil)
@@ -84,7 +84,7 @@ func (mc *MetricCalculator) CalculateAllMetrics() map[string]interface{} {
 }
 
 // Calculate per-question metrics
-func (mc *MetricCalculator) calculatePerQuestionMetrics() map[string]map[string]interface{} {
+func (mc *MetricCalculator) calculatePerQuestionMetrics() map[string]map[string]any {
 	// Get unique question IDs
 	questionIDs := make(map[string]bool)
 
@@ -107,10 +107,10 @@ func (mc *MetricCalculator) calculatePerQuestionMetrics() map[string]map[string]
 	}
 
 	// Calculate metrics for each question
-	result := make(map[string]map[string]interface{})
+	result := make(map[string]map[string]any)
 
 	for questionID := range questionIDs {
-		qMetrics := make(map[string]interface{})
+		qMetrics := make(map[string]any)
 		qID := questionID // Create a copy for pointer safety
 
 		// Mouse metrics

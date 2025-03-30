@@ -5,6 +5,8 @@ package validation
 type ValidationError struct {
 	Field   string `json:"field"`
 	Message string `json:"message"`
+	Tag     string `json:"tag,omitempty"`
+	Value   string `json:"value,omitempty"`
 }
 
 // ValidationResponse represents a complete validation response

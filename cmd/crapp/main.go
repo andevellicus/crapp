@@ -16,6 +16,7 @@ import (
 	"github.com/andevellicus/crapp/internal/repository"
 	"github.com/andevellicus/crapp/internal/scheduler"
 	"github.com/andevellicus/crapp/internal/utils"
+	"github.com/andevellicus/crapp/internal/validation"
 	"github.com/gin-gonic/gin"
 )
 
@@ -127,26 +128,28 @@ func main() {
 
 	// Auth API routes
 	auth := router.Group("/api/auth")
-	auth.Use(middleware.RateLimiterMiddleware())
+	auth.Use(middleware.RateLimiterMiddleware(), middleware.ValidateJSON())
 	{
-		auth.POST("/register", authHandler.Register)
-		auth.POST("/login", authHandler.Login)
+		auth.POST("/register", middleware.ValidateRequest(validation.RegisterRequest{}), authHandler.Register)
+		auth.POST("/login", middleware.ValidateRequest(validation.LoginRequest{}), authHandler.Login)
+		auth.POST("/refresh", middleware.ValidateRequest(validation.RefreshTokenRequest{}), authHandler.RefreshToken)
+		auth.POST("/logout", middleware.AuthMiddleware(authService), authHandler.Logout)
 		// Password reset endpoints could be added here
 	}
 
 	// Protected API routes
 	api := router.Group("/api")
-	api.Use(middleware.AuthMiddleware(authService), middleware.CSRFMiddleware())
+	api.Use(middleware.AuthMiddleware(authService), middleware.CSRFMiddleware(), middleware.ValidateJSON())
 	{
 		// User routes
 		api.GET("/user", authHandler.GetCurrentUser)
-		api.PUT("/user", authHandler.UpdateUser)
+		api.PUT("/user", middleware.ValidateRequest(validation.UpdateUserRequest{}), authHandler.UpdateUser)
 
 		// Device routes
 		api.GET("/devices", authHandler.GetUserDevices)
-		api.POST("/devices/register", authHandler.RegisterDevice)
+		api.POST("/devices/register", middleware.ValidateRequest(validation.RegisterDeviceRequest{}), authHandler.RegisterDevice)
 		api.DELETE("/devices/:deviceId", authHandler.RemoveDevice)
-		api.POST("/devices/:deviceId/rename", authHandler.RenameDevice)
+		api.POST("/devices/:deviceId/rename", middleware.ValidateRequest(validation.RenameDeviceRequest{}), authHandler.RenameDevice)
 
 		// Question routes
 		api.GET("/questions", apiHandler.GetQuestions)
@@ -162,8 +165,8 @@ func main() {
 	{
 		form.POST("/init", formHandler.InitForm)
 		form.GET("/state/:stateId", formHandler.GetCurrentQuestion)
-		form.POST("/state/:stateId/answer", formHandler.SaveAnswer)
-		form.POST("/state/:stateId/submit", formHandler.SubmitForm)
+		form.POST("/state/:stateId/answer", middleware.ValidateRequest(validation.SaveAnswerRequest{}), formHandler.SaveAnswer)
+		form.POST("/state/:stateId/submit", middleware.ValidateRequest(validation.SubmitFormRequest{}), formHandler.SubmitForm)
 	}
 
 	// Add push notification routes
@@ -171,9 +174,9 @@ func main() {
 	pushRoutes.Use(middleware.AuthMiddleware(authService))
 	{
 		pushRoutes.GET("/vapid-public-key", pushHandler.GetVAPIDPublicKey)
-		pushRoutes.POST("/subscribe", pushHandler.SubscribeUser)
+		pushRoutes.POST("/subscribe", middleware.ValidateRequest(validation.PushSubscriptionRequest{}), pushHandler.SubscribeUser)
 		pushRoutes.GET("/preferences", pushHandler.GetPreferences)
-		pushRoutes.PUT("/preferences", pushHandler.UpdatePreferences)
+		pushRoutes.PUT("/preferences", middleware.ValidateRequest(validation.PushPreferencesRequest{}), pushHandler.UpdatePreferences)
 	}
 
 	// Admin routes
@@ -193,6 +196,11 @@ func main() {
 		log.Infow("Reminder scheduler started successfully")
 	}
 
+	// Add token cleanup scheduler
+	tokenCleanupScheduler := scheduler.NewTokenCleanupScheduler(repo, log)
+	tokenCleanupScheduler.Start()
+
+	defer tokenCleanupScheduler.Stop()
 	// Make sure to stop the scheduler when the application shuts down
 	defer reminderScheduler.Stop()
 

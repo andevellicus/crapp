@@ -55,7 +55,7 @@ func (s *PushService) SendNotification(userEmail string, title, body string) err
 	}
 
 	// Create notification payload
-	message := map[string]interface{}{
+	message := map[string]any{
 		"title": title,
 		"body":  body,
 		"icon":  "/static/icons/icon-192x192.png",
