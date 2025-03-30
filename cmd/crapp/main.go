@@ -3,7 +3,9 @@ package main
 import (
 	"flag"
 	"fmt"
+	"net/http"
 	"os"
+	"path/filepath"
 
 	"github.com/andevellicus/crapp/internal/auth"
 	"github.com/andevellicus/crapp/internal/config"
@@ -194,8 +196,83 @@ func main() {
 
 	// Start server
 	addr := cfg.GetServerAddress()
-	log.Infof("Starting server on %s", addr)
-	if err := router.Run(addr); err != nil {
-		log.Fatalf("Failed to start server: %v", err)
+	if cfg.TLS.Enabled {
+		// Check if certificate files exist
+		certFile := cfg.TLS.CertFile
+		keyFile := cfg.TLS.KeyFile
+
+		// If relative paths, make them relative to current directory
+		if !filepath.IsAbs(certFile) {
+			certFile = filepath.Join(".", certFile)
+		}
+		if !filepath.IsAbs(keyFile) {
+			keyFile = filepath.Join(".", keyFile)
+		}
+
+		// Check if cert files exist
+		if _, err := os.Stat(certFile); os.IsNotExist(err) {
+			log.Warnf("TLS certificate file not found: %s", certFile)
+			log.Infof("Generate certificates with: go run cmd/gencert/main.go")
+			log.Infof("Falling back to HTTP mode")
+			if err := router.Run(addr); err != nil {
+				log.Fatalf("Failed to start server: %v", err)
+			}
+			return
+		}
+
+		if _, err := os.Stat(keyFile); os.IsNotExist(err) {
+			log.Warnf("TLS key file not found: %s", keyFile)
+			log.Infof("Generate certificates with: go run cmd/gencert/main.go")
+			log.Infof("Falling back to HTTP mode")
+			if err := router.Run(addr); err != nil {
+				log.Fatalf("Failed to start server: %v", err)
+			}
+			return
+		}
+
+		// Start TLS server
+		log.Infof("Starting TLS server on %s", addr)
+		log.Infof("Using certificate: %s", certFile)
+		log.Infof("Using key: %s", keyFile)
+
+		// Optionally set up HTTP redirect server if HTTP port is specified
+		if cfg.TLS.HTTPPort != "" && cfg.TLS.HTTPPort != cfg.Server.Port {
+			// Set up a simple HTTP server that redirects to HTTPS
+			go func() {
+				httpAddr := fmt.Sprintf("%s:%s", cfg.Server.Host, cfg.TLS.HTTPPort)
+				redirectServer := &http.Server{
+					Addr: httpAddr,
+					Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+						// Build the redirect URL
+						httpsHost := cfg.Server.Host
+						if httpsHost == "0.0.0.0" {
+							httpsHost = "localhost" // For local development
+						}
+
+						httpsUrl := fmt.Sprintf("https://%s:%s%s",
+							httpsHost,
+							cfg.Server.Port,
+							r.RequestURI)
+
+						http.Redirect(w, r, httpsUrl, http.StatusMovedPermanently)
+					}),
+				}
+
+				log.Infof("Starting HTTP->HTTPS redirect server on %s", httpAddr)
+				if err := redirectServer.ListenAndServe(); err != nil {
+					log.Warnf("HTTP redirect server failed: %v", err)
+				}
+			}()
+		}
+
+		if err := router.RunTLS(addr, certFile, keyFile); err != nil {
+			log.Fatalf("Failed to start TLS server: %v", err)
+		}
+	} else {
+		// Start regular HTTP server
+		log.Infof("Starting HTTP server on %s", addr)
+		if err := router.Run(addr); err != nil {
+			log.Fatalf("Failed to start server: %v", err)
+		}
 	}
 }

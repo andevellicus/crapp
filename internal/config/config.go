@@ -15,6 +15,7 @@ type Config struct {
 	Server        ServerConfig
 	Logging       LoggingConfig
 	JWT           JWTConfig
+	TLS           TLSConfig `mapstructure:"tls"`
 	PWA           PWAConfig
 	SchemaVersion string `mapstructure:"schema_version"`
 	Reminders     ReminderConfig
@@ -50,6 +51,13 @@ type LoggingConfig struct {
 type JWTConfig struct {
 	Secret  string
 	Expires int // expiration time in hours
+}
+
+type TLSConfig struct {
+	Enabled  bool   `mapstructure:"enabled"`
+	CertFile string `mapstructure:"cert_file"`
+	KeyFile  string `mapstructure:"key_file"`
+	HTTPPort string `mapstructure:"http_port"` // Optional HTTP port for redirect
 }
 
 // PWAConfig contains PWA configuration
@@ -100,6 +108,7 @@ func LoadConfig(configPath string) (*Config, error) {
 
 	// Create config struct
 	config := &Config{
+		SchemaVersion: v.GetString("schema_version"),
 		App: AppConfig{
 			Name:          v.GetString("app.name"),
 			Environment:   v.GetString("app.environment"),
@@ -118,6 +127,12 @@ func LoadConfig(configPath string) (*Config, error) {
 			Level:     v.GetString("logging.level"),
 			Format:    v.GetString("logging.format"),
 		},
+		TLS: TLSConfig{
+			Enabled:  v.GetBool("tls.enabled"),
+			CertFile: v.GetString("tls.cert_file"),
+			KeyFile:  v.GetString("tls.key_file"),
+			HTTPPort: v.GetString("tls.http_port"),
+		},
 		JWT: JWTConfig{
 			Secret:  v.GetString("jwt.secret"),
 			Expires: v.GetInt("jwt.expires"),
@@ -127,7 +142,6 @@ func LoadConfig(configPath string) (*Config, error) {
 			VAPIDPublicKey:  v.GetString("pwa.vapid_public_key"),
 			VAPIDPrivateKey: v.GetString("pwa.vapid_private_key"),
 		},
-		SchemaVersion: v.GetString("schema_version"),
 		Reminders: ReminderConfig{
 			Frequency:  v.GetString("reminders.frequency"),
 			Times:      v.GetStringSlice("reminders.times"),
@@ -162,10 +176,15 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault("jwt.secret", "your-256-bit-secret") // Default, should be overridden
 	v.SetDefault("jwt.expires", 24)                   // 24 hours
 
+	v.SetDefault("tls.enabled", false)
+	v.SetDefault("tls.cert_file", "certs/server.crt")
+	v.SetDefault("tls.key_file", "certs/server.key")
+	v.SetDefault("tls.http_port", "8080") // For HTTP->HTTPS redirect
+
 	// Set default PWA settings
 	v.SetDefault("pwa.enabled", true)
-	v.SetDefault("pwa.vapid_public_key", "")  // Should be set in production
-	v.SetDefault("pwa.vapid_private_key", "") // Should be set in production
+	v.SetDefault("pwa.vapid_public_key", "")
+	v.SetDefault("pwa.vapid_private_key", "")
 
 	// Set default values for schema and reminders
 	v.SetDefault("schema_version", "1.0")

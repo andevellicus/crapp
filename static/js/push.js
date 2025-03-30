@@ -54,7 +54,6 @@ CRAPP.pushNotifications = {
     // Get VAPID public key from server
     getVAPIDPublicKey: async function() {
         try {
-            console.log('Requesting VAPID public key from server...');
             const response = await fetch('/api/push/vapid-public-key', {
                 headers: {
                     'Authorization': `Bearer ${window.authManager.getCurrentToken()}`
@@ -66,7 +65,6 @@ CRAPP.pushNotifications = {
             }
             
             const data = await response.json();
-            console.log('Received VAPID key:', data.publicKey);
             this.vapidPublicKey = data.publicKey;
             
             return data.publicKey;
@@ -90,7 +88,6 @@ CRAPP.pushNotifications = {
             }
             
             this.preferences = await response.json();
-            console.log('Loaded preferences:', this.preferences);
         } catch (error) {
             console.error('Error loading preferences:', error);
             // Set default preferences
@@ -103,9 +100,7 @@ CRAPP.pushNotifications = {
     
     // Save user preferences
     savePreferences: async function() {
-        try {
-            console.log('Saving preferences:', this.preferences); // Debug log
-            
+        try {           
             const response = await fetch('/api/push/preferences', {
                 method: 'PUT',
                 headers: {
@@ -119,8 +114,6 @@ CRAPP.pushNotifications = {
                 console.error('Failed to save preferences:', response.status);
                 throw new Error('Failed to save preferences');
             }
-            
-            console.log('Preferences saved successfully');
             return true;
         } catch (error) {
             console.error('Error saving preferences:', error);
@@ -150,7 +143,6 @@ CRAPP.pushNotifications = {
         try {
             // This shows the browser permission dialog
             const permission = await Notification.requestPermission();
-            console.log('Notification permission status:', permission);
             
             if (permission === 'granted') {
                 // Permission granted - now subscribe to push
@@ -172,9 +164,7 @@ CRAPP.pushNotifications = {
     
     // Subscribe to push notifications
     subscribeToPush: async function() {
-        try {
-            console.log('Attempting to subscribe to push notifications...');
-            
+        try {            
             // Get registration without waiting for .ready which might hang
             let registration;
           
@@ -182,13 +172,10 @@ CRAPP.pushNotifications = {
             const registrations = await navigator.serviceWorker.getRegistrations();
             if (registrations.length > 0) {
                 registration = registrations[0];
-                console.log('Found existing service worker registration');
             } else {
-                console.log('No service worker found, attempting to register...');
                 try {
                     // Try to register the service worker directly
                     registration = await navigator.serviceWorker.register('/service-worker.js');
-                    console.log('Service worker registered');
                 } catch (err) {
                     console.error('Failed to register service worker:', err);
                     return false;
@@ -207,17 +194,13 @@ CRAPP.pushNotifications = {
             }
             
             // Convert VAPID key to correct format
-            console.log('Converting VAPID key...');
             const convertedVapidKey = this.urlBase64ToUint8Array(this.vapidPublicKey);
             
             // Subscribe to push manager
-            console.log('Calling pushManager.subscribe()...');
             const subscription = await registration.pushManager.subscribe({
                 userVisibleOnly: true,
                 applicationServerKey: convertedVapidKey
             });
-            
-            console.log('Push subscription created successfully');
             
             // Save subscription to server
             const saved = await this.saveSubscription(subscription);
@@ -226,7 +209,6 @@ CRAPP.pushNotifications = {
                 return false;
             }
             
-            console.log('Push subscription saved successfully');
             this.pushSubscription = subscription;
             return true;
         } catch (error) {
@@ -272,7 +254,6 @@ CRAPP.pushNotifications = {
         // Make sure to show/hide the settings based on checkbox state
         if (notificationSettings) {
             notificationSettings.style.display = this.preferences && this.preferences.enabled ? 'block' : 'none';
-            console.log('Setting notification settings display:', notificationSettings.style.display);
         }
         
         // Render reminder times
@@ -285,7 +266,6 @@ CRAPP.pushNotifications = {
         // Update the checkbox handler in initUI
         enableNotificationsCheckbox.addEventListener('change', async (e) => {
             const enabled = e.target.checked;
-            console.log('Checkbox changed:', enabled);
             
             // Update preferences structure regardless of permission status
             if (!this.preferences) this.preferences = {};
@@ -295,7 +275,6 @@ CRAPP.pushNotifications = {
             
             if (enabled) {
                 // Request permission when user enables notifications
-                console.log('Requesting notification permission...');
                 const permissionGranted = await this.requestPermission();
                 
                 // If permission was denied or subscription failed
@@ -335,9 +314,7 @@ CRAPP.pushNotifications = {
         if (addReminderTimeButton && !addReminderTimeButton.hasAttribute('data-initialized')) {
             addReminderTimeButton.setAttribute('data-initialized', 'true');
             
-            addReminderTimeButton.addEventListener('click', () => {
-                console.log('Add reminder time button clicked');
-                
+            addReminderTimeButton.addEventListener('click', () => {               
                 // Initialize preferences if needed
                 if (!this.preferences) this.preferences = {};
                 if (!this.preferences.reminder_times || !Array.isArray(this.preferences.reminder_times)) {
@@ -363,9 +340,7 @@ CRAPP.pushNotifications = {
             console.error('Reminder times container not found');
             return;
         }
-        
-        console.log('Rendering reminder times:', this.preferences.reminder_times);
-        
+                
         // Clear container
         container.innerHTML = '';
         
@@ -473,9 +448,7 @@ CRAPP.pushNotifications = {
             console.error('No VAPID key provided');
             return new Uint8Array();
         }
-        
-        console.log('Processing VAPID key:', base64String);
-        
+               
         // The padding calculation is crucial for proper decoding
         const padding = '='.repeat((4 - base64String.length % 4) % 4);
         const base64 = (base64String + padding)

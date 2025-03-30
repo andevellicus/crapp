@@ -2,18 +2,14 @@
 const CACHE_NAME = 'crapp-v1';
 
 // Install event
-self.addEventListener('install', (event) => {
-    console.log('[ServiceWorker] Installing...');
-    
+self.addEventListener('install', (event) => {   
     // IMPORTANT: The entire promise chain must be inside waitUntil()
     event.waitUntil(
       caches.open(CACHE_NAME)
         .then((cache) => {
-          console.log('[ServiceWorker] Cache opened');
           return cache.addAll(CACHE_FILES);
         })
         .then(() => {
-          console.log('[ServiceWorker] Skip waiting');
           return self.skipWaiting();
         })
         .catch(error => {
@@ -25,9 +21,7 @@ self.addEventListener('install', (event) => {
   });
   
   // Activate event
-  self.addEventListener('activate', (event) => {
-    console.log('[ServiceWorker] Activating...');
-    
+  self.addEventListener('activate', (event) => {    
     // IMPORTANT: Chain all promises inside waitUntil
     event.waitUntil(
       Promise.all([
@@ -52,9 +46,7 @@ self.addEventListener('install', (event) => {
   });
   
   // Push event
-  self.addEventListener('push', (event) => {
-    console.log('[ServiceWorker] Push received:', event);
-    
+  self.addEventListener('push', (event) => {  
     // Parse notification data
     let data = {
       title: 'CRAPP Notification',
@@ -64,9 +56,7 @@ self.addEventListener('install', (event) => {
     
     try {
       if (event.data) {
-        const payload = event.data.text();
-        console.log('[ServiceWorker] Push data:', payload);
-        
+        const payload = event.data.text();        
         try {
           const jsonData = JSON.parse(payload);
           data = { ...data, ...jsonData };
@@ -94,9 +84,7 @@ self.addEventListener('install', (event) => {
   });
   
   // Notification click event
-  self.addEventListener('notificationclick', (event) => {
-    console.log('[ServiceWorker] Notification clicked');
-    
+  self.addEventListener('notificationclick', (event) => {   
     event.notification.close();
     
     // IMPORTANT: Use waitUntil here too

@@ -17,8 +17,8 @@ crapp.db
 # Log files
 logs/
 
-# Data directory
-data/
+# Keys directory
+certs/
 
 # Dependency directories (remove these if vendoring dependencies)
 /vendor/
