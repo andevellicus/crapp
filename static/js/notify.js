@@ -88,40 +88,40 @@ CRAPP.pushNotifications = {
                 throw new Error('Failed to load preferences');
             }
             
+            // Get preferences from server
             this.preferences = await response.json();
             
-            // Make sure preferences has all needed properties
-            if (!this.preferences) {
-                this.preferences = {};
+            // Set defaults for missing properties
+            if (this.preferences.push_enabled === undefined) {
+                this.preferences.push_enabled = false;
+            }
+            
+            if (this.preferences.email_enabled === undefined) {
+                this.preferences.email_enabled = false;
             }
             
             if (!this.preferences.reminder_times || !Array.isArray(this.preferences.reminder_times)) {
                 this.preferences.reminder_times = ['20:00']; // Default 8 PM
             }
             
-            // Add email_enabled if not present
-            if (this.preferences.email_enabled === undefined) {
-                this.preferences.email_enabled = false;
-            }
-            
         } catch (error) {
             console.error('Error loading preferences:', error);
-            // Set default preferences
+            // Set default preferences with clear naming
             this.preferences = {
-                enabled: false,
+                push_enabled: false,
                 email_enabled: false,
                 reminder_times: ['20:00'] // Default 8 PM
             };
         }
     },
-    
+
     // Save user preferences
     savePreferences: async function() {
         try {           
             // Make sure we have a valid preferences object
             if (!this.preferences) {
                 this.preferences = {
-                    enabled: false,
+                    push_enabled: false,
                     email_enabled: false,
                     reminder_times: ['20:00']
                 };
@@ -267,7 +267,6 @@ CRAPP.pushNotifications = {
     },
     
     // Initialize UI
-    // Initialize UI
     initUI: function(pushSupported) {
         const enableNotificationsCheckbox = document.getElementById('enable-notifications');
         const enableEmailCheckbox = document.getElementById('enable-email-notifications');
@@ -291,9 +290,9 @@ CRAPP.pushNotifications = {
         
         // Set initial state from preferences
         if (enableNotificationsCheckbox) {
-            enableNotificationsCheckbox.checked = this.preferences && this.preferences.enabled;
+            enableNotificationsCheckbox.checked = this.preferences && this.preferences.push_enabled;
         }
-        
+
         if (enableEmailCheckbox) {
             enableEmailCheckbox.checked = this.preferences && this.preferences.email_enabled;
         }
@@ -302,22 +301,21 @@ CRAPP.pushNotifications = {
         if (notificationSettings) {
             const anyNotificationEnabled = 
                 (enableNotificationsCheckbox && enableNotificationsCheckbox.checked) || 
-                (enableEmailCheckbox && enableEmailCheckbox.checked);
-                
+                (enableEmailCheckbox && enableEmailCheckbox.checked);             
             notificationSettings.style.display = anyNotificationEnabled ? 'block' : 'none';
         }
         
         // Render reminder times
         this.renderReminderTimes();
         
-        // Add push notification checkbox event listener (with safeguard against duplicates)
+        // Add push notification checkbox event listener
         if (enableNotificationsCheckbox && !enableNotificationsCheckbox.hasAttribute('data-initialized')) {
             enableNotificationsCheckbox.setAttribute('data-initialized', 'true');
             
             enableNotificationsCheckbox.addEventListener('change', async (e) => {
                 const enabled = e.target.checked;
                 
-                // Update preferences structure regardless of permission status
+                // Update preferences structure
                 if (!this.preferences) this.preferences = {};
                 if (!this.preferences.reminder_times || !Array.isArray(this.preferences.reminder_times)) {
                     this.preferences.reminder_times = ['20:00']; // Default 8 PM
@@ -331,17 +329,17 @@ CRAPP.pushNotifications = {
                     if (!permissionGranted) {
                         console.warn('Permission denied or subscription failed');
                         e.target.checked = false;
-                        this.preferences.enabled = false;
+                        this.preferences.push_enabled = false;
                     } else {
                         // Permission granted and subscription succeeded
-                        this.preferences.enabled = true;
+                        this.preferences.push_enabled = true;
                     }
                 } else {
                     // User unchecked the box
-                    this.preferences.enabled = false;
+                    this.preferences.push_enabled = false;
                 }
                 
-                // Always update UI visibility
+                // Update UI visibility
                 if (notificationSettings) {
                     const anyNotificationEnabled = 
                         (enableNotificationsCheckbox && enableNotificationsCheckbox.checked) || 
@@ -351,7 +349,7 @@ CRAPP.pushNotifications = {
                 }
                 
                 // Always render time entries if settings are visible
-                if (this.preferences.enabled || this.preferences.email_enabled) {
+                if (this.preferences.push_enabled || this.preferences.email_enabled) {
                     this.renderReminderTimes();
                 }
                 
@@ -385,7 +383,7 @@ CRAPP.pushNotifications = {
                 }
                 
                 // Always render time entries if settings are visible
-                if (this.preferences.enabled || this.preferences.email_enabled) {
+                if (this.preferences.push_enabled || this.preferences.email_enabled) {
                     this.renderReminderTimes();
                 }
                 
