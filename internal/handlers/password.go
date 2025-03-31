@@ -11,11 +11,7 @@ import (
 
 // ForgotPassword handles password reset requests
 func (h *AuthHandler) ForgotPassword(c *gin.Context) {
-	var req validation.ForgotPasswordRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request"})
-		return
-	}
+	req := c.MustGet("validatedRequest").(*validation.ForgotPasswordRequest)
 
 	// Generate reset token
 	token, err := h.authService.GeneratePasswordResetToken(req.Email)
@@ -64,11 +60,7 @@ func (h *AuthHandler) ValidateResetToken(c *gin.Context) {
 
 // ResetPassword handles password reset submissions
 func (h *AuthHandler) ResetPassword(c *gin.Context) {
-	var req validation.ResetPasswordRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request"})
-		return
-	}
+	req := c.MustGet("validatedRequest").(*validation.ResetPasswordRequest)
 
 	// Reset password
 	err := h.authService.ResetPassword(req.Token, req.NewPassword)

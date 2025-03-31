@@ -1,7 +1,9 @@
 package logger
 
 import (
+	"log"
 	"os"
+	"strings"
 	"time"
 
 	"go.uber.org/zap"
@@ -17,6 +19,11 @@ var (
 	// Sugar is the global sugared logger (easier to use but slightly slower)
 	Sugar *zap.SugaredLogger
 )
+
+// StdLogAdapter redirects standard library logs to zap
+type StdLogAdapter struct {
+	log *zap.Logger
+}
 
 // GormLogAdapter adapts zap logger to gorm logger interface
 type GormLogAdapter struct {
@@ -148,4 +155,27 @@ func SetUpGormConfig(dbLogger *zap.Logger, logLevel string) *gorm.Config {
 			},
 		),
 	}
+}
+
+// NewStdLogAdapter creates a new adapter for redirecting standard logs to zap
+func NewStdLogAdapter(logger *zap.Logger) *StdLogAdapter {
+	return &StdLogAdapter{log: logger.Named("stdlog")}
+}
+
+// Write implements io.Writer, allowing this adapter to be used with log.SetOutput
+func (a *StdLogAdapter) Write(p []byte) (int, error) {
+	// Trim trailing newlines
+	msg := strings.TrimRight(string(p), "\r\n")
+
+	// Log at info level
+	a.log.Info(msg)
+
+	return len(p), nil
+}
+
+// RedirectStdLog redirects standard library logging to zap
+func RedirectStdLog(logger *zap.Logger) {
+	adapter := NewStdLogAdapter(logger)
+	log.SetOutput(adapter)
+	log.SetFlags(0) // Remove time prefix added by standard logger
 }

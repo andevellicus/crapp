@@ -3,6 +3,7 @@ package main
 import (
 	"flag"
 	"fmt"
+	"net"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -48,6 +49,7 @@ func main() {
 	defer logger.Sync()
 
 	log := logger.Sugar
+	logger.RedirectStdLog(log.Desugar())
 	log.Infof("Starting %s server with Gin", cfg.App.Name)
 	log.Infof("Environment: %s", cfg.App.Environment)
 
@@ -278,25 +280,29 @@ func main() {
 		log.Infof("Using key: %s", keyFile)
 
 		// Optionally set up HTTP redirect server if HTTP port is specified
-		if cfg.TLS.HTTPPort != "" && cfg.TLS.HTTPPort != cfg.Server.Port {
+		if cfg.TLS.HTTPPort != 0 && cfg.TLS.HTTPPort != cfg.Server.Port {
 			// Set up a simple HTTP server that redirects to HTTPS
 			go func() {
-				httpAddr := fmt.Sprintf("%s:%s", cfg.Server.Host, cfg.TLS.HTTPPort)
+				httpAddr := fmt.Sprintf("%s:%d", cfg.Server.Host, cfg.TLS.HTTPPort)
 				redirectServer := &http.Server{
 					Addr: httpAddr,
 					Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-						// Build the redirect URL
-						httpsHost := cfg.Server.Host
-						if httpsHost == "0.0.0.0" {
-							httpsHost = "localhost" // For local development
+						// Get host without port
+						host := r.Host
+						if h, _, err := net.SplitHostPort(r.Host); err == nil {
+							host = h
 						}
 
-						httpsUrl := fmt.Sprintf("https://%s:%s%s",
-							httpsHost,
-							cfg.Server.Port,
-							r.RequestURI)
-
-						http.Redirect(w, r, httpsUrl, http.StatusMovedPermanently)
+						// Build the redirect URL
+						httpsPort := cfg.Server.Port
+						if httpsPort == 443 {
+							// Don't include standard HTTPS port in URL
+							url := fmt.Sprintf("https://%s%s", host, r.RequestURI)
+							http.Redirect(w, r, url, http.StatusMovedPermanently)
+						} else {
+							url := fmt.Sprintf("https://%s:%d%s", host, httpsPort, r.RequestURI)
+							http.Redirect(w, r, url, http.StatusMovedPermanently)
+						}
 					}),
 				}
 

@@ -181,6 +181,21 @@ func (s *ReminderScheduler) sendReminders(timeStr string) error {
 
 			// Send email to each eligible user
 			for _, user := range users {
+				// Check if user has already completed today's assessment
+				completed, err := s.repo.HasCompletedAssessment(user.Email)
+				if err != nil {
+					s.log.Warnw("Failed to check assessment completion status",
+						"error", err, "user", user.Email)
+					continue
+				}
+
+				// Skip reminder if assessment is already completed
+				if completed {
+					s.log.Infow("Skipping reminder - assessment already completed",
+						"user", user.Email)
+					continue
+				}
+
 				// Use goroutine to send emails asynchronously
 				go func(u *models.User) {
 					// Default to email as first name if first name is empty

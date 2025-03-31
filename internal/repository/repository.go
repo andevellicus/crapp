@@ -57,7 +57,8 @@ func setupDatabase(cfg *config.Config) (*gorm.DB, error) {
 		&models.AssessmentMetric{},
 		&models.QuestionResponse{},
 		&models.RefreshToken{},
-		&models.RevokedToken{})
+		&models.RevokedToken{},
+		&models.PasswordResetToken{})
 	if err != nil {
 		return nil, err
 	}

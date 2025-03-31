@@ -38,7 +38,7 @@ type DatabaseConfig struct {
 // ServerConfig contains HTTP server settings
 type ServerConfig struct {
 	Host string
-	Port string
+	Port int
 }
 
 // LoggingConfig contains logging settings
@@ -63,7 +63,7 @@ type TLSConfig struct {
 	Enabled  bool   `mapstructure:"enabled"`
 	CertFile string `mapstructure:"cert_file"`
 	KeyFile  string `mapstructure:"key_file"`
-	HTTPPort string `mapstructure:"http_port"` // Optional HTTP port for redirect
+	HTTPPort int    `mapstructure:"http_port"` // Optional HTTP port for redirect
 }
 
 // PWAConfig contains PWA configuration
@@ -138,7 +138,7 @@ func LoadConfig(configPath string) (*Config, error) {
 		},
 		Server: ServerConfig{
 			Host: v.GetString("server.host"),
-			Port: v.GetString("server.port"),
+			Port: v.GetInt("server.port"),
 		},
 		Logging: LoggingConfig{
 			Directory: v.GetString("logging.directory"),
@@ -149,7 +149,7 @@ func LoadConfig(configPath string) (*Config, error) {
 			Enabled:  v.GetBool("tls.enabled"),
 			CertFile: v.GetString("tls.cert_file"),
 			KeyFile:  v.GetString("tls.key_file"),
-			HTTPPort: v.GetString("tls.http_port"),
+			HTTPPort: v.GetInt("tls.http_port"),
 		},
 		JWT: JWTConfig{
 			Secret:  v.GetString("jwt.secret"),
@@ -248,7 +248,7 @@ func (c *Config) IsProduction() bool {
 
 // GetServerAddress returns the full server address with host and port
 func (c *Config) GetServerAddress() string {
-	return fmt.Sprintf("%s:%s", c.Server.Host, c.Server.Port)
+	return fmt.Sprintf("%s:%d", c.Server.Host, c.Server.Port)
 }
 
 // GetLogFilePath returns the log file path with timestamp
