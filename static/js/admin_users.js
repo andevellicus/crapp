@@ -123,12 +123,12 @@ async function searchUsers() {
             
             // Created date cell
             const createdCell = document.createElement('td');
-            createdCell.textContent = formatDate(user.created_at);
+            createdCell.textContent = CRAPP.utils.formatDate(user.created_at);
             row.appendChild(createdCell);
             
             // Last login cell
             const lastLoginCell = document.createElement('td');
-            lastLoginCell.textContent = formatDate(user.last_login);
+            lastLoginCell.textContent = CRAPP.utils.formatDate(user.last_login);
             row.appendChild(lastLoginCell);
             
             // Actions cell
@@ -156,17 +156,4 @@ function updatePagination() {
     document.getElementById('prev-page').disabled = searchState.page <= 1;
     document.getElementById('next-page').disabled = searchState.page >= totalPages;
     document.getElementById('page-info').textContent = `Page ${searchState.page} of ${totalPages || 1}`;
-}
-
-function formatDate(dateString) {
-    if (!dateString) return '-';
-    
-    const date = new Date(dateString);
-    return date.toLocaleString('en-US', {
-        year: 'numeric',
-        month: 'short',
-        day: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit'
-    });
 }

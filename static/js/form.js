@@ -1,10 +1,10 @@
-// Simplified form.js
+// Improved form.js with proper validation
 const CRAPP = window.CRAPP || {};
 
 CRAPP.form = {
   stateId: null,
   
-  init: async function() {
+  init: async function(forceNew = false) {
     // Check authentication
     if (!window.authManager || !window.authManager.isAuthenticated()) {
       window.location.href = '/login';
@@ -19,7 +19,13 @@ CRAPP.form = {
     try {
       // Initialize form state on server
       const response = await window.authManager.fetchWithAuth('/api/form/init', {
-        method: 'POST'
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          force_new: forceNew  // Add this to force a new state
+        })
       });
       
       
@@ -33,7 +39,7 @@ CRAPP.form = {
       
     } catch (error) {
       console.error('Error initializing form:', error);
-      this.showMessage('Failed to initialize form. Please try again.', 'error');
+      CRAPP.utils.showMessage('Failed to initialize form. Please try again.', 'error');
     }
   },
   
@@ -54,7 +60,7 @@ CRAPP.form = {
       
     } catch (error) {
       console.error('Error loading question:', error);
-      this.showMessage('Failed to load question. Please try again.', 'error');
+      CRAPP.utils.showMessage('Failed to load question. Please try again.', 'error');
     }
   },
 
@@ -113,11 +119,11 @@ CRAPP.form = {
     nextBtn.textContent = 'Next';
     nextBtn.addEventListener('click', () => this.navigate('next'));
     navButtons.appendChild(nextBtn);
-    
     formEl.appendChild(navButtons);
+
   },
 
-renderRadioOptions: function(container, question, previousAnswer) {
+  renderRadioOptions: function(container, question, previousAnswer) {
     const optionsDiv = document.createElement('div');
     optionsDiv.className = 'symptom-scale';
     
@@ -243,13 +249,24 @@ renderRadioOptions: function(container, question, previousAnswer) {
     submitBtn.textContent = 'Submit';
     submitBtn.addEventListener('click', () => this.submitForm());
     navDiv.appendChild(submitBtn);
+
+    // Add reset button
+    const resetButtonDiv = document.createElement('div');
+
+    // Create a "Start Over" button 
+    const resetButton = document.createElement('button');
+    resetButton.type = 'button';
+    resetButton.className = 'reset-button';
+    resetButton.textContent = 'Start Over';
+    resetButton.addEventListener('click', () => this.resetForm());
+    resetButtonDiv.appendChild(resetButton);
     
     // Append the navigation buttons to the form
     formEl.appendChild(navDiv);
+    formEl.appendChild(resetButtonDiv);
   },
   
   createQuestionElement: function(question, previousAnswer) {
-
     // The server returns complete question object
     const div = document.createElement('div');
     div.className = 'form-group';
@@ -287,8 +304,31 @@ renderRadioOptions: function(container, question, previousAnswer) {
     return div;
   },
   
+  // New method to validate the current question
+  validateCurrentQuestion: function(questionEl) {
+    // Clear any existing validation messages first
+    this.clearValidationMessages();
+    
+    // Get question ID
+    const questionId = questionEl.dataset.questionId;
+    
+    // Check if this is a required question
+    const isRequired = questionEl.classList.contains('required-question');
+    
+    // Get the answer
+    const answer = this.getQuestionAnswer(questionEl);
+    
+    // If required and no answer, show error
+    if (isRequired && (answer === null || answer === '')) {
+      this.showValidationMessage(questionEl, "This question is required");
+      return false;
+    }
+    
+    return true;
+  },
+  
   navigate: async function(direction) {
-    // Get current question ID
+    // Get current question element
     const questionEl = document.querySelector('[data-question-id]');
     if (!questionEl) {
       // If no question element exists, just load current question
@@ -296,6 +336,11 @@ renderRadioOptions: function(container, question, previousAnswer) {
     }
   
     const questionId = questionEl.dataset.questionId;
+    
+    // If going to next question, validate first (don't validate when going back)
+    if (questionId !== "navigation" && !this.validateCurrentQuestion(questionEl)) {
+      return false;
+    }
     
     // Get answer based on question type
     let answer = this.getQuestionAnswer(questionEl);
@@ -314,38 +359,39 @@ renderRadioOptions: function(container, question, previousAnswer) {
         })
       });
       
-      const data = await response.json();
-      
-      // Handle validation errors
-      if (!response.ok) {
-        if (data.errors && data.errors.length > 0) {
-          // Clear previous validation messages
-          this.clearValidationMessages();
-          
-          // Display each validation error
-          data.errors.forEach(error => {
-            this.showValidationMessage(questionEl, error.message);
-          });
-          
-          // Focus on the first invalid field if possible
-          if (data.field) {
-            const fieldEl = questionEl.querySelector(`[name="${data.field}"]`);
-            if (fieldEl) fieldEl.focus();
-          }
-          return false;
-        } else {
-          this.showMessage('Failed to save your answer. Please try again.', 'error');
-          return false;
-        }
+      // Handle successful response
+      if (response.ok) {
+        const data = await response.json();
+        // Load the next/previous question
+        this.loadCurrentQuestion();
+        return true;
       }
       
-      // Load the next/previous question
-      this.loadCurrentQuestion();
-      return true;
+      // Handle validation errors from server
+      const data = await response.json();
+      if (data.errors && data.errors.length > 0) {
+        // Clear previous validation messages
+        this.clearValidationMessages();
+        
+        // Display each validation error
+        data.errors.forEach(error => {
+          this.showValidationMessage(questionEl, error.message);
+        });
+        
+        // Focus on the first invalid field if possible
+        if (data.field) {
+          const fieldEl = questionEl.querySelector(`[name="${data.field}"]`);
+          if (fieldEl) fieldEl.focus();
+        }
+        return false;
+      } else {
+        CRAPP.utils.showMessage('Failed to save your answer. Please try again.', 'error');
+        return false;
+      }
       
     } catch (error) {
       console.error('Error navigating:', error);
-      this.showMessage('Failed to save your answer. Please try again.', 'error');
+      CRAPP.utils.showMessage('Failed to save your answer. Please try again.', 'error');
       return false;
     }
   },
@@ -370,10 +416,19 @@ renderRadioOptions: function(container, question, previousAnswer) {
         })
       });
       
-      if (!response.ok) throw new Error('Failed to submit form');
+      if (!response.ok) {
+        const errorData = await response.json();
+        if (errorData.errors && errorData.errors.length > 0) {
+          CRAPP.utils.showMessage('Please fix the validation errors before submitting.', 'error');
+          // Show specific validation errors if provided
+          this.showValidationErrors(errorData.errors);
+          return false;
+        }
+        throw new Error('Failed to submit form');
+      }
       
       // Show success message
-      this.showMessage('Your assessment has been submitted successfully!', 'success');
+      CRAPP.utils.showMessage('Your assessment has been submitted successfully!', 'success');
       
       // Reset form
       setTimeout(() => {
@@ -383,37 +438,36 @@ renderRadioOptions: function(container, question, previousAnswer) {
       
     } catch (error) {
       console.error('Error submitting form:', error);
-      this.showMessage('Failed to submit your assessment. Please try again.', 'error');
+      CRAPP.utils.showMessage('Failed to submit your assessment. Please try again.', 'error');
     }
   },
-  
-  showMessage: function(message, type = 'success') {
-    const messageEl = document.getElementById('message');
-    if (!messageEl) return;
-    
-    messageEl.textContent = message;
-    messageEl.className = `message ${type}`;
-    messageEl.style.display = 'block';
-    
-    if (type === 'success') {
-      setTimeout(() => {
-        messageEl.style.display = 'none';
-      }, 5000);
+
+  resetForm: function() {
+    // Confirm before resetting
+    if (confirm('Are you sure you want to start over? All your current answers will be lost.')) {
+      // Call the init method to start a new form session
+      CRAPP.utils.showMessage('Starting a new assessment...', 'success');
+      
+      // Reset the form state
+      this.init(true);
     }
   },
   
   showValidationMessage: function(container, message) {
     let msgEl = container.querySelector('.validation-message');
+    let msgDiv = document.getElementById('message');
     
     if (!msgEl) {
-      msgEl = document.createElement('div');
+      msgEl = document.createElement('span');
       msgEl.className = 'validation-message';
-      container.appendChild(msgEl);
+      msgDiv.appendChild(msgEl);
     }
     
     msgEl.textContent = message;
-    msgEl.style.display = 'block';
     container.classList.add('highlight-required');
+    
+    // Scroll to validation message
+    msgEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
   },
   
   clearValidationMessages: function() {

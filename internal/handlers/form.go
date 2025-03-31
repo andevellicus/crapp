@@ -58,6 +58,16 @@ func (h *FormHandler) InitForm(c *gin.Context) {
 		return
 	}
 
+	// Check if we should force a new form state
+	var req struct {
+		ForceNew bool `json:"force_new"`
+	}
+	if err := c.ShouldBindJSON(&req); err == nil && req.ForceNew {
+		// If force_new is true, don't check for existing state
+		h.createNewFormState(c, userEmail.(string))
+		return
+	}
+
 	// Check if user has an active form state
 	existingState, err := h.repo.GetUserActiveFormState(userEmail.(string))
 	if err == nil && existingState != nil {
@@ -66,6 +76,12 @@ func (h *FormHandler) InitForm(c *gin.Context) {
 		return
 	}
 
+	// Create new form state
+	h.createNewFormState(c, userEmail.(string))
+}
+
+// Helper function to create a new form state
+func (h *FormHandler) createNewFormState(c *gin.Context, userEmail string) {
 	// Get all questions
 	questions := h.questionLoader.GetQuestions()
 
@@ -79,7 +95,7 @@ func (h *FormHandler) InitForm(c *gin.Context) {
 	})
 
 	// Create new form state
-	formState, err := h.repo.CreateFormState(userEmail.(string), questionOrder)
+	formState, err := h.repo.CreateFormState(userEmail, questionOrder)
 	if err != nil {
 		h.log.Errorw("Error creating form state", "error", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error initializing form"})

@@ -191,6 +191,11 @@ footer {
     background-color: #4a6fa5;
 }
 
+.reset-button {
+    background-color: #e53e3e;
+    margin-top: 10px;
+}
+
 .submit-button {
     background-color: #38a169;
     margin-top: 10px;

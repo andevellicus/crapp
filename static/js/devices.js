@@ -88,7 +88,7 @@ function createDeviceElement(device, isCurrent) {
     
     // Format last active date
     const lastActive = new Date(device.last_active);
-    deviceCard.querySelector('.last-active-date').textContent = formatDate(lastActive);
+    deviceCard.querySelector('.last-active-date').textContent = CRAPP.utils.formatDate(lastActive);
     
     // Set device ID for action buttons
     deviceCard.querySelector('.rename-device-btn').dataset.deviceId = device.id;
@@ -248,33 +248,6 @@ function getBrowserName(userAgent) {
         return "Safari";
     } else {
         return "Unknown";
-    }
-}
-
-// Format date nicely
-function formatDate(date) {
-    if (!(date instanceof Date) || isNaN(date)) {
-        return 'Unknown';
-    }
-    
-    // Calculate time difference
-    const now = new Date();
-    const diffMs = now - date;
-    const diffSec = Math.floor(diffMs / 1000);
-    const diffMin = Math.floor(diffSec / 60);
-    const diffHour = Math.floor(diffMin / 60);
-    const diffDays = Math.floor(diffHour / 24);
-    
-    if (diffDays > 30) {
-        return date.toLocaleDateString();
-    } else if (diffDays > 0) {
-        return diffDays === 1 ? 'Yesterday' : `${diffDays} days ago`;
-    } else if (diffHour > 0) {
-        return `${diffHour} hour${diffHour === 1 ? '' : 's'} ago`;
-    } else if (diffMin > 0) {
-        return `${diffMin} minute${diffMin === 1 ? '' : 's'} ago`;
-    } else {
-        return 'Just now';
     }
 }
 

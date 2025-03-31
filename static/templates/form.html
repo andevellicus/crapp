@@ -9,39 +9,6 @@
         
         <form id="symptom-form" method="post" action="/api/submit">
             <div class="progress-indicator">Question <span id="current-question">1</span> of {{ len .questions }}</div>
-            
-            <div id="question-container">
-                {{ range $index, $question := .questions }}
-                <div class="question-slide" data-index="{{ $index }}" 
-                    {{- if eq $index 0 -}}
-                    style="display: block;"
-                    {{- else -}}
-                    style="display: none;"
-                    {{- end -}}>
-                    
-                    {{ if eq $question.Type "radio" }}
-                        {{ template "radio_question" $question }}
-                    {{ else if eq $question.Type "dropdown" }}
-                        {{ template "dropdown_question" $question }}
-                    {{ else if eq $question.Type "text" }}
-                        {{ template "text_question" $question }}
-                    {{ end }}
-                    
-                    <div class="navigation-buttons">
-                        {{ if gt $index 0 }}
-                        <button type="button" class="nav-button prev-button" data-action="prev">Previous</button>
-                        {{ end }}
-                        
-                        {{ $isLastQuestion := eq $index (len $.questions | add -1) }}
-                        {{ if $isLastQuestion }}
-                        <button type="submit" class="submit-button">Submit</button>
-                        {{ else }}
-                        <button type="button" class="nav-button next-button" data-action="next">Next</button>
-                        {{ end }}
-                    </div>
-                </div>
-                {{ end }}
-            </div>
         </form>
         
         <footer>
