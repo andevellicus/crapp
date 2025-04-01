@@ -196,9 +196,13 @@ footer {
     margin-top: 10px;
 }
 
+.reset-button:hover {
+    background-color: #8b2525;
+    margin-top: 10px;
+}
+
 .submit-button {
     background-color: #38a169;
-    margin-top: 10px;
 }
 
 .submit-button:hover {
