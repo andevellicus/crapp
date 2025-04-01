@@ -23,6 +23,12 @@ CRAPP.api = (function() {
    * @returns {Object} - Options with auth headers
    */
   async function withAuth(options = {}) {
+    // Check if auth module is available
+    if (!CRAPP.auth) {
+      console.warn('Auth module not available');
+      return options;
+    }
+    
     const token = await CRAPP.auth.getCurrentToken();
     
     if (!token) return options;
@@ -52,13 +58,18 @@ CRAPP.api = (function() {
   async function handleResponse(response) {
     // Handle 401 separately for auth refresh logic
     if (response.status === 401) {
+      // Check if auth module is available
+      if (!CRAPP.auth) {
+        throw new Error('Authentication required');
+      }
+      
       // Try to refresh token if possible
       if (await CRAPP.auth.refreshToken()) {
         // Retry the original request with new token
         const retryOptions = await withAuth({
-          method: response.request.method,
-          headers: response.request.headers,
-          body: response.request.body
+          method: response.request?.method || 'GET',
+          headers: response.request?.headers || {},
+          body: response.request?.body
         });
         
         return fetch(response.url, retryOptions).then(handleResponse);
@@ -71,12 +82,33 @@ CRAPP.api = (function() {
     
     // Handle other error responses
     if (!response.ok) {
-      const error = await response.json().catch(() => ({ error: 'Unknown error' }));
-      throw new Error(error.message || error.error || `Request failed with status ${response.status}`);
+      let error;
+      
+      try {
+        error = await response.json();
+      } catch (e) {
+        error = { error: `Request failed with status ${response.status}` };
+      }
+      
+      throw {
+        message: error.message || error.error || `Request failed with status ${response.status}`,
+        status: response.status,
+        response: error
+      };
+    }
+    
+    // For 204 No Content, return empty object
+    if (response.status === 204) {
+      return {};
     }
     
     // Handle successful responses
-    return response.json().catch(() => ({}));
+    try {
+      return await response.json();
+    } catch (error) {
+      // If response cannot be parsed as JSON, return empty object
+      return {};
+    }
   }
   
   /**
@@ -87,10 +119,16 @@ CRAPP.api = (function() {
   function handleError(error, callback) {
     console.error('API error:', error);
     
+    // If custom callback is provided, let it handle the error first
     if (typeof callback === 'function') {
-      callback(error);
-    } else {
-      // Default error handling
+      // If callback returns true, consider the error handled
+      if (callback(error) === true) {
+        return Promise.reject(error);
+      }
+    }
+    
+    // Default error handling - show message if utils is available
+    if (CRAPP.utils && CRAPP.utils.showMessage) {
       CRAPP.utils.showMessage(error.message || 'An error occurred', 'error');
     }
     

@@ -1,12 +1,12 @@
 document.addEventListener('DOMContentLoaded', function() {
     // Check if user is authenticated and is admin
-    if (!window.authManager || !window.authManager.isAuthenticated()) {
-        window.location.href = '/login';
+    if (!CRAPP.auth || !CRAPP.auth.isAuthenticated()) {
+        CRAPP.auth.redirectToLogin();
         return;
     }
     
     // Verify user is admin
-    const currentUser = window.authManager.getCurrentUser();
+    const currentUser = CRAPP.auth.getCurrentUser();
     if (!currentUser || !currentUser.is_admin) {
         window.location.href = '/';
         return;
@@ -83,14 +83,8 @@ async function searchUsers() {
             url += `&q=${encodeURIComponent(searchState.query)}`;
         }
         
-        // Fetch users
-        const response = await window.authManager.fetchWithAuth(url)
-        
-        if (!response.ok) {
-            throw new Error('Failed to search users');
-        }
-        
-        const data = await response.json();
+        // Use the API service instead of direct fetch
+        const data = await CRAPP.api.get(url);
         
         // Update state
         searchState.total = data.total;
@@ -148,6 +142,9 @@ async function searchUsers() {
     } catch (error) {
         console.error('Error searching users:', error);
         CRAPP.utils.showMessage(`Error searching users: ${error.message}`, 'error');
+        
+        // Hide loading state
+        loadingEl.style.display = 'none';
     }
 }
 

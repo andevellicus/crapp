@@ -70,7 +70,7 @@ CRAPP.devicesPage = {
         // Set device information
         deviceCard.querySelector('.device-name-text').textContent = device.device_name || 'Unnamed Device';
         deviceCard.querySelector('.device-os').textContent = device.os || 'Unknown OS';
-        deviceCard.querySelector('.device-browser').textContent = getBrowserName(device.browser) || 'Unknown Browser';
+        deviceCard.querySelector('.device-browser').textContent = this.getBrowserName(device.browser) || 'Unknown Browser';
         
         // Format last active date
         const lastActive = new Date(device.last_active);
@@ -120,7 +120,7 @@ CRAPP.devicesPage = {
             });
         });
     },
-    
+
     // Setup modals
     setupModals: function() {
         // Close modal buttons

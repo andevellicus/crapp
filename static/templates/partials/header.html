@@ -46,17 +46,17 @@
         const adminLinks = document.getElementById('admin-links');
 
         // Show admin links if user is admin
-        if (window.authManager && window.authManager.getCurrentUser() && window.authManager.getCurrentUser().is_admin) {
+        if (CRAPP.auth.getCurrentUser().is_admin) {
             document.getElementById('admin-links').style.display = 'inline';
         }
         
-        if (window.authManager && window.authManager.isAuthenticated()) {
+        if (CRAPP.auth.isAuthenticated()) {
             // User is logged in
             if (userMenu) userMenu.style.display = 'block';
             if (guestNav) guestNav.style.display = 'none';
             
             // Update user name
-            const user = window.authManager.currentUser || 
+            const user = CRAPP.auth.getCurrentUser() || 
                        JSON.parse(localStorage.getItem('currentUser') || 
                        sessionStorage.getItem('currentUser') || '{}');
                        
