@@ -6,10 +6,24 @@ import (
 
 	"github.com/andevellicus/crapp/internal/models"
 	"github.com/google/uuid"
+	"go.uber.org/zap"
+	"gorm.io/gorm"
 )
 
+// UserRepository extends the generic repository with user-specific methods
+type FormStateRepository struct {
+	Base *BaseRepository[models.FormState]
+}
+
+// NewAssessmentRepository creates a new user repository
+func NewFormStateRepository(db *gorm.DB, log *zap.SugaredLogger) *FormStateRepository {
+	return &FormStateRepository{
+		Base: NewBaseRepository[models.FormState](db, log.Named("form"), "forms"),
+	}
+}
+
 // CreateFormState creates a new form session for a user
-func (r *Repository) CreateFormState(userEmail string, questionOrder []int) (*models.FormState, error) {
+func (r *FormStateRepository) Create(userEmail string, questionOrder []int) (*models.FormState, error) {
 	questionOrderBytes, _ := json.Marshal(questionOrder)
 	formState := &models.FormState{
 		ID:            uuid.New().String(),
@@ -22,7 +36,7 @@ func (r *Repository) CreateFormState(userEmail string, questionOrder []int) (*mo
 		Completed:     false,
 	}
 
-	err := r.db.Create(formState).Error
+	err := r.Base.DB.Create(formState).Error
 	if err != nil {
 		return nil, err
 	}
@@ -30,30 +44,17 @@ func (r *Repository) CreateFormState(userEmail string, questionOrder []int) (*mo
 	return formState, nil
 }
 
-// GetFormState retrieves a user's current form state
-func (r *Repository) GetFormState(stateID string) (*models.FormState, error) {
-	var formState models.FormState
-
-	err := r.db.Where("id = ?", stateID).First(&formState).Error
-	if err != nil {
-		return nil, err
-	}
-
-	return &formState, nil
-}
-
 // UpdateFormState updates a user's form state
-func (r *Repository) UpdateFormState(formState *models.FormState) error {
+func (r *FormStateRepository) Update(formState *models.FormState) error {
 	formState.LastUpdatedAt = time.Now()
-
-	return r.db.Save(formState).Error
+	return r.Base.Update(formState)
 }
 
 // SaveFormAnswer saves an answer for a specific question
-func (r *Repository) SaveFormAnswer(stateID string, questionID string, answer any) error {
+func (r *FormStateRepository) SaveFormAnswer(stateID string, questionID string, answer any) error {
 	var formState models.FormState
 
-	err := r.db.Where("id = ?", stateID).First(&formState).Error
+	err := r.Base.DB.Where("id = ?", stateID).First(&formState).Error
 	if err != nil {
 		return err
 	}
@@ -61,14 +62,14 @@ func (r *Repository) SaveFormAnswer(stateID string, questionID string, answer an
 	formState.Answers[questionID] = answer
 	formState.LastUpdatedAt = time.Now()
 
-	return r.db.Save(&formState).Error
+	return r.Base.DB.Save(&formState).Error
 }
 
 // GetUserActiveFormState gets a user's most recent active form state
-func (r *Repository) GetUserActiveFormState(userEmail string) (*models.FormState, error) {
+func (r *FormStateRepository) GetUserActiveFormState(userEmail string) (*models.FormState, error) {
 	var formState models.FormState
 
-	err := r.db.Where("user_email = ? AND completed = ?", userEmail, false).
+	err := r.Base.DB.Where("user_email = ? AND completed = ?", userEmail, false).
 		Order("last_updated_at DESC").
 		First(&formState).Error
 

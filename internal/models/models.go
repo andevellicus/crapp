@@ -7,38 +7,6 @@ import (
 	"time"
 )
 
-type User struct {
-	Email            string    `json:"email" gorm:"primaryKey"`
-	Password         []byte    `json:"-"` // Stored as bcrypt hash, omitted from JSON
-	FirstName        string    `json:"first_name,omitempty"`
-	LastName         string    `json:"last_name,omitempty"`
-	IsAdmin          bool      `json:"is_admin" gorm:"default:false"`
-	CreatedAt        time.Time `json:"created_at"`
-	LastLogin        time.Time `json:"last_login"`
-	PushSubscription string    `json:"push_subscription,omitempty" gorm:"type:text"`
-	PushPreferences  string    `json:"push_preferences,omitempty" gorm:"type:text"`
-
-	// Relationships
-	Devices     []Device     `json:"devices,omitempty" gorm:"foreignKey:UserEmail"`
-	Assessments []Assessment `json:"assessments,omitempty" gorm:"foreignKey:UserEmail"`
-}
-
-// Device represents a user's device
-type Device struct {
-	ID         string    `json:"id" gorm:"primaryKey"`
-	UserEmail  string    `json:"user_email" gorm:"index"`
-	DeviceName string    `json:"device_name,omitempty"`
-	DeviceType string    `json:"device_type"` // mobile, tablet, desktop
-	Browser    string    `json:"browser,omitempty"`
-	OS         string    `json:"os,omitempty"`
-	LastActive time.Time `json:"last_active"`
-	CreatedAt  time.Time `json:"created_at"`
-
-	// Relationships
-	User        User         `json:"-" gorm:"foreignKey:UserEmail"`
-	Assessments []Assessment `json:"assessments,omitempty" gorm:"foreignKey:DeviceID"`
-}
-
 // QuestionResponse represents a response to a specific question
 type QuestionResponse struct {
 	ID           uint      `json:"id" gorm:"primaryKey"`

@@ -56,7 +56,7 @@ func (h *GinAPIHandler) SearchUsers(c *gin.Context) {
 		}
 	}
 
-	users, total, err := h.repo.SearchUsers(query, skip, limit)
+	users, total, err := h.repo.Users.SearchUsers(query, skip, limit)
 	if err != nil {
 		h.log.Errorw("Error searching users", "error", err, "query", query)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error searching users"})

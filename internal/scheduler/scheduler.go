@@ -182,7 +182,7 @@ func (s *ReminderScheduler) sendReminders(timeStr string) error {
 			// Send email to each eligible user
 			for _, user := range users {
 				// Check if user has already completed today's assessment
-				completed, err := s.repo.HasCompletedAssessment(user.Email)
+				completed, err := s.repo.Users.HasCompletedAssessment(user.Email)
 				if err != nil {
 					s.log.Warnw("Failed to check assessment completion status",
 						"error", err, "user", user.Email)

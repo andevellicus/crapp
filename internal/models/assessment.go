@@ -55,3 +55,8 @@ type MetricResult struct {
 	Calculated bool    `json:"calculated"`
 	SampleSize int     `json:"sampleSize,omitempty"`
 }
+
+// Add this method to make User implement the Entity interface
+func (a Assessment) GetID() any {
+	return a.ID
+}

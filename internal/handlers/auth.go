@@ -95,7 +95,7 @@ func (h *AuthHandler) Register(c *gin.Context) {
 	req := c.MustGet("validatedRequest").(*validation.RegisterRequest)
 
 	// Check if user already exists
-	exists, err := h.repo.UserExists(req.Email)
+	exists, err := h.repo.Users.UserExists(req.Email)
 	if err != nil {
 		h.log.Errorw("Error checking user existence", "error", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal server error"})
@@ -127,7 +127,7 @@ func (h *AuthHandler) Register(c *gin.Context) {
 	}
 
 	// Save user to database
-	if err := h.repo.CreateUser(&user); err != nil {
+	if err := h.repo.Users.Base.Create(&user); err != nil {
 		h.log.Errorw("Error creating user", "error", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error creating user"})
 		return
@@ -270,7 +270,7 @@ func (h *AuthHandler) GetCurrentUser(c *gin.Context) {
 	}
 
 	// Get user from database
-	user, err := h.repo.GetUser(userEmail.(string))
+	user, err := h.repo.Users.GetUser(userEmail.(string))
 	if err != nil {
 		h.log.Errorw("Error retrieving user", "error", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error retrieving user information"})
@@ -295,7 +295,7 @@ func (h *AuthHandler) UpdateUser(c *gin.Context) {
 	}
 
 	// Get current user
-	user, err := h.repo.GetUser(userEmail.(string))
+	user, err := h.repo.Users.GetUser(userEmail.(string))
 	if err != nil {
 		h.log.Errorw("Error retrieving user for update", "error", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error retrieving user"})
@@ -332,7 +332,7 @@ func (h *AuthHandler) UpdateUser(c *gin.Context) {
 	}
 
 	// Save updated user
-	if err := h.repo.UpdateUser(user); err != nil {
+	if err := h.repo.Users.Base.Update(user); err != nil {
 		h.log.Errorw("Error updating user", "error", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error updating user"})
 		return
@@ -354,7 +354,7 @@ func (h *AuthHandler) GetUserDevices(c *gin.Context) {
 	}
 
 	// Get devices from repository
-	devices, err := h.repo.GetUserDevices(userEmail.(string))
+	devices, err := h.repo.Devices.GetUserDevices(userEmail.(string))
 	if err != nil {
 		h.log.Errorw("Error retrieving user devices", "error", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error retrieving devices"})
@@ -385,7 +385,7 @@ func (h *AuthHandler) RegisterDevice(c *gin.Context) {
 	}
 
 	// Register device
-	device, err := h.repo.RegisterDevice(userEmail.(string), deviceInfo)
+	device, err := h.repo.Devices.RegisterDevice(userEmail.(string), deviceInfo)
 	if err != nil {
 		h.log.Errorw("Error registering device", "error", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error registering device"})
@@ -408,14 +408,14 @@ func (h *AuthHandler) RemoveDevice(c *gin.Context) {
 	}
 
 	// Get user email from context
-	userEmail, exists := c.Get("userEmail")
+	_, exists := c.Get("userEmail")
 	if !exists {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Authentication required"})
 		return
 	}
 
 	// Delete device
-	err := h.repo.DeleteDevice(deviceID, userEmail.(string))
+	err := h.repo.Devices.Base.Delete(deviceID)
 	if err != nil {
 		h.log.Errorw("Error removing device", "error", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error removing device"})
@@ -444,7 +444,7 @@ func (h *AuthHandler) RenameDevice(c *gin.Context) {
 	}
 
 	// Update device name
-	err := h.repo.UpdateDeviceName(deviceID, userEmail.(string), req.DeviceName)
+	err := h.repo.Devices.UpdateDeviceName(deviceID, userEmail.(string), req.DeviceName)
 	if err != nil {
 		h.log.Errorw("Error renaming device", "error", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error renaming device"})
@@ -460,7 +460,7 @@ func (h *AuthHandler) registerDeviceAndGenerateTokens(c *gin.Context, authServic
 	deviceInfo := extractDeviceInfo(c)
 
 	// Register device
-	device, err := h.repo.RegisterDevice(email, deviceInfo)
+	device, err := h.repo.Devices.RegisterDevice(email, deviceInfo)
 	if err != nil {
 		h.log.Errorw("Error registering device", "error", err)
 		return nil, nil, err

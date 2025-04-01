@@ -49,7 +49,7 @@ func NewAuthService(repo *repository.Repository, cfg *config.JWTConfig) *AuthSer
 // Authenticate validates credentials and returns user with session
 func (s *AuthService) Authenticate(email, password string, deviceInfo map[string]any) (*models.User, *models.Device, *TokenPair, error) {
 	// Get user
-	user, err := s.repo.GetUser(email)
+	user, err := s.repo.Users.GetUser(email)
 	if err != nil {
 		return nil, nil, nil, err
 	}
@@ -61,7 +61,7 @@ func (s *AuthService) Authenticate(email, password string, deviceInfo map[string
 	}
 
 	// Register device
-	device, err := s.repo.RegisterDevice(email, deviceInfo)
+	device, err := s.repo.Devices.RegisterDevice(email, deviceInfo)
 	if err != nil {
 		return nil, nil, nil, err
 	}
@@ -74,7 +74,7 @@ func (s *AuthService) Authenticate(email, password string, deviceInfo map[string
 
 	// Update last login time
 	user.LastLogin = time.Now()
-	if err := s.repo.UpdateUser(user); err != nil {
+	if err := s.repo.Users.Base.Update(user); err != nil {
 		return nil, nil, nil, err
 	}
 
@@ -105,7 +105,7 @@ func (s *AuthService) GenerateTokenPair(email string, isAdmin bool, deviceID str
 		CreatedAt: time.Now(),
 	}
 
-	if err := s.repo.SaveRefreshToken(refreshTokenModel); err != nil {
+	if err = s.repo.RefreshTokens.Base.Create(refreshTokenModel); err != nil {
 		return nil, err
 	}
 
@@ -146,7 +146,7 @@ func (s *AuthService) generateAccessToken(email string, isAdmin bool, tokenID st
 // RefreshToken generates a new access token using a refresh token
 func (s *AuthService) RefreshToken(refreshToken string, deviceID string) (*TokenPair, error) {
 	// Validate the refresh token
-	storedToken, err := s.repo.GetRefreshToken(refreshToken)
+	storedToken, err := s.repo.RefreshTokens.GetRefreshToken(refreshToken)
 	if err != nil {
 		return nil, fmt.Errorf("invalid refresh token")
 	}
@@ -154,7 +154,7 @@ func (s *AuthService) RefreshToken(refreshToken string, deviceID string) (*Token
 	// Check if token is expired
 	if storedToken.ExpiresAt.Before(time.Now()) {
 		// Delete expired token
-		s.repo.DeleteRefreshToken(refreshToken)
+		s.repo.RefreshTokens.Delete(refreshToken)
 		return nil, fmt.Errorf("refresh token expired")
 	}
 
@@ -164,13 +164,13 @@ func (s *AuthService) RefreshToken(refreshToken string, deviceID string) (*Token
 	}
 
 	// Get user
-	user, err := s.repo.GetUser(storedToken.UserEmail)
+	user, err := s.repo.Users.GetUser(storedToken.UserEmail)
 	if err != nil {
 		return nil, err
 	}
 
 	// Invalidate old refresh token
-	s.repo.DeleteRefreshToken(refreshToken)
+	s.repo.RefreshTokens.Delete(refreshToken)
 
 	// Generate new token pair
 	return s.GenerateTokenPair(user.Email, user.IsAdmin, deviceID)
@@ -208,7 +208,7 @@ func (s *AuthService) ValidateToken(tokenString string) (*CustomClaims, error) {
 	}
 
 	// Check if token has been revoked
-	isRevoked, err := s.repo.IsTokenRevoked(claims.TokenID)
+	isRevoked, err := s.repo.RevokedTokens.IsTokenRevoked(claims.TokenID)
 	if err != nil || isRevoked {
 		return nil, fmt.Errorf("token has been revoked")
 	}
@@ -218,7 +218,7 @@ func (s *AuthService) ValidateToken(tokenString string) (*CustomClaims, error) {
 
 // RevokeToken invalidates a token by its ID
 func (s *AuthService) RevokeToken(tokenID string) error {
-	return s.repo.RevokeToken(tokenID)
+	return s.repo.RevokedTokens.RevokeToken(tokenID)
 }
 
 // RevokeAllUserTokens invalidates all tokens for a user

@@ -1,51 +1,55 @@
 package repository
 
 import (
-	"fmt"
 	"math/rand"
-	"strings"
 	"time"
 
 	"github.com/andevellicus/crapp/internal/models"
+	"go.uber.org/zap"
+	"gorm.io/gorm"
 )
 
+// DeviceRepository extends the generic repository with user-specific methods
+type DeviceRepository struct {
+	Base *BaseRepository[models.Device]
+}
+
+// NewUserRepository creates a new device repository
+func NewDeviceRepository(db *gorm.DB, log *zap.SugaredLogger) *DeviceRepository {
+	return &DeviceRepository{
+		Base: NewBaseRepository[models.Device](db, log.Named("device"), "devices"),
+	}
+}
+
+// GetUserDevices retrieves all devices for a user
+func (r *DeviceRepository) GetUserDevices(userEmail string) ([]models.Device, error) {
+	var devices []models.Device
+	result := r.Base.DB.Where("user_email = ?", userEmail).Find(&devices)
+	if result.Error != nil {
+		r.Base.Log.Errorw("Failed to retrieve user devices", "error", result.Error)
+		return nil, result.Error
+	}
+	return devices, nil
+}
+
+// UpdateDeviceName updates a device's name
+func (r *DeviceRepository) UpdateDeviceName(deviceID string, userEmail string, newName string) error {
+	// Verify the device belongs to the user
+	var device models.Device
+	if err := r.Base.DB.Where("id = ? AND user_email = ?", deviceID, userEmail).First(&device).Error; err != nil {
+		r.Base.Log.Errorw("Failed to find device for rename", "error", err)
+		return err
+	}
+
+	// Update the device name
+	device.DeviceName = newName
+	return r.Base.Update(&device)
+}
+
 // RegisterDevice registers a new device or updates an existing one
-func (r *Repository) RegisterDevice(userEmail string, deviceInfo map[string]any) (*models.Device, error) {
-	// Check if user exists
-	if _, err := r.GetUser(userEmail); err != nil {
-		return nil, fmt.Errorf("user not found: %w", err)
-	}
-
+func (r *DeviceRepository) RegisterDevice(userEmail string, deviceInfo map[string]any) (*models.Device, error) {
 	// Generate device ID if not provided
-	var deviceID string
-
-	// Try to find existing device with similar user agent
-	userAgent, hasUA := deviceInfo["user_agent"].(string)
-
-	if hasUA {
-		var existingDevices []models.Device
-		r.db.Where("user_email = ?", userEmail).Find(&existingDevices)
-
-		// Look for a device with a matching user agent
-		for _, device := range existingDevices {
-			// No type assertion needed since Browser is already a string
-			if device.Browser != "" && strings.Contains(userAgent, device.Browser) {
-				// Found a matching device, update it
-				deviceID = device.ID
-				break
-			}
-		}
-	}
-
-	// If no existing device found, generate a new ID
-	if deviceID == "" {
-		const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
-		b := make([]byte, 16)
-		for i := range b {
-			b[i] = charset[rand.Int63()%int64(len(charset))]
-		}
-		deviceID = string(b)
-	}
+	deviceID := r.generateDeviceID(deviceInfo)
 
 	// Extract device information
 	deviceName, _ := deviceInfo["device_name"].(string)
@@ -62,63 +66,46 @@ func (r *Repository) RegisterDevice(userEmail string, deviceInfo map[string]any)
 		Browser:    browser,
 		OS:         os,
 		LastActive: time.Now(),
-		CreatedAt:  time.Now(),
 	}
 
-	// Save to database (upsert)
-	result := r.db.Save(&device)
-	if result.Error != nil {
-		return nil, result.Error
+	// Check if device exists
+	existingDevice, err := r.Base.GetByID(deviceID)
+	if err != nil {
+		r.Base.Log.Errorw("Error checking for existing device", "error", err)
+		return nil, err
 	}
 
-	return &device, nil
-}
-
-// GetUserDevices retrieves all devices for a user
-func (r *Repository) GetUserDevices(userEmail string) ([]models.Device, error) {
-	var devices []models.Device
-
-	result := r.db.Where("user_email = ?", userEmail).Find(&devices)
-	if result.Error != nil {
-		return nil, result.Error
+	// If device exists, update it
+	if existingDevice != nil {
+		// Keep created_at from existing device
+		device.CreatedAt = existingDevice.CreatedAt
+		if err := r.Base.Update(&device); err != nil {
+			return nil, err
+		}
+		return &device, nil
 	}
 
-	return devices, nil
-}
-
-// GetDevice retrieves a device by ID
-func (r *Repository) GetDevice(deviceID string) (*models.Device, error) {
-	var device models.Device
-
-	result := r.db.Where("id = ?", deviceID).First(&device)
-	if result.Error != nil {
-		return nil, result.Error
+	// If new device, set created_at
+	device.CreatedAt = time.Now()
+	if err := r.Base.Create(&device); err != nil {
+		return nil, err
 	}
 
 	return &device, nil
 }
 
-// DeleteDevice removes a device
-func (r *Repository) DeleteDevice(deviceID string, userEmail string) error {
-	// Verify the device belongs to the user
-	var device models.Device
-	if err := r.db.Where("id = ? AND user_email = ?", deviceID, userEmail).First(&device).Error; err != nil {
-		return err
+// generateDeviceID creates a unique device ID
+func (r *DeviceRepository) generateDeviceID(deviceInfo map[string]any) string {
+	// Check if an ID is already provided
+	if id, ok := deviceInfo["id"].(string); ok && id != "" {
+		return id
 	}
 
-	// Delete the device
-	return r.db.Delete(&device).Error
-}
-
-// UpdateDeviceName updates a device's name
-func (r *Repository) UpdateDeviceName(deviceID string, userEmail string, newName string) error {
-	// Verify the device belongs to the user
-	var device models.Device
-	if err := r.db.Where("id = ? AND user_email = ?", deviceID, userEmail).First(&device).Error; err != nil {
-		return err
+	// Generate a random ID
+	const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+	b := make([]byte, 16)
+	for i := range b {
+		b[i] = charset[rand.Int63()%int64(len(charset))]
 	}
-
-	// Update the device name
-	device.DeviceName = newName
-	return r.db.Save(&device).Error
+	return string(b)
 }

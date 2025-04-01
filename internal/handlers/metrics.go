@@ -41,7 +41,7 @@ func (h *GinAPIHandler) GetChartCorrelationData(c *gin.Context) {
 	}
 
 	// Get raw data
-	data, err := h.repo.GetMetricsCorrelation(userID, symptomKey, metricKey)
+	data, err := h.repo.Assessments.GetMetricsCorrelation(userID, symptomKey, metricKey)
 	if err != nil {
 		h.log.Errorw("Error retrieving metrics correlation", "error", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error retrieving data"})
@@ -84,7 +84,7 @@ func (h *GinAPIHandler) GetChartTimelineData(c *gin.Context) {
 	}
 
 	// Get raw data
-	data, err := h.repo.GetMetricsTimeline(userID, symptomKey, metricKey)
+	data, err := h.repo.Assessments.GetMetricsTimeline(userID, symptomKey, metricKey)
 	if err != nil {
 		h.log.Errorw("Error retrieving metrics timeline", "error", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error retrieving data"})

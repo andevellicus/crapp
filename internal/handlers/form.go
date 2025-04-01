@@ -69,7 +69,7 @@ func (h *FormHandler) InitForm(c *gin.Context) {
 	}
 
 	// Check if user has an active form state
-	existingState, err := h.repo.GetUserActiveFormState(userEmail.(string))
+	existingState, err := h.repo.FormStates.GetUserActiveFormState(userEmail.(string))
 	if err == nil && existingState != nil {
 		// Return existing form state
 		c.JSON(http.StatusOK, existingState)
@@ -95,7 +95,7 @@ func (h *FormHandler) createNewFormState(c *gin.Context, userEmail string) {
 	})
 
 	// Create new form state
-	formState, err := h.repo.CreateFormState(userEmail, questionOrder)
+	formState, err := h.repo.FormStates.Create(userEmail, questionOrder)
 	if err != nil {
 		h.log.Errorw("Error creating form state", "error", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error initializing form"})
@@ -110,7 +110,7 @@ func (h *FormHandler) GetCurrentQuestion(c *gin.Context) {
 	stateID := c.Param("stateId")
 
 	// Get form state
-	formState, err := h.repo.GetFormState(stateID)
+	formState, err := h.repo.FormStates.Base.GetByID(stateID)
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Form state not found"})
 		return
@@ -187,7 +187,7 @@ func (h *FormHandler) SaveAnswer(c *gin.Context) {
 	}
 
 	// Get form state
-	formState, err := h.repo.GetFormState(stateID)
+	formState, err := h.repo.FormStates.Base.GetByID(stateID)
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Form state not found"})
 		return
@@ -215,7 +215,7 @@ func (h *FormHandler) SaveAnswer(c *gin.Context) {
 	}
 
 	// Save form state
-	if err := h.repo.UpdateFormState(formState); err != nil {
+	if err := h.repo.FormStates.Update(formState); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error saving answer"})
 		return
 	}
@@ -232,7 +232,7 @@ func (h *FormHandler) SubmitForm(c *gin.Context) {
 	stateID := c.Param("stateId")
 
 	// Get form state
-	formState, err := h.repo.GetFormState(stateID)
+	formState, err := h.repo.FormStates.Base.GetByID(stateID)
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Form state not found"})
 		return
@@ -291,7 +291,7 @@ func (h *FormHandler) SubmitForm(c *gin.Context) {
 	}
 
 	// Save assessment
-	assessmentID, err := h.repo.CreateAssessment(submission)
+	assessmentID, err := h.repo.Assessments.CreateAssessment(submission)
 	if err != nil {
 		h.log.Errorw("Error saving assessment", "error", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error saving assessment"})
@@ -300,7 +300,7 @@ func (h *FormHandler) SubmitForm(c *gin.Context) {
 
 	// Mark form state as completed
 	formState.Completed = true
-	h.repo.UpdateFormState(formState)
+	h.repo.FormStates.Update(formState)
 
 	c.JSON(http.StatusOK, gin.H{
 		"success":       true,
