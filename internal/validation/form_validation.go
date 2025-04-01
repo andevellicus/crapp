@@ -181,6 +181,10 @@ func (v *FormValidator) ValidateForm(answers map[string]any) ValidationResponse 
 
 	// Validate each answer
 	for questionID, answer := range answers {
+		// Navigation doesn't have any answers
+		if questionID == "navigation" {
+			continue
+		}
 		errors := v.ValidateAnswer(questionID, answer)
 		allErrors = append(allErrors, errors...)
 	}

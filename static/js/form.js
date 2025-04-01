@@ -419,7 +419,7 @@ CRAPP.form = {
       if (!response.ok) {
         const errorData = await response.json();
         if (errorData.errors && errorData.errors.length > 0) {
-          CRAPP.utils.showMessage('Please fix the validation errors before submitting.', 'error');
+          CRAPP.utils.showMessage('Please fix the validation errors before submitting. ', 'error');
           // Show specific validation errors if provided
           this.showValidationErrors(errorData.errors);
           return false;
@@ -455,15 +455,15 @@ CRAPP.form = {
   
   showValidationMessage: function(container, message) {
     let msgEl = container.querySelector('.validation-message');
-    let msgDiv = document.getElementById('message');
     
     if (!msgEl) {
-      msgEl = document.createElement('span');
+      msgEl = document.createElement('div');
       msgEl.className = 'validation-message';
-      msgDiv.appendChild(msgEl);
+      container.appendChild(msgEl);
     }
     
     msgEl.textContent = message;
+    msgEl.style.display = 'block';
     container.classList.add('highlight-required');
     
     // Scroll to validation message
