@@ -58,18 +58,10 @@ document.addEventListener('DOMContentLoaded', function() {
             }
             
             try {
-                const response = await fetch('/api/auth/reset-password', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        token: token,
-                        new_password: newPassword
-                    })
-                });
-                
-                const data = await response.json();
+                const response = await CRAPP.api.post('/api/auth/reset-password', {
+                    token: token,
+                    new_password: newPassword 
+                })
                 
                 if (response.ok) {
                     // Show success message

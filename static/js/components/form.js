@@ -6,8 +6,8 @@ CRAPP.form = {
   
   init: async function(forceNew = false) {
     // Check authentication
-    if (!window.authManager || !window.authManager.isAuthenticated()) {
-      window.location.href = '/login';
+    if (!CRAPP.auth.isAuthenticated()) {
+      CRAPP.auth.redirectToLogin();
       return;
     }
     
@@ -18,38 +18,23 @@ CRAPP.form = {
     
     try {
       // Initialize form state on server
-      const response = await window.authManager.fetchWithAuth('/api/form/init', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          force_new: forceNew  // Add this to force a new state
-        })
+      const data = await CRAPP.api.post('/api/form/init', {
+        force_new: forceNew
       });
       
-      
-      if (!response.ok) throw new Error('Failed to initialize form');
-      
-      const data = await response.json();
       this.stateId = data.id;
       
       // Load first question
       this.loadCurrentQuestion();
       
     } catch (error) {
-      console.error('Error initializing form:', error);
-      CRAPP.utils.showMessage('Failed to initialize form. Please try again.', 'error');
+      // Error handling is done by the API service
     }
   },
   
   loadCurrentQuestion: async function() {
     try {
-      const response = await window.authManager.fetchWithAuth(`/api/form/state/${this.stateId}`)
-      
-      if (!response.ok) throw new Error('Failed to load question');
-      
-      const data = await response.json();
+      const data = await CRAPP.api.get(`/api/form/state/${this.stateId}`);
       
       // Check if we're at the submission screen
       if (data.state === 'complete') {
@@ -59,8 +44,7 @@ CRAPP.form = {
       }
       
     } catch (error) {
-      console.error('Error loading question:', error);
-      CRAPP.utils.showMessage('Failed to load question. Please try again.', 'error');
+      // API service automatically handles errors
     }
   },
 
@@ -331,14 +315,13 @@ CRAPP.form = {
     // Get current question element
     const questionEl = document.querySelector('[data-question-id]');
     if (!questionEl) {
-      // If no question element exists, just load current question
       return this.loadCurrentQuestion();
     }
   
     const questionId = questionEl.dataset.questionId;
     
-    // If going to next question, validate first (don't validate when going back)
-    if (questionId !== "navigation" && !this.validateCurrentQuestion(questionEl)) {
+    // Validate if going to next question
+    if (questionId !== "navigation" && direction === "next" && !this.validateCurrentQuestion(questionEl)) {
       return false;
     }
     
@@ -346,101 +329,76 @@ CRAPP.form = {
     let answer = this.getQuestionAnswer(questionEl);
     
     try {
-      // Send answer to server for validation and progress update
-      const response = await window.authManager.fetchWithAuth(`/api/form/state/${this.stateId}/answer`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          question_id: questionId,
-          answer: answer,
-          direction: direction
-        })
-      });
+      // Use the API service instead of direct fetch
+      await CRAPP.api.post(`/api/form/state/${this.stateId}/answer`, {
+        question_id: questionId,
+        answer: answer,
+        direction: direction
+      }, {}, this.handleNavigationError.bind(this, questionEl));
       
-      // Handle successful response
-      if (response.ok) {
-        const data = await response.json();
-        // Load the next/previous question
-        this.loadCurrentQuestion();
-        return true;
-      }
+      // If successful, load the next question
+      this.loadCurrentQuestion();
+      return true;
       
-      // Handle validation errors from server
-      const data = await response.json();
-      if (data.errors && data.errors.length > 0) {
+    } catch (error) {
+      // The API service already handled general errors
+      // We only need to handle validation errors here
+      return false;
+    }
+},
+
+// Add a custom error handler for navigation-specific errors
+handleNavigationError: function(questionEl, error) {
+    // Check if this is a validation error with field-specific details
+    if (error.response && error.response.errors && error.response.errors.length > 0) {
         // Clear previous validation messages
         this.clearValidationMessages();
         
         // Display each validation error
-        data.errors.forEach(error => {
-          this.showValidationMessage(questionEl, error.message);
+        error.response.errors.forEach(err => {
+            this.showValidationMessage(questionEl, err.message);
         });
         
-        // Focus on the first invalid field if possible
-        if (data.field) {
-          const fieldEl = questionEl.querySelector(`[name="${data.field}"]`);
-          if (fieldEl) fieldEl.focus();
+        // Focus on the first invalid field
+        if (error.response.field) {
+            const fieldEl = questionEl.querySelector(`[name="${error.response.field}"]`);
+            if (fieldEl) fieldEl.focus();
         }
-        return false;
-      } else {
-        CRAPP.utils.showMessage('Failed to save your answer. Please try again.', 'error');
-        return false;
-      }
-      
-    } catch (error) {
-      console.error('Error navigating:', error);
-      CRAPP.utils.showMessage('Failed to save your answer. Please try again.', 'error');
-      return false;
+        
+        // Return true to indicate we've handled this error
+        return true;
     }
-  },
+    
+    // Return false to let the API service handle generic errors
+    return false;
+},
   
-  submitForm: async function() {
-    try {
+submitForm: async function() {
+  try {
       // Get interaction data if available
       let interactionData = {};
       if (window.interactionTracker) {
-        interactionData = window.interactionTracker.getData();
+          interactionData = window.interactionTracker.getData();
       }
       
-      // Submit form
-      const response = await window.authManager.fetchWithAuth(`/api/form/state/${this.stateId}/submit`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Device-ID': window.authManager.getDeviceId() || 'unknown'
-        },
-        body: JSON.stringify({
+      // Use API service instead of direct fetch
+      const result = await CRAPP.api.post(`/api/form/state/${this.stateId}/submit`, {
           interaction_data: interactionData
-        })
       });
-      
-      if (!response.ok) {
-        const errorData = await response.json();
-        if (errorData.errors && errorData.errors.length > 0) {
-          CRAPP.utils.showMessage('Please fix the validation errors before submitting. ', 'error');
-          // Show specific validation errors if provided
-          this.showValidationErrors(errorData.errors);
-          return false;
-        }
-        throw new Error('Failed to submit form');
-      }
       
       // Show success message
       CRAPP.utils.showMessage('Your assessment has been submitted successfully!', 'success');
       
-      // Reset form
+      // Reset form after delay
       setTimeout(() => {
-        // Reinitialize form after delay
-        this.init();
+          this.init();
       }, 2000);
       
-    } catch (error) {
-      console.error('Error submitting form:', error);
-      CRAPP.utils.showMessage('Failed to submit your assessment. Please try again.', 'error');
-    }
-  },
+  } catch (error) {
+      // Error handling is done by the API service
+      // We might add form-specific error handling here if needed
+  }
+},
 
   resetForm: function() {
     // Confirm before resetting

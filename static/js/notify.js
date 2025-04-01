@@ -1,6 +1,4 @@
-// static/js/notify.js
-
-// Push notification handling
+// static/js/notify.js - Push notification handling
 window.CRAPP = window.CRAPP || {};
 
 CRAPP.pushNotifications = {
@@ -63,18 +61,11 @@ CRAPP.pushNotifications = {
     // Get VAPID public key from server
     getVAPIDPublicKey: async function() {
         try {
-            const response = await window.authManager.fetchWithAuth('/api/push/vapid-public-key')
-                        
-            if (!response.ok) {
-                throw new Error('Failed to get VAPID public key');
-            }
-            
-            const data = await response.json();
+            const data = await CRAPP.api.get('/api/push/vapid-public-key');
             this.vapidPublicKey = data.publicKey;
-            
             return data.publicKey;
         } catch (error) {
-            console.error('Error getting VAPID public key:', error);
+            // Error handling done by API service
             throw error;
         }
     },
@@ -82,14 +73,7 @@ CRAPP.pushNotifications = {
     // Load user preferences
     loadPreferences: async function() {
         try {
-            const response = await window.authManager.fetchWithAuth('/api/push/preferences');
-                        
-            if (!response.ok) {
-                throw new Error('Failed to load preferences');
-            }
-            
-            // Get preferences from server
-            this.preferences = await response.json();
+            this.preferences = await CRAPP.api.get('/api/push/preferences');
             
             // Set defaults for missing properties
             if (this.preferences.push_enabled === undefined) {
@@ -105,7 +89,6 @@ CRAPP.pushNotifications = {
             }
             
         } catch (error) {
-            console.error('Error loading preferences:', error);
             // Set default preferences with clear naming
             this.preferences = {
                 push_enabled: false,
@@ -119,31 +102,31 @@ CRAPP.pushNotifications = {
     savePreferences: async function() {
         try {           
             // Make sure we have a valid preferences object
-            if (!this.preferences) {
-                this.preferences = {
-                    push_enabled: false,
-                    email_enabled: false,
-                    reminder_times: ['20:00']
-                };
-            }
+            if (!this.preferences) this.preferences = {
+                push_enabled: false,
+                email_enabled: false,
+                reminder_times: ['20:00']
+            };
             
-            const response = await window.authManager.fetchWithAuth('/api/push/preferences', {
-                method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(this.preferences)
-            });
-            
-            if (!response.ok) {
-                console.error('Failed to save preferences:', response.status);
-                throw new Error('Failed to save preferences');
-            }
+            // Use API service instead of direct fetch
+            await CRAPP.api.put('/api/push/preferences', this.preferences);
             
             console.log('Preferences saved successfully', this.preferences);
             return true;
         } catch (error) {
-            console.error('Error saving preferences:', error);
+            // Error handling done by API service
+            return false;
+        }
+    },
+
+    // Save subscription to server
+    saveSubscription: async function(subscription) {
+        try {
+            // Use API service instead of direct fetch
+            await CRAPP.api.post('/api/push/subscribe', subscription);
+            return true;
+        } catch (error) {
+            // Error handling done by API service
             return false;
         }
     },
@@ -240,28 +223,6 @@ CRAPP.pushNotifications = {
             return true;
         } catch (error) {
             console.error('Error subscribing to push:', error);
-            return false;
-        }
-    },
-    
-    // Save subscription to server
-    saveSubscription: async function(subscription) {
-        try {
-            const response = await window.authManager.fetchWithAuth('/api/push/subscribe', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(subscription)
-            });
-            
-            if (!response.ok) {
-                throw new Error('Failed to save subscription');
-            }
-            
-            return true;
-        } catch (error) {
-            console.error('Error saving subscription:', error);
             return false;
         }
     },

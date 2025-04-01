@@ -147,7 +147,7 @@ async function searchUsers() {
         
     } catch (error) {
         console.error('Error searching users:', error);
-        showMessage(`Error searching users: ${error.message}`, 'error');
+        CRAPP.utils.showMessage(`Error searching users: ${error.message}`, 'error');
     }
 }
 

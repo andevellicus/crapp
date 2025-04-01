@@ -122,13 +122,8 @@ document.addEventListener('DOMContentLoaded', function() {
     // Load symptom questions from API
     async function loadSymptomQuestions() {
         try {
-            const response = await fetch('/api/questions');
-            if (!response.ok) {
-                throw new Error('Failed to load questions');
-            }
-            
-            const questions = await response.json();
-            
+            const questions = await CRAPP.api.get('/api/questions');
+                       
             // Group questions by input type
             const mouseQuestions = questions.filter(q => q.metrics_type === 'mouse' || q.type === 'radio' || q.type === 'dropdown');
             const keyboardQuestions = questions.filter(q => q.metrics_type === 'keyboard' || q.type === 'text');
@@ -142,8 +137,8 @@ document.addEventListener('DOMContentLoaded', function() {
             // Load initial data
             updateCharts();
         } catch (error) {
-            console.error('Error loading symptom questions:', error);
-            showNoData(`Failed to load question definitions: ${error.message}`);
+            // Error handling is done by API service
+            showNoData(`Failed to load question definitions.`);
         }
     }
     
@@ -244,16 +239,8 @@ document.addEventListener('DOMContentLoaded', function() {
             
             // Fetch pre-formatted data from new endpoints
             const [correlationData, timelineData] = await Promise.all([
-                window.authManager.fetchWithAuth(`/api/metrics/chart/correlation?user_id=${userEmail}&symptom=${symptomKey}&metric=${metricKey}`)
-                .then(response => {
-                    if (!response.ok) throw new Error('Failed to load correlation data');
-                    return response.json();
-                }),
-                window.authManager.fetchWithAuth(`/api/metrics/chart/timeline?user_id=${userEmail}&symptom=${symptomKey}&metric=${metricKey}`)
-                .then(response => {
-                    if (!response.ok) throw new Error('Failed to load timeline data');
-                    return response.json();
-                })
+                CRAPP.api.get(`/api/metrics/chart/correlation?user_id=${userEmail}&symptom=${symptomKey}&metric=${metricKey}`),
+                CRAPP.api.get(`/api/metrics/chart/timeline?user_id=${userEmail}&symptom=${symptomKey}&metric=${metricKey}`)
             ]);
             
             // Hide loading state
