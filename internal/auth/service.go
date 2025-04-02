@@ -49,7 +49,7 @@ func NewAuthService(repo *repository.Repository, cfg *config.JWTConfig) *AuthSer
 // Authenticate validates credentials and returns user with session
 func (s *AuthService) Authenticate(email, password string, deviceInfo map[string]any) (*models.User, *models.Device, *TokenPair, error) {
 	// Get user
-	user, err := s.repo.Users.GetUser(email)
+	user, err := s.repo.Users.GetByEmail(email)
 	if err != nil {
 		return nil, nil, nil, err
 	}
@@ -74,7 +74,7 @@ func (s *AuthService) Authenticate(email, password string, deviceInfo map[string
 
 	// Update last login time
 	user.LastLogin = time.Now()
-	if err := s.repo.Users.Base.Update(user); err != nil {
+	if err := s.repo.Users.Update(user); err != nil {
 		return nil, nil, nil, err
 	}
 
@@ -105,7 +105,7 @@ func (s *AuthService) GenerateTokenPair(email string, isAdmin bool, deviceID str
 		CreatedAt: time.Now(),
 	}
 
-	if err = s.repo.RefreshTokens.Base.Create(refreshTokenModel); err != nil {
+	if err = s.repo.RefreshTokens.Create(refreshTokenModel); err != nil {
 		return nil, err
 	}
 
@@ -146,7 +146,7 @@ func (s *AuthService) generateAccessToken(email string, isAdmin bool, tokenID st
 // RefreshToken generates a new access token using a refresh token
 func (s *AuthService) RefreshToken(refreshToken string, deviceID string) (*TokenPair, error) {
 	// Validate the refresh token
-	storedToken, err := s.repo.RefreshTokens.GetRefreshToken(refreshToken)
+	storedToken, err := s.repo.RefreshTokens.Get(refreshToken)
 	if err != nil {
 		return nil, fmt.Errorf("invalid refresh token")
 	}
@@ -164,7 +164,7 @@ func (s *AuthService) RefreshToken(refreshToken string, deviceID string) (*Token
 	}
 
 	// Get user
-	user, err := s.repo.Users.GetUser(storedToken.UserEmail)
+	user, err := s.repo.Users.GetByEmail(storedToken.UserEmail)
 	if err != nil {
 		return nil, err
 	}
@@ -223,5 +223,5 @@ func (s *AuthService) RevokeToken(tokenID string) error {
 
 // RevokeAllUserTokens invalidates all tokens for a user
 func (s *AuthService) RevokeAllUserTokens(email string) error {
-	return s.repo.RevokeAllUserTokens(email)
+	return s.repo.RevokedTokens.RevokeAllUserTokens(email)
 }

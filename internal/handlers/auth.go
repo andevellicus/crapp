@@ -127,7 +127,7 @@ func (h *AuthHandler) Register(c *gin.Context) {
 	}
 
 	// Save user to database
-	if err := h.repo.Users.Base.Create(&user); err != nil {
+	if err := h.repo.Users.Create(&user); err != nil {
 		h.log.Errorw("Error creating user", "error", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error creating user"})
 		return
@@ -270,7 +270,7 @@ func (h *AuthHandler) GetCurrentUser(c *gin.Context) {
 	}
 
 	// Get user from database
-	user, err := h.repo.Users.GetUser(userEmail.(string))
+	user, err := h.repo.Users.GetByEmail(userEmail.(string))
 	if err != nil {
 		h.log.Errorw("Error retrieving user", "error", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error retrieving user information"})
@@ -295,7 +295,7 @@ func (h *AuthHandler) UpdateUser(c *gin.Context) {
 	}
 
 	// Get current user
-	user, err := h.repo.Users.GetUser(userEmail.(string))
+	user, err := h.repo.Users.GetByEmail(userEmail.(string))
 	if err != nil {
 		h.log.Errorw("Error retrieving user for update", "error", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error retrieving user"})
@@ -332,7 +332,7 @@ func (h *AuthHandler) UpdateUser(c *gin.Context) {
 	}
 
 	// Save updated user
-	if err := h.repo.Users.Base.Update(user); err != nil {
+	if err := h.repo.Users.Update(user); err != nil {
 		h.log.Errorw("Error updating user", "error", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error updating user"})
 		return
@@ -415,7 +415,7 @@ func (h *AuthHandler) RemoveDevice(c *gin.Context) {
 	}
 
 	// Delete device
-	err := h.repo.Devices.Base.Delete(deviceID)
+	err := h.repo.Devices.Delete(deviceID)
 	if err != nil {
 		h.log.Errorw("Error removing device", "error", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error removing device"})

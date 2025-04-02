@@ -1,14 +1,15 @@
+<!-- static/templates/index.html -->
 <!DOCTYPE html>
 <html lang="en">
 {{ template "head" . }}
 <body>
     <div class="container">
-        {{ template "header" .}}
+        {{ template "header" . }}
         
         <div id="message" class="message"></div>
         
-        <form id="symptom-form">
-            <!-- Questions will be loaded dynamically from YAML -->
+        <form id="symptom-form"{{ if .usePostMethod }} method="post" action="/api/submit"{{ end }}>
+            <!-- Questions will be loaded dynamically -->
         </form>
         
         <footer>

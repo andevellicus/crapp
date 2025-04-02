@@ -7,6 +7,18 @@ import (
 	"github.com/andevellicus/crapp/internal/models"
 )
 
+// UserNotificationPreferences represents a user's complete notification preferences
+type UserNotificationPreferences struct {
+	// Push notification preferences
+	PushEnabled bool `json:"push_enabled"`
+	// Email notification preferences
+	EmailEnabled bool `json:"email_enabled"`
+	// Shared reminder time settings
+	ReminderTimes []string `json:"reminder_times"`
+	// Time when user can still complete yesterday's assessment
+	CutoffTime string `json:"cutoff_time,omitempty"`
+}
+
 // SavePushSubscription saves a push subscription for a user
 func (r *Repository) SavePushSubscription(userEmail string, subscription string) error {
 	// Update user record with push subscription

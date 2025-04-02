@@ -2,6 +2,7 @@ package repository
 
 import (
 	"encoding/json"
+	"fmt"
 	"time"
 
 	"github.com/andevellicus/crapp/internal/models"
@@ -10,15 +11,16 @@ import (
 	"gorm.io/gorm"
 )
 
-// UserRepository extends the generic repository with user-specific methods
 type FormStateRepository struct {
-	Base *BaseRepository[models.FormState]
+	db  *gorm.DB
+	log *zap.SugaredLogger
 }
 
-// NewAssessmentRepository creates a new user repository
+// NewFormStateRepository creates a new user repository
 func NewFormStateRepository(db *gorm.DB, log *zap.SugaredLogger) *FormStateRepository {
 	return &FormStateRepository{
-		Base: NewBaseRepository[models.FormState](db, log.Named("form"), "forms"),
+		db:  db,
+		log: log.Named("form-state-repo"),
 	}
 }
 
@@ -36,7 +38,7 @@ func (r *FormStateRepository) Create(userEmail string, questionOrder []int) (*mo
 		Completed:     false,
 	}
 
-	err := r.Base.DB.Create(formState).Error
+	err := r.db.Create(formState).Error
 	if err != nil {
 		return nil, err
 	}
@@ -44,17 +46,70 @@ func (r *FormStateRepository) Create(userEmail string, questionOrder []int) (*mo
 	return formState, nil
 }
 
+func (r *FormStateRepository) GetByID(stateID string) (*models.FormState, error) {
+	if stateID == "" {
+		return nil, fmt.Errorf("stateID cannot be empty")
+	}
+
+	var formState models.FormState
+	result := r.db.Where("id = ?", stateID).First(&formState)
+	if result.Error != nil {
+		if result.Error == gorm.ErrRecordNotFound {
+			return nil, nil
+		}
+		r.log.Errorw("Database error getting form state by id", "id", stateID, "error", result.Error)
+		return nil, result.Error
+	}
+	return &formState, nil
+
+}
+
 // UpdateFormState updates a user's form state
 func (r *FormStateRepository) Update(formState *models.FormState) error {
+	// State transition validation
+	if formState.Completed && formState.CurrentStep < len(formState.QuestionOrder) {
+		return fmt.Errorf("cannot mark form as completed when questions remain")
+	}
+
+	// Always update the timestamp
 	formState.LastUpdatedAt = time.Now()
-	return r.Base.Update(formState)
+
+	// Use selective field update to prevent overwriting certain fields
+	result := r.db.Model(&models.FormState{}).
+		Where("id = ? AND user_email = ?", formState.ID, formState.UserEmail).
+		Updates(map[string]interface{}{
+			"current_step":    formState.CurrentStep,
+			"answers":         formState.Answers,
+			"last_updated_at": formState.LastUpdatedAt,
+			"completed":       formState.Completed,
+		})
+
+	if result.Error != nil {
+		r.log.Errorw("Failed to update form state", "error", result.Error, "id", formState.ID)
+		return fmt.Errorf("failed to update form state: %w", result.Error)
+	}
+
+	if result.RowsAffected == 0 {
+		return fmt.Errorf("form state not found or does not belong to user")
+	}
+
+	return nil
+}
+
+func (r *FormStateRepository) Delete(id string) error {
+	// Simple delete without transaction
+	result := r.db.Delete(&models.FormState{}, "id = ?", id)
+	if result.Error != nil {
+		return fmt.Errorf("failed to delete form state: %w", result.Error)
+	}
+	return nil
 }
 
 // SaveFormAnswer saves an answer for a specific question
 func (r *FormStateRepository) SaveFormAnswer(stateID string, questionID string, answer any) error {
 	var formState models.FormState
 
-	err := r.Base.DB.Where("id = ?", stateID).First(&formState).Error
+	err := r.db.Where("id = ?", stateID).First(&formState).Error
 	if err != nil {
 		return err
 	}
@@ -62,14 +117,14 @@ func (r *FormStateRepository) SaveFormAnswer(stateID string, questionID string, 
 	formState.Answers[questionID] = answer
 	formState.LastUpdatedAt = time.Now()
 
-	return r.Base.DB.Save(&formState).Error
+	return r.db.Save(&formState).Error
 }
 
 // GetUserActiveFormState gets a user's most recent active form state
 func (r *FormStateRepository) GetUserActiveFormState(userEmail string) (*models.FormState, error) {
 	var formState models.FormState
 
-	err := r.Base.DB.Where("user_email = ? AND completed = ?", userEmail, false).
+	err := r.db.Where("user_email = ? AND completed = ?", userEmail, false).
 		Order("last_updated_at DESC").
 		First(&formState).Error
 

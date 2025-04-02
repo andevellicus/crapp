@@ -45,10 +45,10 @@
         const userName = document.getElementById('user-name');
         const adminLinks = document.getElementById('admin-links');
 
-        // Show admin links if user is admin
-        if (CRAPP.auth.getCurrentUser().is_admin) {
-            document.getElementById('admin-links').style.display = 'inline';
-        }
+        // Show admin links if user is admin -- DEPRECATED?
+        //         //if (CRAPP.auth.getCurrentUser().is_admin) {
+        //    document.getElementById('admin-links').style.display = 'inline';
+        //}
         
         if (CRAPP.auth.isAuthenticated()) {
             // User is logged in

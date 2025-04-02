@@ -23,7 +23,8 @@ func NewViewHandler(staticDir string) *GinViewHandler {
 // ServeIndex serves the index.html file
 func (h *GinViewHandler) ServeIndex(c *gin.Context) {
 	c.HTML(http.StatusOK, "index.html", gin.H{
-		"title": "CRAPP - Home",
+		"title":         "CRAPP - Home",
+		"usePostMethod": false,
 	})
 }
 

@@ -14,19 +14,29 @@ import (
 // ----- RefreshToken Repository -----
 
 type RefreshTokenRepository struct {
-	Base *BaseRepository[models.RefreshToken]
+	db  *gorm.DB
+	log *zap.SugaredLogger
 }
 
 func NewRefreshTokenRepository(db *gorm.DB, log *zap.SugaredLogger) *RefreshTokenRepository {
 	return &RefreshTokenRepository{
-		Base: NewBaseRepository[models.RefreshToken](db, log.Named("refresh_token"), "refresh_tokens"),
+		db:  db,
+		log: log.Named("refresh-tok-repo"),
 	}
 }
 
+func (r *RefreshTokenRepository) Create(refreshToken *models.RefreshToken) error {
+	if err := r.db.Create(refreshToken); err != nil {
+		r.log.Errorw("Database error creating refresh token", "error", err)
+		return fmt.Errorf("failed to create refresh token: %w", err.Error)
+	}
+	return nil
+}
+
 // Specialized methods
-func (r *RefreshTokenRepository) GetRefreshToken(tokenString string) (*models.RefreshToken, error) {
+func (r *RefreshTokenRepository) Get(tokenString string) (*models.RefreshToken, error) {
 	var token models.RefreshToken
-	err := r.Base.DB.Where("token = ? AND revoked_at IS NULL", tokenString).First(&token).Error
+	err := r.db.Where("token = ? AND revoked_at IS NULL", tokenString).First(&token).Error
 	if err != nil {
 		return nil, err
 	}
@@ -35,7 +45,7 @@ func (r *RefreshTokenRepository) GetRefreshToken(tokenString string) (*models.Re
 
 func (r *RefreshTokenRepository) Delete(tokenString string) error {
 	now := time.Now()
-	return r.Base.DB.Model(&models.RefreshToken{}).
+	return r.db.Model(&models.RefreshToken{}).
 		Where("token = ?", tokenString).
 		Update("revoked_at", &now).
 		Error
@@ -44,26 +54,36 @@ func (r *RefreshTokenRepository) Delete(tokenString string) error {
 // ----- RevokedToken Repository -----
 
 type RevokedTokenRepository struct {
-	Base *BaseRepository[models.RevokedToken]
+	db  *gorm.DB
+	log *zap.SugaredLogger
 }
 
 func NewRevokedTokenRepository(db *gorm.DB, log *zap.SugaredLogger) *RevokedTokenRepository {
 	return &RevokedTokenRepository{
-		Base: NewBaseRepository[models.RevokedToken](db, log.Named("revoked_token"), "revoked_tokens"),
+		db:  db,
+		log: log.Named("revoke-tok-repo"),
 	}
+}
+
+func (r *RevokedTokenRepository) Create(revokedToken *models.RevokedToken) error {
+	if err := r.db.Create(revokedToken); err != nil {
+		r.log.Errorw("Database error creating revoked token", "error", err)
+		return fmt.Errorf("failed to create revoked token: %w", err.Error)
+	}
+	return nil
 }
 
 // Specialized methods
 func (r *RevokedTokenRepository) IsTokenRevoked(tokenID string) (bool, error) {
 	var count int64
-	err := r.Base.DB.Model(&models.RevokedToken{}).Where("token_id = ?", tokenID).Count(&count).Error
+	err := r.db.Model(&models.RevokedToken{}).Where("token_id = ?", tokenID).Count(&count).Error
 	return count > 0, err
 }
 
 func (r *RevokedTokenRepository) RevokeToken(tokenID string) error {
 	// Check if token is already revoked
 	var count int64
-	r.Base.DB.Model(&models.RevokedToken{}).Where("token_id = ?", tokenID).Count(&count)
+	r.db.Model(&models.RevokedToken{}).Where("token_id = ?", tokenID).Count(&count)
 	if count > 0 {
 		return nil // Already revoked
 	}
@@ -75,30 +95,63 @@ func (r *RevokedTokenRepository) RevokeToken(tokenID string) error {
 		ExpiresAt: time.Now().Add(24 * time.Hour), // Keep record for 24 hours (for cleanup)
 	}
 
-	return r.Base.Create(&revokedToken)
+	if err := r.Create(&revokedToken); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// RevokeAllUserTokens revokes all tokens for a user
+func (r *RevokedTokenRepository) RevokeAllUserTokens(email string) error {
+	// Revoke all refresh tokens
+	now := time.Now()
+	if err := r.db.Model(&models.RefreshToken{}).
+		Where("user_email = ? AND revoked_at IS NULL", email).
+		Update("revoked_at", &now).
+		Error; err != nil {
+		return err
+	}
+
+	// Get all active refresh tokens to find token IDs
+	var tokens []models.RefreshToken
+	if err := r.db.Where("user_email = ? AND revoked_at IS NULL", email).Find(&tokens).Error; err != nil {
+		return err
+	}
+
+	// Add all token IDs to revoked tokens
+	for _, token := range tokens {
+		r.RevokeToken(token.TokenID)
+	}
+
+	return nil
 }
 
 // ----- PasswordResetToken Repository -----
 
 type PasswordTokenRepository struct {
-	Base *BaseRepository[models.PasswordResetToken]
+	db       *gorm.DB
+	log      *zap.SugaredLogger
+	userRepo UserDB
 }
 
-func NewPasswordTokenRepository(db *gorm.DB, log *zap.SugaredLogger) *PasswordTokenRepository {
+func NewPasswordTokenRepository(db *gorm.DB, log *zap.SugaredLogger, userRepo UserDB) *PasswordTokenRepository {
 	return &PasswordTokenRepository{
-		Base: NewBaseRepository[models.PasswordResetToken](db, log.Named("password_token"), "password_reset_tokens"),
+		db:       db,
+		log:      log.Named("pwd-reset-tok-repo"),
+		userRepo: userRepo,
 	}
 }
 
 // Specialized methods
 func (r *PasswordTokenRepository) Create(userEmail string, expiresInMinutes int) (*models.PasswordResetToken, error) {
 	// Check if user exists using the User repository
-	var userCount int64
-	if err := r.Base.DB.Model(&models.User{}).Where("email = ?", userEmail).Count(&userCount).Error; err != nil {
+	exists, err := r.userRepo.UserExists(userEmail)
+	if err != nil {
 		return nil, fmt.Errorf("error checking user: %w", err)
 	}
 
-	if userCount == 0 {
+	if !exists {
 		return nil, fmt.Errorf("user not found: %s", userEmail)
 	}
 
@@ -106,10 +159,10 @@ func (r *PasswordTokenRepository) Create(userEmail string, expiresInMinutes int)
 	tokenStr := generateUniqueToken() // You'll need to implement this or use uuid package
 
 	// Expire old tokens for this user
-	if err := r.Base.DB.Model(&models.PasswordResetToken{}).
+	if err := r.db.Model(&models.PasswordResetToken{}).
 		Where("user_email = ? AND used_at IS NULL", userEmail).
 		Update("used_at", time.Now()).Error; err != nil {
-		r.Base.Log.Warnw("Failed to expire old password reset tokens", "error", err)
+		r.log.Warnw("Failed to expire old password reset tokens", "error", err)
 	}
 
 	// Create new token
@@ -120,8 +173,8 @@ func (r *PasswordTokenRepository) Create(userEmail string, expiresInMinutes int)
 		CreatedAt: time.Now(),
 	}
 
-	if err := r.Base.Create(token); err != nil {
-		return nil, err
+	if err := r.db.Create(token); err != nil {
+		return nil, err.Error
 	}
 
 	return token, nil
@@ -129,7 +182,7 @@ func (r *PasswordTokenRepository) Create(userEmail string, expiresInMinutes int)
 
 func (r *PasswordTokenRepository) ValidatePasswordResetToken(tokenStr string) (*models.PasswordResetToken, error) {
 	var token models.PasswordResetToken
-	err := r.Base.DB.Where("token = ? AND used_at IS NULL AND expires_at > ?", tokenStr, time.Now()).First(&token).Error
+	err := r.db.Where("token = ? AND used_at IS NULL AND expires_at > ?", tokenStr, time.Now()).First(&token).Error
 	if err != nil {
 		return nil, err
 	}
@@ -138,7 +191,7 @@ func (r *PasswordTokenRepository) ValidatePasswordResetToken(tokenStr string) (*
 
 func (r *PasswordTokenRepository) MarkTokenAsUsed(tokenStr string) error {
 	now := time.Now()
-	return r.Base.DB.Model(&models.PasswordResetToken{}).
+	return r.db.Model(&models.PasswordResetToken{}).
 		Where("token = ?", tokenStr).
 		Update("used_at", &now).Error
 }
@@ -160,33 +213,7 @@ func (r *Repository) CleanupExpiredTokens() error {
 	return nil
 }
 
-// RevokeAllUserTokens revokes all tokens for a user
-func (r *Repository) RevokeAllUserTokens(email string) error {
-	// Revoke all refresh tokens
-	now := time.Now()
-	if err := r.db.Model(&models.RefreshToken{}).
-		Where("user_email = ? AND revoked_at IS NULL", email).
-		Update("revoked_at", &now).
-		Error; err != nil {
-		return err
-	}
-
-	// Get all active refresh tokens to find token IDs
-	var tokens []models.RefreshToken
-	if err := r.db.Where("user_email = ? AND revoked_at IS NULL", email).Find(&tokens).Error; err != nil {
-		return err
-	}
-
-	// Add all token IDs to revoked tokens
-	for _, token := range tokens {
-		r.RevokedTokens.RevokeToken(token.TokenID)
-	}
-
-	return nil
-}
-
 // Helper function to generate a unique token
 func generateUniqueToken() string {
-	//return fmt.Sprintf("token_%d", time.Now().UnixNano())
 	return uuid.New().String()
 }
