@@ -26,8 +26,8 @@ func NewDeviceRepository(db *gorm.DB, log *zap.SugaredLogger) DeviceDB {
 func (r *DeviceRepository) Create(device *models.Device) error {
 	// If new device, set created_at
 	device.CreatedAt = time.Now()
-	if err := r.db.Create(device); err != nil {
-		return err.Error
+	if err := r.db.Create(device).Error; err != nil {
+		return err
 	}
 	return nil
 }

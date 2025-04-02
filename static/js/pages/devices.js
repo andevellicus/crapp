@@ -121,47 +121,6 @@ CRAPP.devicesPage = {
         });
     },
 
-    // Setup modals
-    setupModals: function() {
-        // Close modal buttons
-        document.querySelectorAll('.close-modal, .cancel-button').forEach(button => {
-            button.addEventListener('click', function() {
-                this.closest('.modal').classList.remove('show');
-            });
-        });
-        
-        // Click outside modal to close
-        document.querySelectorAll('.modal').forEach(modal => {
-            modal.addEventListener('click', function(event) {
-                if (event.target === this) {
-                    this.classList.remove('show');
-                }
-            });
-        });
-        
-        // Rename device form submission
-        const renameForm = document.getElementById('rename-device-form');
-        if (renameForm) {
-            renameForm.addEventListener('submit', function(event) {
-                event.preventDefault();
-                
-                const deviceId = document.getElementById('rename-device-id').value;
-                const newName = document.getElementById('new-device-name').value;
-                
-                renameDevice(deviceId, newName);
-            });
-        }
-        
-        // Delete device button
-        const deleteButton = document.querySelector('.delete-button');
-        if (deleteButton) {
-            deleteButton.addEventListener('click', function() {
-                const deviceId = document.getElementById('delete-device-id').value;
-                removeDevice(deviceId);
-            });
-        }
-    },
-
     // Rename a device
     renameDevice: async function(deviceId, newName) {
         try {
@@ -198,6 +157,45 @@ CRAPP.devicesPage = {
             this.loadUserDevices();
         } catch (error) {
             // Error handling done by API service
+        }
+    },
+
+    // Setup modals
+    setupModals: function() {
+        // Close modal buttons
+        document.querySelectorAll('.close-modal, .cancel-button').forEach(button => {
+            button.addEventListener('click', function() {
+                this.closest('.modal').classList.remove('show');
+            });
+        });
+        
+        // Click outside modal to close
+        document.querySelectorAll('.modal').forEach(modal => {
+            modal.addEventListener('click', function(event) {
+                if (event.target === this) {
+                    this.classList.remove('show');
+                }
+            });
+        });
+        
+        // Rename device form submission
+        const renameForm = document.getElementById('rename-device-form');
+        if (renameForm) {
+            renameForm.addEventListener('submit', (event) => {
+                event.preventDefault();
+                const deviceId = document.getElementById('rename-device-id').value;
+                const newName = document.getElementById('new-device-name').value;
+                this.renameDevice(deviceId, newName);
+            });
+        }
+        
+        // Delete device button
+        const deleteButton = document.querySelector('.delete-button');
+        if (deleteButton) {
+            deleteButton.addEventListener('click', () => {
+                const deviceId = document.getElementById('delete-device-id').value;
+                this.removeDevice(deviceId);
+            });
         }
     },
 

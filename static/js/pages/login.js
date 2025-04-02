@@ -53,6 +53,12 @@ document.addEventListener('DOMContentLoaded', function() {
                 device_type: /Mobi|Android/i.test(navigator.userAgent) ? 'mobile' : 'desktop',
                 remember_me: rememberMe
             };
+
+            // Include existing device ID if available
+            const existingDeviceId = CRAPP.auth.getDeviceId();
+            if (existingDeviceId) {
+                deviceInfo.id = existingDeviceId;
+            }
             
             // Use auth service to login
             await CRAPP.auth.login(email, password, deviceInfo);

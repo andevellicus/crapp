@@ -257,37 +257,42 @@ CRAPP.auth = (function() {
      */
     refreshToken: async function() {
       try {
-        // If no refresh token, can't refresh
-        if (!refreshToken) {
-          return false;
-        }
-        
-        // Use the device ID if available
-        const deviceQueryParam = deviceId ? `?device_id=${deviceId}` : '';
-        
-        // Call refresh API
-        const data = await fetch(`/api/auth/refresh${deviceQueryParam}`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            refresh_token: refreshToken
-          })
-        }).then(res => res.json());
-        
-        // Save new tokens
-        saveTokens(data.access_token, data.refresh_token, data.expires_in);
-        
-        return true;
+          // If no refresh token, can't refresh
+          if (!refreshToken) {
+              return false;
+          }
+          
+          // Include device ID in request body instead of query param
+          const requestBody = {
+              refresh_token: refreshToken
+          };
+          
+          // Add device ID if available
+          if (deviceId) {
+              requestBody.device_id = deviceId;
+          }
+          
+          // Call refresh API
+          const data = await fetch(`/api/auth/refresh`, {
+              method: 'POST',
+              headers: {
+                  'Content-Type': 'application/json',
+              },
+              body: JSON.stringify(requestBody)
+          }).then(res => res.json());
+          
+          // Save new tokens
+          saveTokens(data.access_token, data.refresh_token, data.expires_in);
+          
+          return true;
       } catch (error) {
-        console.error('Token refresh failed:', error);
-        
-        // If refresh fails, clear auth data and redirect to login
-        clearAuthData();
-        return false;
+          console.error('Token refresh failed:', error);
+          
+          // If refresh fails, clear auth data and redirect to login
+          clearAuthData();
+          return false;
       }
-    },
+  },
     
     /**
      * Redirect to login page

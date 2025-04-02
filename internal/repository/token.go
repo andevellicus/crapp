@@ -26,9 +26,9 @@ func NewRefreshTokenRepository(db *gorm.DB, log *zap.SugaredLogger) *RefreshToke
 }
 
 func (r *RefreshTokenRepository) Create(refreshToken *models.RefreshToken) error {
-	if err := r.db.Create(refreshToken); err != nil {
+	if err := r.db.Create(refreshToken).Error; err != nil {
 		r.log.Errorw("Database error creating refresh token", "error", err)
-		return fmt.Errorf("failed to create refresh token: %w", err.Error)
+		return fmt.Errorf("failed to create refresh token: %w", err)
 	}
 	return nil
 }
@@ -66,9 +66,9 @@ func NewRevokedTokenRepository(db *gorm.DB, log *zap.SugaredLogger) *RevokedToke
 }
 
 func (r *RevokedTokenRepository) Create(revokedToken *models.RevokedToken) error {
-	if err := r.db.Create(revokedToken); err != nil {
+	if err := r.db.Create(revokedToken).Error; err != nil {
 		r.log.Errorw("Database error creating revoked token", "error", err)
-		return fmt.Errorf("failed to create revoked token: %w", err.Error)
+		return fmt.Errorf("failed to create revoked token: %w", err)
 	}
 	return nil
 }
@@ -173,8 +173,8 @@ func (r *PasswordTokenRepository) Create(userEmail string, expiresInMinutes int)
 		CreatedAt: time.Now(),
 	}
 
-	if err := r.db.Create(token); err != nil {
-		return nil, err.Error
+	if err := r.db.Create(token).Error; err != nil {
+		return nil, err
 	}
 
 	return token, nil

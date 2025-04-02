@@ -17,8 +17,3 @@ type Device struct {
 	User        User         `json:"-" gorm:"foreignKey:UserEmail"`
 	Assessments []Assessment `json:"assessments,omitempty" gorm:"foreignKey:DeviceID"`
 }
-
-// Add this method to make User implement the Entity interface
-func (d Device) GetID() any {
-	return d.ID
-}

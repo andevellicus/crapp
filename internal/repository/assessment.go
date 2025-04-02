@@ -89,8 +89,8 @@ func (r *AssessmentRepository) Create(assessment *models.AssessmentSubmission) (
 	}
 
 	// Save to database
-	if err := r.db.Create(&newAssessment); err != nil {
-		return 0, err.Error
+	if err := r.db.Create(&newAssessment).Error; err != nil {
+		return 0, err
 	}
 
 	// Now save structured responses

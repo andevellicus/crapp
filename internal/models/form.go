@@ -22,8 +22,3 @@ type SubmissionResponse struct {
 	Status       string `json:"status"`
 	AssessmentID uint   `json:"assessment_id"`
 }
-
-// Add this method to make User implement the Entity interface
-func (f FormState) GetID() any {
-	return f.ID
-}

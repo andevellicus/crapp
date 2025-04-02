@@ -32,18 +32,3 @@ type PasswordResetToken struct {
 	CreatedAt time.Time  `json:"created_at"`
 	UsedAt    *time.Time `json:"used_at"`
 }
-
-// Add this method to make RefreshToken implement the Entity interface
-func (t RefreshToken) GetID() any {
-	return t.Token
-}
-
-// Add this method to make RevokedToken implement the Entity interface
-func (t RevokedToken) GetID() any {
-	return t.TokenID
-}
-
-// Add this method to make User implement the Entity interface
-func (t PasswordResetToken) GetID() any {
-	return t.Token
-}

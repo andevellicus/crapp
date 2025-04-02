@@ -21,8 +21,3 @@ type User struct {
 	Devices     []Device     `json:"devices,omitempty" gorm:"foreignKey:UserEmail"`
 	Assessments []Assessment `json:"assessments,omitempty" gorm:"foreignKey:UserEmail"`
 }
-
-// Add this method to make User implement the Entity interface
-func (u User) GetID() any {
-	return u.Email
-}
