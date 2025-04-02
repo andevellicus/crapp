@@ -50,7 +50,6 @@ func (h *GinViewHandler) ServeProfile(c *gin.Context) {
 		"title":          "Profile - CRAPP",
 		"includeAuth":    true,
 		"includeProfile": true,
-		"includePush":    true,
 	})
 }
 

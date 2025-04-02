@@ -264,22 +264,12 @@ CRAPP.auth = (function() {
           
           // Include device ID in request body instead of query param
           const requestBody = {
-              refresh_token: refreshToken
+              refresh_token: refreshToken,
+              device_id: deviceId || ''
           };
           
-          // Add device ID if available
-          if (deviceId) {
-              requestBody.device_id = deviceId;
-          }
-          
-          // Call refresh API
-          const data = await fetch(`/api/auth/refresh`, {
-              method: 'POST',
-              headers: {
-                  'Content-Type': 'application/json',
-              },
-              body: JSON.stringify(requestBody)
-          }).then(res => res.json());
+        // Use API service instead of direct fetch
+        const data = await CRAPP.api.post('/api/auth/refresh', requestBody);
           
           // Save new tokens
           saveTokens(data.access_token, data.refresh_token, data.expires_in);

@@ -109,21 +109,18 @@ self.addEventListener('push', (event) => {
   let data = {
     title: 'CRAPP Notification',
     body: 'Time to complete your assessment!',
-    icon: '/static/icons/icon-192x192.png'
+    icon: '/static/icons/icon-192x192.png',
+    badge: '/static/icons/badge-96x96.png',
   };
   
   try {
     if (event.data) {
-      const payload = event.data.text();        
-      try {
+        const payload = event.data.text();
         const jsonData = JSON.parse(payload);
         data = { ...data, ...jsonData };
-      } catch (e) {
-        data.body = payload;
-      }
     }
   } catch (e) {
-    console.error('[ServiceWorker] Push data parsing error:', e);
+      console.error('[ServiceWorker] Push data parsing error:', e);
   }
   
   // CRITICAL: Use waitUntil to keep service worker alive until notification is shown
@@ -131,8 +128,8 @@ self.addEventListener('push', (event) => {
     self.registration.showNotification(data.title, {
       body: data.body,
       icon: data.icon,
-      badge: '/static/icons/badge-96x96.png',
-      data: { url: '/' }
+      badge: data.badge,
+      data: { url: data.url || '/' }
     })
     .catch(error => {
       console.error('[ServiceWorker] Show notification error:', error);

@@ -10,36 +10,29 @@ document.addEventListener('DOMContentLoaded', function() {
         return;
     }
     
-    // Setup password confirmation validation
-    const password = document.getElementById('password');
-    const confirmPassword = document.getElementById('confirm-password');
-    
-    if (password && confirmPassword) {
-        // Validate passwords match
-        confirmPassword.addEventListener('input', function() {
-            if (password.value !== confirmPassword.value) {
-                confirmPassword.setCustomValidity('Passwords do not match');
-            } else {
-                confirmPassword.setCustomValidity('');
-            }
-        });
-        
-        // Clear validation when password changes
-        password.addEventListener('input', function() {
-            if (confirmPassword.value) {
-                if (password.value !== confirmPassword.value) {
-                    confirmPassword.setCustomValidity('Passwords do not match');
-                } else {
-                    confirmPassword.setCustomValidity('');
-                }
-            }
-        });
-    }
+    // Define validation rules
+    const registerRules = {
+        email: { required: true, email: true },
+        first_name: { required: true },
+        last_name: { required: true },
+        password: { required: true, password: true, minLength: 8 },
+        confirm_password: { required: true, match: { value: 'password', message: 'Passwords must match' } },
+        terms: { checked: true }
+    };
     
     // Handle form submission
     form.addEventListener('submit', async function(event) {
         event.preventDefault();
+
+        // Validate form
+        if (!CRAPP.validation.validateForm(this, registerRules)) {
+            return;
+        }
         
+        // Get validated form data
+        const formData = CRAPP.validation.getFormValues(this);
+        
+        /* DEPRECATED
         // Validate passwords match
         if (password.value !== confirmPassword.value) {
             const messageDiv = document.getElementById('message');
@@ -70,6 +63,7 @@ document.addEventListener('DOMContentLoaded', function() {
             }
             return;
         }
+            */
         
         // Show loading state
         const submitButton = form.querySelector('button[type="submit"]');
@@ -85,14 +79,15 @@ document.addEventListener('DOMContentLoaded', function() {
         
         try {
             // Use auth service to register
-            await CRAPP.auth.register(userData);
+            await CRAPP.auth.register({
+                email: formData.email,
+                password: formData.password,
+                first_name: formData.first_name,
+                last_name: formData.last_name
+            });
             
-            // Show success message briefly before redirecting
-            if (messageDiv) {
-                messageDiv.textContent = 'Account created successfully!';
-                messageDiv.className = 'message success';
-                messageDiv.style.display = 'block';
-            }
+            // Show success message and redirect
+            CRAPP.utils.showMessage('Account created successfully!', 'success');
             
             // Redirect after short delay
             setTimeout(() => {
@@ -100,13 +95,12 @@ document.addEventListener('DOMContentLoaded', function() {
             }, 1000);
             
         } catch (error) {
-            console.error('Registration error:', error);
-            
-            // Show error message
-            if (messageDiv) {
-                messageDiv.textContent = error.message || 'Registration failed. Please try again.';
-                messageDiv.className = 'message error';
-                messageDiv.style.display = 'block';
+            // Show API errors if available
+            if (error.response && error.response.errors) {
+                CRAPP.validation.showAPIErrors(form, error.response.errors);
+            } else {
+                // Show general error message
+                CRAPP.utils.showMessage(error.message || 'Registration failed. Please try again.', 'error');
             }
             
             // Reset button

@@ -1,7 +1,7 @@
 // static/js/pages/login.js
 document.addEventListener('DOMContentLoaded', function() {
     const form = document.getElementById('login-form');
-    
+
     if (!form) return;
     
     // If user is already authenticated, redirect to home
@@ -9,7 +9,7 @@ document.addEventListener('DOMContentLoaded', function() {
         window.location.href = '/';
         return;
     }
-    
+   
     // Check for redirect URL from sessionStorage
     let redirectUrl = '/';
     try {
@@ -21,16 +21,25 @@ document.addEventListener('DOMContentLoaded', function() {
     } catch (error) {
         console.error('Error reading redirect URL:', error);
     }
+
+    // Define validation rules
+    const loginRules = {
+        email: { required: true, email: true },
+        password: { required: true }
+    };
     
     // Handle form submission
     form.addEventListener('submit', async function(event) {
         event.preventDefault();
-        
-        // Get form data
-        const email = document.getElementById('email').value;
-        const password = document.getElementById('password').value;
-        const rememberMe = document.getElementById('remember-me')?.checked || false;
-        
+
+        // Validate form
+        if (!CRAPP.validation.validateForm(this, loginRules)) {
+            return; // Stop if validation fails
+        }
+
+        // Get validated form values
+        const formData = CRAPP.validation.getFormValues(this);
+               
         // Show loading state
         const submitButton = form.querySelector('button[type="submit"]');
         const originalButtonText = submitButton.textContent;
@@ -51,7 +60,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 screen_height: window.screen.height,
                 device_name: navigator.platform || 'Unknown Device',
                 device_type: /Mobi|Android/i.test(navigator.userAgent) ? 'mobile' : 'desktop',
-                remember_me: rememberMe
+                remember_me: formData.remember_me
             };
 
             // Include existing device ID if available
@@ -61,7 +70,7 @@ document.addEventListener('DOMContentLoaded', function() {
             }
             
             // Use auth service to login
-            await CRAPP.auth.login(email, password, deviceInfo);
+            await CRAPP.auth.login(formData.email, formData.password, deviceInfo);
             
             // Show success message briefly before redirecting
             if (messageDiv) {

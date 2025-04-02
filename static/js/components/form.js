@@ -391,7 +391,7 @@ submitForm: async function() {
       
       // Reset form after delay
       setTimeout(() => {
-          this.init();
+          this.init(true);
       }, 2000);
       
   } catch (error) {

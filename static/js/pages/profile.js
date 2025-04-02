@@ -2,6 +2,24 @@
 
 window.CRAPP = window.CRAPP || {};
 CRAPP.profilePage = {
+    profileRules: {
+        first_name: { required: true },
+        last_name: { required: true },
+        current_password: { 
+            required: (formValues) => formValues.new_password?.length > 0,
+            message: 'Current password is required when changing password'
+        },
+        new_password: { 
+            password: true, 
+            minLength: { value: 8, message: 'New password must be at least 8 characters' },
+            required: false
+        },
+        confirm_password: { 
+            match: { value: 'new_password', message: 'Passwords must match' },
+            required: (formValues) => formValues.new_password?.length > 0
+        }
+    },
+
     init: function() {
         // Check if user is authenticated
         if (!CRAPP.auth.isAuthenticated()) {
@@ -22,29 +40,37 @@ CRAPP.profilePage = {
         });
         
         // Setup password confirmation validation
+        this.updateProfile();
         this.setupPasswordValidation();
     },
     
     setupPasswordValidation: function() {
         const newPassword = document.getElementById('new-password');
         const confirmPassword = document.getElementById('confirm-password');
+        const currentPassword = document.getElementById('current-password');
         
         if (newPassword && confirmPassword) {
-            confirmPassword.addEventListener('input', () => {
-                if (newPassword.value !== confirmPassword.value) {
-                    confirmPassword.setCustomValidity('Passwords do not match');
-                } else {
-                    confirmPassword.setCustomValidity('');
-                }
+            // Validate confirm password when it loses focus
+            confirmPassword.addEventListener('blur', function() {
+                CRAPP.validation.validateField(this, { 
+                    match: { value: 'new_password', message: 'Passwords must match' } 
+                }, { new_password: newPassword.value });
             });
             
-            newPassword.addEventListener('input', () => {
+            // Revalidate confirm password when new password changes
+            newPassword.addEventListener('input', function() {
                 if (confirmPassword.value) {
-                    if (newPassword.value !== confirmPassword.value) {
-                        confirmPassword.setCustomValidity('Passwords do not match');
-                    } else {
-                        confirmPassword.setCustomValidity('');
-                    }
+                    CRAPP.validation.validateField(confirmPassword, { 
+                        match: { value: 'new_password', message: 'Passwords must match' } 
+                    }, { new_password: this.value });
+                }
+                
+                // Validate current password requirement
+                if (this.value && currentPassword) {
+                    CRAPP.validation.validateField(currentPassword, { 
+                        required: true,
+                        message: 'Current password is required when changing password'
+                    });
                 }
             });
         }
@@ -79,37 +105,30 @@ CRAPP.profilePage = {
     },
     
     updateProfile: async function() {
-        const currentPassword = document.getElementById('current-password');
-        const newPassword = document.getElementById('new-password');
-        const firstName = document.getElementById('first-name');
-        const lastName = document.getElementById('last-name');
+        const form = document.getElementById('profile-form');
         
-        // Prepare update data
-        const updateData = {
-            first_name: firstName.value.trim(),
-            last_name: lastName.value.trim()
-        };
-        
-        // Add password fields if user is changing password
-        if (newPassword.value) {
-            if (!currentPassword.value) {
-                CRAPP.utils.showMessage('Please enter your current password to change your password', 'error');
-                return;
-            }
-            
-            updateData.current_password = currentPassword.value;
-            updateData.new_password = newPassword.value;
+        // Validate form
+        if (!CRAPP.validation.validateForm(form, CRAPP.profilePage.profileRules)) {
+            return; // Stop if validation fails
         }
+        
+        // Get validated form data
+        const formData = CRAPP.validation.getFormValues(form);
         
         try {
             // Use the API service to update profile
-            const updatedUser = await CRAPP.api.put('/api/user', updateData, {}, this.handleProfileUpdateError);
+            const updatedUser = await CRAPP.api.put('/api/user', formData);
             
             // Handle successful update
             this.handleProfileUpdateSuccess(updatedUser);
         } catch (error) {
-            // Most error handling is done by the API service
-            // We just need to handle specific form-related errors
+            // Show API errors if available
+            if (error.response && error.response.errors) {
+                CRAPP.validation.showAPIErrors(form, error.response.errors);
+            } else {
+                // Show general error message
+                CRAPP.utils.showMessage(error.message || 'Failed to update profile', 'error');
+            }
         }
     },
     
@@ -142,6 +161,155 @@ CRAPP.profilePage = {
         return false;
     }
 };
+
+// Initialize notification settings on page load
+document.addEventListener('DOMContentLoaded', function() {
+    if (document.getElementById('profile-form')) {
+        setupNotificationSettings();
+    }
+});
+
+// Add to profile.js
+function setupNotificationSettings() {
+    const enableNotificationsCheckbox = document.getElementById('enable-notifications');
+    const enableEmailCheckbox = document.getElementById('enable-email-notifications');
+    const notificationSettings = document.getElementById('notification-settings');
+    const addReminderTimeButton = document.getElementById('add-reminder-time');
+    
+    if (!enableNotificationsCheckbox && !enableEmailCheckbox) return;
+    
+    // Load notification preferences
+    CRAPP.notifications.getPreferences().then(preferences => {
+        // Update UI based on preferences
+        if (enableNotificationsCheckbox) {
+            enableNotificationsCheckbox.checked = preferences.push_enabled;
+            
+            // Handle push notification toggle
+            enableNotificationsCheckbox.addEventListener('change', async (e) => {
+                const enabled = e.target.checked;
+                
+                if (enabled) {
+                    // Use new service to request permission
+                    const permissionGranted = await CRAPP.notifications.requestPermission();
+                    if (!permissionGranted) {
+                        e.target.checked = false;
+                        return;
+                    }
+                }
+                
+                // Update preferences via notification service
+                const preferences = await CRAPP.notifications.getPreferences();
+                preferences.push_enabled = enabled;
+                await CRAPP.notifications.savePreferences(preferences);
+                
+                // Update UI visibility
+                updateNotificationSettingsVisibility();
+            });
+        }
+        
+        if (enableEmailCheckbox) {
+            enableEmailCheckbox.checked = preferences.email_enabled;
+            
+            // Handle email notification toggle
+            enableEmailCheckbox.addEventListener('change', async (e) => {
+                preferences.email_enabled = e.target.checked;
+                await updateNotificationUI(preferences);
+            });
+        }
+        
+        // Initialize UI
+        updateNotificationUI(preferences);
+        
+        // Add reminder time button
+        if (addReminderTimeButton) {
+            addReminderTimeButton.addEventListener('click', async () => {
+                if (!preferences.reminder_times) {
+                    preferences.reminder_times = [];
+                }
+                
+                // Add default time (9 PM)
+                preferences.reminder_times.push('21:00');
+                await updateNotificationUI(preferences);
+            });
+        }
+    });
+}
+
+// Update notification UI and save preferences
+async function updateNotificationUI(preferences) {
+    const notificationSettings = document.getElementById('notification-settings');
+    
+    // Show/hide settings based on enabled status
+    if (notificationSettings) {
+        const anyEnabled = preferences.push_enabled || preferences.email_enabled;
+        notificationSettings.style.display = anyEnabled ? 'block' : 'none';
+    }
+    
+    // Render reminder times
+    renderReminderTimes(preferences.reminder_times || ['20:00']);
+    
+    // Save preferences
+    await CRAPP.notifications.savePreferences(preferences);
+}
+
+// Render reminder times UI
+function renderReminderTimes(times) {
+    const container = document.getElementById('reminder-times');
+    if (!container) return;
+    
+    // Clear container
+    container.innerHTML = '';
+    
+    // Add each time input
+    times.forEach((time, index) => {
+        const timeContainer = document.createElement('div');
+        timeContainer.className = 'reminder-time';
+        timeContainer.style.display = 'flex';
+        timeContainer.style.marginBottom = '10px';
+        timeContainer.style.alignItems = 'center';
+        timeContainer.style.gap = '10px';
+        
+        const timeInput = document.createElement('input');
+        timeInput.type = 'time';
+        timeInput.value = time;
+        timeInput.addEventListener('change', async (e) => {
+            const prefs = await CRAPP.notifications.getPreferences();
+            prefs.reminder_times[index] = e.target.value;
+            await CRAPP.notifications.savePreferences(prefs);
+        });
+        
+        const deleteButton = document.createElement('button');
+        deleteButton.type = 'button';
+        deleteButton.className = 'remove-time-btn';
+        deleteButton.textContent = 'Remove';
+        deleteButton.style.padding = '4px 8px';
+        deleteButton.style.borderRadius = '4px';
+        deleteButton.style.cursor = 'pointer';
+        deleteButton.style.border = '1px solid #e53e3e';
+        deleteButton.style.color = '#e53e3e';
+        deleteButton.style.background = 'white';
+        
+        // Prevent removing last item
+        if (times.length <= 1) {
+            deleteButton.disabled = true;
+            deleteButton.style.opacity = '0.5';
+            deleteButton.style.cursor = 'not-allowed';
+            deleteButton.title = 'At least one reminder time is required';
+        }
+        
+        deleteButton.addEventListener('click', async () => {
+            if (times.length <= 1) return;
+            
+            const prefs = await CRAPP.notifications.getPreferences();
+            prefs.reminder_times.splice(index, 1);
+            await updateNotificationUI(prefs);
+        });
+        
+        timeContainer.appendChild(timeInput);
+        timeContainer.appendChild(deleteButton);
+        container.appendChild(timeContainer);
+    });
+}
 
 // Initialize on page load
 document.addEventListener('DOMContentLoaded', function() {

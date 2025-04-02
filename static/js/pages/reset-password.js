@@ -1,4 +1,19 @@
 document.addEventListener('DOMContentLoaded', function() {
+    const resetPasswordRules = {
+        new_password: { 
+            required: true, 
+            password: true, 
+            minLength: 8 
+        },
+        confirm_password: { 
+            required: true, 
+            match: { 
+                value: 'new_password', 
+                message: 'Passwords must match' 
+            } 
+        }
+    };
+
     // Get token from URL
     const urlParams = new URLSearchParams(window.location.search);
     const token = urlParams.get('token');
@@ -18,21 +33,18 @@ document.addEventListener('DOMContentLoaded', function() {
     const confirmPassword = document.getElementById('confirm-password');
     
     if (newPassword && confirmPassword) {
-        confirmPassword.addEventListener('input', () => {
-            if (newPassword.value !== confirmPassword.value) {
-                confirmPassword.setCustomValidity('Passwords do not match');
-            } else {
-                confirmPassword.setCustomValidity('');
-            }
+        confirmPassword.addEventListener('blur', function() {
+            CRAPP.validation.validateField(this, { 
+                required: true, 
+                match: { value: 'new_password', message: 'Passwords must match' } 
+            }, { new_password: newPassword.value });
         });
         
-        newPassword.addEventListener('input', () => {
+        newPassword.addEventListener('input', function() {
             if (confirmPassword.value) {
-                if (newPassword.value !== confirmPassword.value) {
-                    confirmPassword.setCustomValidity('Passwords do not match');
-                } else {
-                    confirmPassword.setCustomValidity('');
-                }
+                CRAPP.validation.validateField(confirmPassword, { 
+                    match: { value: 'new_password', message: 'Passwords must match' } 
+                }, { new_password: this.value });
             }
         });
     }
@@ -43,52 +55,32 @@ document.addEventListener('DOMContentLoaded', function() {
         form.addEventListener('submit', async function(event) {
             event.preventDefault();
             
-            const newPassword = document.getElementById('new-password').value;
-            const confirmPassword = document.getElementById('confirm-password').value;
-            
-            // Check if passwords match
-            if (newPassword !== confirmPassword) {
-                const messageDiv = document.getElementById('message');
-                if (messageDiv) {
-                    messageDiv.textContent = 'Passwords do not match';
-                    messageDiv.className = 'message error';
-                    messageDiv.style.display = 'block';
-                }
+            // Validate form
+            if (!CRAPP.validation.validateForm(this, resetPasswordRules)) {
                 return;
             }
-            
+                        
             try {
-                const response = await CRAPP.api.post('/api/auth/reset-password', {
+                // Use API service
+                await CRAPP.api.post('/api/auth/reset-password', {
                     token: token,
-                    new_password: newPassword 
-                })
+                    new_password: document.getElementById('new-password').value
+                });
                 
-                if (response.ok) {
-                    // Show success message
-                    const messageDiv = document.getElementById('message');
-                    if (messageDiv) {
-                        messageDiv.textContent = data.message || 'Your password has been reset successfully.';
-                        messageDiv.className = 'message success';
-                        messageDiv.style.display = 'block';
-                    }
-                    
-                    // Redirect to login after 3 seconds
-                    setTimeout(() => {
-                        window.location.href = '/login';
-                    }, 3000);
-                } else {
-                    throw new Error(data.error || 'Failed to reset password');
-                }
+                // Show success message
+                CRAPP.utils.showMessage('Your password has been reset successfully.', 'success');
+
+                // Redirect to login
+                setTimeout(() => {
+                    window.location.href = '/login';
+                }, 3000);
                 
             } catch (error) {
-                console.error('Error resetting password:', error);
-                
-                // Show error message
-                const messageDiv = document.getElementById('message');
-                if (messageDiv) {
-                    messageDiv.textContent = error.message || 'Failed to reset your password. Please try again.';
-                    messageDiv.className = 'message error';
-                    messageDiv.style.display = 'block';
+                // Show API errors
+                if (error.response && error.response.errors) {
+                    CRAPP.validation.showAPIErrors(form, error.response.errors);
+                } else {
+                    CRAPP.utils.showMessage(error.message || 'Failed to reset password', 'error');
                 }
             }
         });
@@ -98,8 +90,7 @@ document.addEventListener('DOMContentLoaded', function() {
 // Function to validate token with the server
 async function validateToken(token) {
     try {
-        const response = await fetch(`/api/auth/validate-reset-token?token=${encodeURIComponent(token)}`);
-        const data = await response.json();
+        const data = await CRAPP.api.get(`/api/auth/validate-reset-token?token=${encodeURIComponent(token)}`);
         
         document.getElementById('loading').style.display = 'none';
         
@@ -108,12 +99,10 @@ async function validateToken(token) {
             document.getElementById('token').value = token;
             document.getElementById('reset-form-container').style.display = 'block';
         } else {
-            // Token is invalid, show error message
+            // Token is invalid
             document.getElementById('invalid-token').style.display = 'block';
         }
     } catch (error) {
-        console.error('Error validating token:', error);
-        
         document.getElementById('loading').style.display = 'none';
         document.getElementById('invalid-token').style.display = 'block';
     }
