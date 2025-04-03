@@ -72,3 +72,11 @@ type PasswordResetTokenDB interface {
 	ValidatePasswordResetToken(tokenStr string) (*models.PasswordResetToken, error)
 	MarkTokenAsUsed(tokenStr string) error
 }
+
+type CognitiveTestDB interface {
+	SaveCPTResults(results *models.CPTResult, assessmentID uint) (uint, error)
+	GetCPTResults(userEmail string, limit int) ([]models.CPTResult, error)
+	GetCPTResultsByAssessment(assessmentID uint) (*models.CPTResult, error)
+	GetCPTResultByID(id uint) (*models.CPTResult, error)
+	GetCPTMetrics(userEmail string, lastDays int) (map[string]float64, error)
+}

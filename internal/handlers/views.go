@@ -86,6 +86,13 @@ func (h *GinViewHandler) ServeResetPassword(c *gin.Context) {
 	})
 }
 
+// ServeCognitiveTests serves the cognitive tests page
+func (h *GinViewHandler) ServeCognitiveTests(c *gin.Context) {
+	c.HTML(http.StatusOK, "cpt.html", gin.H{
+		"title": "Cognitive Tests - CRAPP",
+	})
+}
+
 // setupTemplates initializes templates with custom functions
 func SetupTemplates() *template.Template {
 	// Define custom template functions

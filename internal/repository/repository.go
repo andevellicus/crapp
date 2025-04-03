@@ -24,6 +24,7 @@ type Repository struct {
 	RefreshTokens       RefreshTokenDB
 	PasswordResetTokens PasswordResetTokenDB
 	RevokedTokens       RevokedTokenDB
+	CPTResults          CognitiveTestDB
 }
 
 // NewRepository creates a new repository with the given database connection
@@ -47,6 +48,7 @@ func NewRepository(cfg *config.Config, log *zap.SugaredLogger, questionLoader *u
 	repo.RefreshTokens = NewRefreshTokenRepository(db, log)
 	repo.PasswordResetTokens = NewPasswordTokenRepository(db, log, repo.Users)
 	repo.RevokedTokens = NewRevokedTokenRepository(db, log)
+	repo.CPTResults = NewCognitiveTestRepository(db, log)
 
 	return repo
 }
@@ -77,7 +79,9 @@ func setupDatabase(cfg *config.Config) (*gorm.DB, error) {
 		&models.QuestionResponse{},
 		&models.RefreshToken{},
 		&models.RevokedToken{},
-		&models.PasswordResetToken{})
+		&models.PasswordResetToken{},
+		&models.CPTResult{},
+	)
 	if err != nil {
 		return nil, err
 	}

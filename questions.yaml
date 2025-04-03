@@ -167,3 +167,19 @@ questions:
     required: false
     placeholder: Describe any significant events (optional)
     max_length: 500
+
+  - id: cpt_test
+    title: Continuous Performance Test
+    description: This test measures your sustained attention and response control. You'll see letters appearing on screen and need to respond only to the target letter.
+    type: cognitive_test
+    metrics_type: cpt
+    required: false
+    settings: |
+      {
+        "testDuration": 120000,
+        "stimulusDuration": 250,
+        "interStimulusInterval": 2000,
+        "targetProbability": 0.7,
+        "targets": ["X"],
+        "nonTargets": ["A", "B", "C", "E", "F", "H", "K", "L"]
+      }

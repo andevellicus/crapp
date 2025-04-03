@@ -2,6 +2,8 @@
 <!DOCTYPE html>
 <html lang="en">
 {{ template "head" . }}
+<!-- Include the cognitive test CSS -->
+<link rel="stylesheet" href="/static/css/cpt.css">
 <body>
     <div class="container">
         {{ template "header" . }}
@@ -19,6 +21,7 @@
     
     <!-- Include scripts -->
     <script src="/static/js/interaction-tracker.js"></script>
+    <script src="/static/js/components/cpt.js"></script>
     <script src="/static/js/components/form.js"></script>
 </body>
 </html>

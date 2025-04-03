@@ -1,0 +1,73 @@
+<!-- static/templates/cpt_test.html -->
+<!DOCTYPE html>
+<html lang="en">
+{{ template "head" . }}
+<body>
+    <div class="container">
+        {{ template "header" .}}
+        
+        <div id="message" class="message"></div>
+        
+        <div class="page-header">
+            <h2>Cognitive Testing</h2>
+            <p>Complete the tests below to assess your cognitive function.</p>
+        </div>
+        
+        <div class="cognitive-test-container">
+            <h3>Continuous Performance Test (CPT)</h3>
+            <p>This test measures your sustained attention and response control.</p>
+            
+            <div id="cpt-test-container"></div>
+        </div>
+        
+        <footer>
+            <p>© 2025 CRAPP - Daily Symptom Reporting</p>
+        </footer>
+    </div>
+    
+    <!-- Include the cognitive test CSS -->
+    <link rel="stylesheet" href="/static/css/cpt.css">
+    
+    <!-- Include the cognitive test JavaScript -->
+    <script src="/static/js/components/cpt.js"></script>
+    
+    <!-- Initialize the test -->
+    <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const container = document.getElementById('cpt-test-container');
+        if (container && CRAPP.cognitiveTests && CRAPP.cognitiveTests.CPT) {
+            // Initialize with default settings
+            CRAPP.cognitiveTests.CPT.initialize(container);
+            
+            // Handle test completion
+            CRAPP.cognitiveTests.CPT.onTestEnd(function(results) {
+                console.log('Test completed with results:', results);
+                
+                // You could submit the results to the server here
+                if (CRAPP.auth && CRAPP.auth.isAuthenticated()) {
+                    const userData = CRAPP.auth.getCurrentUser();
+                    if (userData) {
+                        // Include user data in results
+                        results.user_email = userData.email;
+                        
+                        // Get device ID
+                        results.device_id = CRAPP.auth.getDeviceId() || 'unknown';
+                        
+                        // Submit results to the server
+                        CRAPP.api.post('/api/cognitive-tests/cpt/submit', {
+                            results: results
+                        }).then(response => {
+                            CRAPP.utils.showMessage('Test results saved successfully', 'success');
+                        }).catch(error => {
+                            CRAPP.utils.showMessage('Failed to save test results: ' + error.message, 'error');
+                        });
+                    }
+                }
+            });
+        } else {
+            console.error('CPT module or container not found');
+        }
+    });
+    </script>
+</body>
+</html>

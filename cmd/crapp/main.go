@@ -102,6 +102,8 @@ func main() {
 	authHandler := handlers.NewAuthHandler(repo, log, authService)
 	// Create form handler
 	formHandler := handlers.NewFormHandler(repo, log, questionLoader)
+	// Initialize cognitive test handler
+	cognitiveTestHandler := handlers.NewCognitiveTestHandler(repo, log)
 
 	// Initialize Push handler
 	pushHandler := handlers.NewPushHandler(repo, log, pushService, reminderScheduler)
@@ -140,6 +142,7 @@ func main() {
 	router.GET("/register", viewHandler.ServeRegister)
 	router.GET("/profile", middleware.AuthMiddleware(authService), viewHandler.ServeProfile)
 	router.GET("/devices", middleware.AuthMiddleware(authService), viewHandler.ServeDevices)
+	router.GET("/cognitive-tests", middleware.AuthMiddleware(authService), viewHandler.ServeCognitiveTests)
 	router.GET("/forgot-password", viewHandler.ServeForgotPassword)
 	router.GET("/reset-password", viewHandler.ServeResetPassword)
 
@@ -179,6 +182,14 @@ func main() {
 		// Metric routes
 		api.GET("/metrics/chart/correlation", apiHandler.GetChartCorrelationData)
 		api.GET("/metrics/chart/timeline", apiHandler.GetChartTimelineData)
+	}
+
+	// Add cognitive test routes to the API group
+	cognitiveTests := api.Group("/cognitive-tests")
+	{
+		cognitiveTests.POST("/cpt/submit", middleware.ValidateRequest(validation.CPTResultsRequest{}), cognitiveTestHandler.SaveCPTResults)
+		cognitiveTests.GET("/cpt/results", cognitiveTestHandler.GetCPTResults)
+		//cognitiveTests.GET("/cpt/metrics", cognitiveTestHandler.GetCPTMetrics) TODO
 	}
 
 	form := router.Group("/api/form")

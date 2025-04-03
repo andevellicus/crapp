@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"math/rand"
 	"net/http"
+	"time"
 
 	"github.com/andevellicus/crapp/internal/metrics"
 	"github.com/andevellicus/crapp/internal/models"
@@ -20,6 +21,12 @@ type FormHandler struct {
 	repo           *repository.Repository
 	log            *zap.SugaredLogger
 	validator      *validation.FormValidator
+}
+
+// CognitiveTestResult represents a cognitive test result within a form submission
+type CognitiveTestResult struct {
+	QuestionID string          `json:"question_id"`
+	Results    json.RawMessage `json:"results"`
 }
 
 func NewFormHandler(repo *repository.Repository, log *zap.SugaredLogger, questionLoader *utils.QuestionLoader) *FormHandler {
@@ -299,6 +306,11 @@ func (h *FormHandler) SubmitForm(c *gin.Context) {
 		return
 	}
 
+	// Process cognitive test results if present
+	if len(req.CognitiveTests) > 0 {
+		h.processCognitiveTestResults(c, req.CognitiveTests, userEmail.(string), c.GetHeader("X-Device-ID"), assessmentID)
+	}
+
 	// Mark form state as completed
 	formState.Completed = true
 	h.repo.FormStates.Update(formState)
@@ -307,4 +319,91 @@ func (h *FormHandler) SubmitForm(c *gin.Context) {
 		"success":       true,
 		"assessment_id": assessmentID,
 	})
+}
+
+// processCognitiveTestResults handles saving cognitive test results
+func (h *FormHandler) processCognitiveTestResults(c *gin.Context, tests []models.CognitiveTestResult, userEmail, deviceID string, assessmentID uint) {
+	for _, test := range tests {
+		// Determine the test type from the question ID or data
+		testType := "cpt" // Default to CPT
+
+		// You could determine the test type from the data or via the question loader
+		question := h.questionLoader.GetQuestionByID(test.QuestionID)
+		if question != nil && question.MetricsType != "" {
+			testType = question.MetricsType
+		}
+
+		// Process based on test type
+		switch testType {
+		case "cpt":
+			// Parse CPT data
+			var cptData map[string]interface{}
+			if err := json.Unmarshal(test.Results, &cptData); err != nil {
+				h.log.Warnw("Error parsing CPT data", "error", err)
+				continue
+			}
+
+			// Create CPT result model
+			cptResult := &models.CPTResult{
+				UserEmail:    userEmail,
+				DeviceID:     deviceID,
+				AssessmentID: assessmentID,
+				RawData:      test.Results,
+				CreatedAt:    time.Now(),
+			}
+
+			// Extract key metrics
+			if startTime, ok := cptData["testStartTime"].(float64); ok {
+				cptResult.TestStartTime = time.Unix(0, int64(startTime)*int64(time.Millisecond))
+			}
+
+			if endTime, ok := cptData["testEndTime"].(float64); ok {
+				cptResult.TestEndTime = time.Unix(0, int64(endTime)*int64(time.Millisecond))
+			}
+
+			if correctDetections, ok := cptData["correctDetections"].(float64); ok {
+				cptResult.CorrectDetections = int(correctDetections)
+			}
+
+			if commissionErrors, ok := cptData["commissionErrors"].(float64); ok {
+				cptResult.CommissionErrors = int(commissionErrors)
+			}
+
+			if omissionErrors, ok := cptData["omissionErrors"].(float64); ok {
+				cptResult.OmissionErrors = int(omissionErrors)
+			}
+
+			if avgReactionTime, ok := cptData["averageReactionTime"].(float64); ok {
+				cptResult.AverageReactionTime = avgReactionTime
+			}
+
+			if reactionTimeSD, ok := cptData["reactionTimeSD"].(float64); ok {
+				cptResult.ReactionTimeSD = reactionTimeSD
+			}
+
+			if detectionRate, ok := cptData["detectionRate"].(float64); ok {
+				cptResult.DetectionRate = detectionRate
+			}
+
+			if omissionErrorRate, ok := cptData["omissionErrorRate"].(float64); ok {
+				cptResult.OmissionErrorRate = omissionErrorRate
+			}
+
+			if commissionErrorRate, ok := cptData["commissionErrorRate"].(float64); ok {
+				cptResult.CommissionErrorRate = commissionErrorRate
+			}
+
+			// Save CPT result
+			if _, err := h.repo.CPTResults.SaveCPTResults(cptResult, assessmentID); err != nil {
+				h.log.Warnw("Error saving CPT result", "error", err)
+			}
+
+		case "trail_making":
+			// Similar processing for trail making test
+			h.log.Infow("Trail making test result processing not implemented yet")
+
+		default:
+			h.log.Warnw("Unknown cognitive test type", "type", testType)
+		}
+	}
 }

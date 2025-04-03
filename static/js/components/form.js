@@ -2,6 +2,7 @@ const CRAPP = window.CRAPP || {};
 
 CRAPP.form = {
   stateId: null,
+  formAnswers: {},
   
   init: async function(forceNew = false) {
     // Check authentication
@@ -9,6 +10,9 @@ CRAPP.form = {
       CRAPP.auth.redirectToLogin();
       return;
     }
+
+    // Reset form answers on initialization
+    this.formAnswers = {};
     
     // Initialize tracking
     if (window.interactionTracker) {
@@ -28,6 +32,8 @@ CRAPP.form = {
       
     } catch (error) {
       // Error handling is done by the API service
+      // But log any errors anyway
+      console.error(error)
     }
   },
   
@@ -41,30 +47,50 @@ CRAPP.form = {
       } else {
         this.renderQuestion(data);
       }
+
+      // Load previous answers into formAnswers if available
+      if (data.state === 'complete' && data.answers) {
+        this.formAnswers = data.answers;
+      }
       
     } catch (error) {
       // API service automatically handles errors
+      // But log any errors anyway
+      console.error(error)
     }
   },
 
   getQuestionAnswer: function(questionEl) {
+    const questionId = questionEl.dataset.questionId;
+    
+    // First check if we have a cognitive test result for this question
+    if (this.formAnswers && this.formAnswers[questionId]) {
+      return this.formAnswers[questionId];
+    }
+    
     // Find input element based on question type
     const inputEl = questionEl.querySelector('input:checked') || 
-                   questionEl.querySelector('select') || 
-                   questionEl.querySelector('textarea');
+                    questionEl.querySelector('select') || 
+                    questionEl.querySelector('textarea');
     
     if (!inputEl) {
         return null;
     }
     
     // Get value based on input type
+    let answer;
     if (inputEl.type === 'radio') {
-        return inputEl.value;
+        answer = inputEl.value;
     } else if (inputEl.tagName === 'SELECT') {
-        return inputEl.value;
+        answer = inputEl.value;
     } else {
-        return inputEl.value;
+        answer = inputEl.value;
     }
+    
+    // Store the answer in formAnswers
+    this.formAnswers[questionId] = answer;
+    
+    return answer;
   },
   
   renderQuestion: function(data) {
@@ -77,13 +103,23 @@ CRAPP.form = {
     progressEl.textContent = `Question ${data.current_step} of ${data.total_steps}`;
     formEl.appendChild(progressEl);
     
-    // Create question element
-    const questionEl = this.createQuestionElement(data.question, data.previous_answer);
+    // Add previous answer if it exists
+    if (data.previous_answer) {
+      // Store the previous answer in formAnswers
+      this.formAnswers[data.question.id] = data.previous_answer;
+    }
+    
+    // Create question element based on type
+    const questionEl = (data.question.type === 'cognitive_test') ? 
+      this.createCognitiveTestQuestion(data.question, data.previous_answer) :
+      this.createQuestionElement(data.question, data.previous_answer);
+    
     formEl.appendChild(questionEl);
     
-    // Add navigation buttons
+    // Add navigation buttons with an ID so we can hide/show them
     const navButtons = document.createElement('div');
     navButtons.className = 'navigation-buttons';
+    navButtons.id = 'nav-buttons';
     
     // Add prev button if not on first question
     if (data.current_step > 1) {
@@ -104,6 +140,37 @@ CRAPP.form = {
     navButtons.appendChild(nextBtn);
     formEl.appendChild(navButtons);
 
+      // If this is a cognitive test, we need to handle the navigation visibility
+    if (data.question.type === 'cognitive_test') {
+      const navButtons = document.getElementById('nav-buttons');
+      const testType = data.question.metrics_type || 'cpt';
+      
+      // Initial state - hide buttons if test module exists
+      if (CRAPP.cognitiveTests && CRAPP.cognitiveTests[testType.toUpperCase()]) {
+        const testModule = CRAPP.cognitiveTests[testType.toUpperCase()];
+        
+        // Check if we already have results for this question
+        if (this.formAnswers && this.formAnswers[data.question.id] && 
+            this.formAnswers[data.question.id].testEndTime) {
+          // Test already completed - keep buttons visible
+          navButtons.style.display = 'flex';
+        } else {
+          // Test not completed yet - hide buttons initially
+          //navButtons.style.display = 'none';
+          
+          // Set up listeners for test events
+          testModule.onTestStart(() => {
+            // Hide navigation when test starts
+            navButtons.style.display = 'none';
+          });
+          
+          testModule.onTestEnd(() => {
+            // Show navigation when test ends
+            navButtons.style.display = 'flex';
+          });
+        }
+      }
+    }
   },
 
   renderRadioOptions: function(container, question, previousAnswer) {
@@ -286,6 +353,85 @@ CRAPP.form = {
     
     return div;
   },
+
+  createCognitiveTestQuestion: function(question, previousAnswer) {
+    const div = document.createElement('div');
+    div.className = 'form-group cognitive-test-container';
+    div.dataset.questionId = question.id;
+    
+    // Add title and description
+    const titleEl = document.createElement('h3');
+    titleEl.textContent = question.title;
+    div.appendChild(titleEl);
+    
+    if (question.description) {
+      const descEl = document.createElement('p');
+      descEl.textContent = question.description;
+      div.appendChild(descEl);
+    }
+    
+    // Container for the cognitive test
+    const testContainerEl = document.createElement('div');
+    testContainerEl.id = `${question.id}-container`;
+    testContainerEl.className = 'cognitive-test-inner';
+    div.appendChild(testContainerEl);
+    
+    // Mark required questions
+    if (question.required) {
+      div.classList.add('required-question');
+    }
+    
+    // Initialize cognitive test after rendering
+    setTimeout(() => {
+      const testType = question.metrics_type;
+      if (testType === 'cpt') {
+        this.initializeCPTTest(testContainerEl, question);
+      } else if (testType === 'trail_making') {
+        // Initialize trail making test
+        // To be implemented
+      }
+    }, 100);
+    
+    return div;
+  },
+  
+  // Initialize the CPT test
+  initializeCPTTest: function(container, question) {
+    // Make sure CPT module is loaded
+    if (!CRAPP.cognitiveTests || !CRAPP.cognitiveTests.CPT) {
+      console.error('CPT module not loaded');
+      container.innerHTML = '<div class="error-message">Cognitive test module failed to load. Please refresh the page.</div>';
+      return;
+    }
+    
+    // Get custom settings from question if available
+    let settings = {};
+    try {
+      if (question.settings && typeof question.settings === 'string') {
+        settings = JSON.parse(question.settings);
+      } else if (question.settings && typeof question.settings === 'object') {
+        settings = question.settings;
+      }
+    } catch (error) {
+      console.warn('Failed to parse CPT settings', error);
+    }
+    
+    // Initialize the CPT test
+    CRAPP.cognitiveTests.CPT.initialize(container, settings);
+    
+    // Set up result callback
+    CRAPP.cognitiveTests.CPT.onTestEnd((results) => {
+      // Store in the form answers for internal use
+      this.formAnswers[question.id] = results;
+      
+      // Save results in hidden input for form submission
+      const hiddenInput = document.createElement('input');
+      hiddenInput.type = 'hidden';
+      hiddenInput.name = question.id;
+      hiddenInput.value = JSON.stringify(results);
+      container.appendChild(hiddenInput);
+    });
+  },
   
   // New method to validate the current question
   validateCurrentQuestion: function(questionEl) {
@@ -344,10 +490,10 @@ CRAPP.form = {
       // We only need to handle validation errors here
       return false;
     }
-},
+  },
 
-// Add a custom error handler for navigation-specific errors
-handleNavigationError: function(questionEl, error) {
+  // Add a custom error handler for navigation-specific errors
+  handleNavigationError: function(questionEl, error) {
     // Check if this is a validation error with field-specific details
     if (error.response && error.response.errors && error.response.errors.length > 0) {
         // Clear previous validation messages
@@ -370,34 +516,54 @@ handleNavigationError: function(questionEl, error) {
     
     // Return false to let the API service handle generic errors
     return false;
-},
+  },
   
-submitForm: async function() {
-  try {
+  submitForm: async function() {
+    try {
       // Get interaction data if available
       let interactionData = {};
       if (window.interactionTracker) {
-          interactionData = window.interactionTracker.getData();
+        interactionData = window.interactionTracker.getData();
       }
       
-      // Use API service instead of direct fetch
-      const result = await CRAPP.api.post(`/api/form/state/${this.stateId}/submit`, {
-          interaction_data: interactionData
-      });
+      // Extract cognitive test results from formAnswers
+      const cognitiveTestResults = [];
+      for (const [questionId, answer] of Object.entries(this.formAnswers)) {
+        if (typeof answer === 'object' && answer !== null && 
+            answer.stimuliPresented && answer.responses) {
+          // This looks like a cognitive test result
+          cognitiveTestResults.push({
+            question_id: questionId,
+            results: answer
+          });
+        }
+      }
+      
+      // Build the request with all data
+      const request = {
+        interaction_data: interactionData
+      };
+      
+      // Add cognitive test results if available
+      if (cognitiveTestResults.length > 0) {
+        request.cognitive_tests = cognitiveTestResults;
+      }
+      
+      // Use API service to submit form
+      const result = await CRAPP.api.post(`/api/form/state/${this.stateId}/submit`, request);
       
       // Show success message
       CRAPP.utils.showMessage('Your assessment has been submitted successfully!', 'success');
       
       // Reset form after delay
       setTimeout(() => {
-          this.init(true);
+        this.init(true);
       }, 2000);
       
-  } catch (error) {
+    } catch (error) {
       // Error handling is done by the API service
-      // We might add form-specific error handling here if needed
-  }
-},
+    }
+  },
 
   resetForm: function() {
     // Confirm before resetting

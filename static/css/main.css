@@ -1140,9 +1140,7 @@
 
     /* Provide stronger visual cues for selected state on mobile */
     .option-label:has(input[type="radio"]:checked) {
-        border: 3px solid var(--primary-color);
         box-shadow: 0 0 0 3px rgba(74, 111, 165, 0.6);
-        background-color: var(--primary-color); /* Make the dot more visible */
     }
   }
   

@@ -4,8 +4,6 @@ const CACHE_NAME = 'crapp-v1';
 const CACHE_FILES = [
   '/',
   '/static/css/main.css',
-  '/static/css/auth.css',
-  '/static/css/profile.css',
   '/static/js/core/utils.js',
   '/static/js/core/api.js',
   '/static/js/core/auth.js',
