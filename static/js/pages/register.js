@@ -31,40 +31,7 @@ document.addEventListener('DOMContentLoaded', function() {
         
         // Get validated form data
         const formData = CRAPP.validation.getFormValues(this);
-        
-        /* DEPRECATED
-        // Validate passwords match
-        if (password.value !== confirmPassword.value) {
-            const messageDiv = document.getElementById('message');
-            if (messageDiv) {
-                messageDiv.textContent = 'Passwords do not match';
-                messageDiv.className = 'message error';
-                messageDiv.style.display = 'block';
-            }
-            return;
-        }
-        
-        // Get form data
-        const userData = {
-            email: document.getElementById('email').value,
-            password: password.value,
-            first_name: document.getElementById('first-name').value,
-            last_name: document.getElementById('last-name').value
-        };
-        
-        // Check terms agreement
-        const termsChecked = document.getElementById('terms').checked;
-        if (!termsChecked) {
-            const messageDiv = document.getElementById('message');
-            if (messageDiv) {
-                messageDiv.textContent = 'You must agree to the Terms and Conditions';
-                messageDiv.className = 'message error';
-                messageDiv.style.display = 'block';
-            }
-            return;
-        }
-            */
-        
+               
         // Show loading state
         const submitButton = form.querySelector('button[type="submit"]');
         const originalButtonText = submitButton.textContent;

@@ -233,23 +233,20 @@ CRAPP.auth = (function() {
      * @returns {Promise} - Logout result
      */
     logout: async function() {
+      // Clear tokens first to prevent race conditions
+      clearAuthData();
+      
+      // Then try API call (if already unauthorized, this won't change anything)
       try {
-        // Call logout API if authenticated
-        if (this.isAuthenticated()) {
           await CRAPP.api.post('/api/auth/logout');
-        }
-        
-        // Clear auth data regardless of API call result
-        clearAuthData();
-        
-        return true;
       } catch (error) {
-        console.error('Logout failed:', error);
-        // Still clear local auth data even if API call fails
-        clearAuthData();
-        return false;
+          console.error('Logout error:', error);
       }
-    },
+      
+      // Only redirect once, from one place
+      window.location.href = '/login';
+      return true;
+  },
     
     /**
      * Refresh the access token using refresh token

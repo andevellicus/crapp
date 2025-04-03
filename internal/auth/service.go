@@ -48,6 +48,15 @@ func NewAuthService(repo *repository.Repository, cfg *config.JWTConfig) *AuthSer
 
 // Authenticate validates credentials and returns user with session
 func (s *AuthService) Authenticate(email, password string, deviceInfo map[string]any) (*models.User, *models.Device, *TokenPair, error) {
+	exists, err := s.repo.Users.UserExists(email)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	// User does not exist
+	if !exists {
+		return nil, nil, nil, err
+	}
+
 	// Get user
 	user, err := s.repo.Users.GetByEmail(email)
 	if err != nil {

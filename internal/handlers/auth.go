@@ -172,7 +172,11 @@ func (h *AuthHandler) Login(c *gin.Context) {
 
 	user, device, tokenPair, err := h.authService.Authenticate(req.Email, req.Password, req.DeviceInfo)
 	if err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid email or password"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid email or password"})
+		return
+	}
+	if user == nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "User does not exist"})
 		return
 	}
 
@@ -316,7 +320,8 @@ func (h *AuthHandler) UpdateUser(c *gin.Context) {
 		// Verify current password
 		err = bcrypt.CompareHashAndPassword(user.Password, []byte(req.CurrentPassword))
 		if err != nil {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "Current password is incorrect"})
+			// This needs to bne a bad request
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Current password is incorrect"})
 			return
 		}
 
@@ -329,6 +334,13 @@ func (h *AuthHandler) UpdateUser(c *gin.Context) {
 		}
 
 		user.Password = hashedPassword
+
+		// Save updated password
+		if err := h.repo.Users.UpdatePassword(user.Email, user.Password); err != nil {
+			h.log.Errorw("Error updating user password", "error", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Error updating user"})
+			return
+		}
 	}
 
 	// Save updated user

@@ -170,6 +170,7 @@ CRAPP.validation = (function() {
         
         // Validate an entire form
         validateForm: function(form, validationRules) {
+            // Only validate when explicitly called
             clearFormErrors(form);
             
             const formValues = getFormValues(form);

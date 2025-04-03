@@ -104,7 +104,7 @@ func (r *UserRepository) UserExists(email string) (bool, error) {
 	return count > 0, nil
 }
 
-// UpdateUserPassword updates a user's password
+// UpdatePassword updates a user's password
 func (r *UserRepository) UpdatePassword(email string, hashedPassword []byte) error {
 	result := r.db.Model(&models.User{}).
 		Where("email = ?", email).

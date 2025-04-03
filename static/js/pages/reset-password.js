@@ -61,11 +61,17 @@ document.addEventListener('DOMContentLoaded', function() {
             }
                         
             try {
-                // Use API service
-                await CRAPP.api.post('/api/auth/reset-password', {
-                    token: token,
-                    new_password: document.getElementById('new-password').value
+                const response = await fetch('/api/auth/reset-password', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        token: token,
+                        new_password: document.getElementById('new-password').value
+                    })
                 });
+                await response.json();
                 
                 // Show success message
                 CRAPP.utils.showMessage('Your password has been reset successfully.', 'success');
@@ -90,7 +96,8 @@ document.addEventListener('DOMContentLoaded', function() {
 // Function to validate token with the server
 async function validateToken(token) {
     try {
-        const data = await CRAPP.api.get(`/api/auth/validate-reset-token?token=${encodeURIComponent(token)}`);
+        const response = await fetch(`/api/auth/validate-reset-token?token=${encodeURIComponent(token)}`);
+        const data = await response.json();
         
         document.getElementById('loading').style.display = 'none';
         

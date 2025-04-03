@@ -71,11 +71,15 @@ CRAPP.api = (function() {
           headers: response.request?.headers || {},
           body: response.request?.body
         });
-        
+       
         return fetch(response.url, retryOptions).then(handleResponse);
       } else {
-        // If refresh fails, redirect to login
-        CRAPP.auth.redirectToLogin();
+        // Guard against multiple redirects
+        if (!window.isHandlingAuthRedirect) {
+          window.isHandlingAuthRedirect = true;
+          // If refresh fails, redirect to login
+          CRAPP.auth.redirectToLogin();
+        }
         throw new Error('Authentication failed');
       }
     }

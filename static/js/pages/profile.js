@@ -6,17 +6,19 @@ CRAPP.profilePage = {
         first_name: { required: true },
         last_name: { required: true },
         current_password: { 
-            required: (formValues) => formValues.new_password?.length > 0,
-            message: 'Current password is required when changing password'
+            required: function(formValues) {
+                return formValues.new_password && formValues.new_password.length > 0;
+            }
         },
         new_password: { 
-            password: true, 
             minLength: { value: 8, message: 'New password must be at least 8 characters' },
             required: false
         },
         confirm_password: { 
             match: { value: 'new_password', message: 'Passwords must match' },
-            required: (formValues) => formValues.new_password?.length > 0
+            required: function(formValues) {
+                return formValues.new_password && formValues.new_password.length > 0;
+            }
         }
     },
 
@@ -27,21 +29,22 @@ CRAPP.profilePage = {
             return;
         }
         
+        // Clear any validation errors that might be present
         const form = document.getElementById('profile-form');
-        if (!form) return;
-        
-        // Load user data
-        this.loadUserData();
-        
-        // Setup form submission
-        form.addEventListener('submit', (event) => {
-            event.preventDefault();
-            this.updateProfile();
-        });
-        
-        // Setup password confirmation validation
-        this.updateProfile();
-        this.setupPasswordValidation();
+        if (form) {
+            CRAPP.validation.clearErrors(form);
+            
+            // Load user data
+            this.loadUserData();
+            
+            // Setup form submission (only validate on submit)
+            form.addEventListener('submit', (event) => {
+                event.preventDefault();
+                this.updateProfile();
+            });
+                        
+            this.setupPasswordValidation();
+        }
     },
     
     setupPasswordValidation: function() {
@@ -203,7 +206,7 @@ function setupNotificationSettings() {
                 await CRAPP.notifications.savePreferences(preferences);
                 
                 // Update UI visibility
-                updateNotificationSettingsVisibility();
+                updateNotificationUI(preferences);
             });
         }
         

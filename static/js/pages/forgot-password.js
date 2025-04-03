@@ -7,7 +7,15 @@ document.addEventListener('DOMContentLoaded', function() {
             const email = document.getElementById('email').value;
             
             try {
-                const data = await CRAPP.api.post('/api/auth/forgot-password', email)
+                const response = await fetch('/api/auth/forgot-password', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ email })
+                });
+
+                const data = await response.json();
                 
                 // Show success message
                 const messageDiv = document.getElementById('message');
