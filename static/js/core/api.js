@@ -124,11 +124,8 @@ CRAPP.api = (function() {
     console.error('API error:', error);
     
     // If custom callback is provided, let it handle the error first
-    if (typeof callback === 'function') {
-      // If callback returns true, consider the error handled
-      if (callback(error) === true) {
-        return Promise.reject(error);
-      }
+    if (typeof callback === 'function' && callback(error) === true) {
+      return Promise.reject(error);
     }
     
     // Default error handling - show message if utils is available

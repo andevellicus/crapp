@@ -36,6 +36,12 @@ CRAPP.profilePage = {
             
             // Load user data
             this.loadUserData();
+
+            const deleteAccountButton = document.getElementById('delete-account-button');
+            if (deleteAccountButton) {
+                deleteAccountButton.addEventListener('click', this.deleteAccount.bind(this));
+            }
+            this.setupDeleteAccountModal();
             
             // Setup form submission (only validate on submit)
             form.addEventListener('submit', (event) => {
@@ -162,17 +168,89 @@ CRAPP.profilePage = {
         
         // Let the API service handle other errors
         return false;
+    },
+
+    deleteAccount: function() {
+        const passwordInput = document.getElementById('delete-account-password');
+        const password = passwordInput.value;
+        
+        if (!password) {
+            CRAPP.utils.showMessage('Please enter your password to confirm account deletion', 'error');
+            return;
+        }
+        
+        // Show the modal
+        const modal = document.getElementById('delete-account-modal');
+        modal.classList.add('show');
+        
+        // Setup confirmation text field
+        const confirmInput = document.getElementById('delete-confirmation');
+        const confirmButton = document.getElementById('confirm-delete-button');
+        
+        // Reset input
+        confirmInput.value = '';
+        confirmButton.disabled = true;
+        
+        // Add input validation
+        confirmInput.addEventListener('input', function() {
+            confirmButton.disabled = this.value !== 'DELETE';
+        });
+        
+        // Handle the final confirmation button
+        confirmButton.onclick = async () => {
+            try {
+                // Use API service to delete account
+                await CRAPP.api.post('/api/user/delete', {
+                    password: password
+                });
+                
+                // Hide modal
+                modal.classList.remove('show');
+                
+                // Show success message
+                CRAPP.utils.showMessage('Your account has been deleted successfully', 'success');
+                
+                // Log out and redirect to home page after a delay
+                setTimeout(() => {
+                    CRAPP.auth.logout();
+                }, 2000);
+                
+            } catch (error) {
+                // Hide modal
+                modal.classList.remove('show');
+                
+                // Handle password validation errors
+                if (error.response && error.response.status === 401) {
+                    CRAPP.utils.showMessage('Incorrect password', 'error');
+                    passwordInput.value = '';
+                } else {
+                    // Handle other errors
+                    CRAPP.utils.showMessage(error.message || 'Failed to delete account', 'error');
+                }
+            }
+        };
+    },
+
+    setupDeleteAccountModal: function() {
+        // Close modal buttons
+        document.querySelectorAll('#delete-account-modal .close-modal, #delete-account-modal .cancel-button').forEach(button => {
+            button.addEventListener('click', function() {
+                document.getElementById('delete-account-modal').classList.remove('show');
+            });
+        });
+        
+        // Click outside modal to close
+        const modal = document.getElementById('delete-account-modal');
+        if (modal) {
+            modal.addEventListener('click', function(event) {
+                if (event.target === this) {
+                    this.classList.remove('show');
+                }
+            });
+        }
     }
 };
 
-// Initialize notification settings on page load
-document.addEventListener('DOMContentLoaded', function() {
-    if (document.getElementById('profile-form')) {
-        setupNotificationSettings();
-    }
-});
-
-// Add to profile.js
 function setupNotificationSettings() {
     const enableNotificationsCheckbox = document.getElementById('enable-notifications');
     const enableEmailCheckbox = document.getElementById('enable-email-notifications');
@@ -317,4 +395,7 @@ function renderReminderTimes(times) {
 // Initialize on page load
 document.addEventListener('DOMContentLoaded', function() {
     CRAPP.profilePage.init();
+    if (document.getElementById('profile-form')) {
+        setupNotificationSettings();
+    }
 });

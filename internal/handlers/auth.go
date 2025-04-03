@@ -356,6 +356,59 @@ func (h *AuthHandler) UpdateUser(c *gin.Context) {
 	c.JSON(http.StatusOK, user)
 }
 
+// DeleteAccount handles user account deletion
+func (h *AuthHandler) DeleteAccount(c *gin.Context) {
+	// Get validated request
+	req := c.MustGet("validatedRequest").(*validation.DeleteAccountRequest)
+
+	// Get user email from context
+	userEmail, exists := c.Get("userEmail")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Authentication required"})
+		return
+	}
+
+	// Get user from database
+	user, err := h.repo.Users.GetByEmail(userEmail.(string))
+	if err != nil {
+		h.log.Errorw("Error retrieving user for deletion", "error", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error retrieving user"})
+		return
+	}
+
+	if user == nil {
+		h.log.Errorw("Error retrieving user for deletion -- user is nil!", "error", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error retrieving user"})
+		return
+	}
+
+	// Verify password
+	err = bcrypt.CompareHashAndPassword(user.Password, []byte(req.Password))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Incorrect password"})
+		return
+	}
+
+	// Get current token ID to revoke all sessions
+	tokenID, hasTokenID := c.Get("tokenID")
+	if hasTokenID && tokenID != nil {
+		h.authService.RevokeAllUserTokens(userEmail.(string))
+	}
+
+	// Delete user account
+	err = h.repo.Users.Delete(userEmail.(string))
+	if err != nil {
+		h.log.Errorw("Error deleting user account", "error", err, "userEmail", userEmail)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete account"})
+		return
+	}
+
+	// Clear auth cookie
+	c.SetCookie("auth_token", "", -1, "/", "", true, true)
+
+	c.JSON(http.StatusOK, gin.H{"message": "Account deleted successfully"})
+}
+
 // GetUserDevices returns all devices for the authenticated user
 func (h *AuthHandler) GetUserDevices(c *gin.Context) {
 	// Get user email from context

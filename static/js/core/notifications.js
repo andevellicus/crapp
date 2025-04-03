@@ -200,22 +200,7 @@ CRAPP.notifications = (function() {
             throw error;
         }
     }
-    
-    function formatTime(timeStr) {
-        // Parse the time string to a time.Time
-        try {
-            const t = new Date(`1970-01-01T${timeStr}`);
-            if (isNaN(t.getTime())) {
-                return timeStr; // Return as-is if parsing fails
-            }
-            
-            // Return in 24-hour format
-            return t.toTimeString().substring(0, 5); // HH:MM format
-        } catch (e) {
-            return timeStr; // Return as-is if parsing fails
-        }
-    }
-    
+       
     function showNotSupportedMessage(message) {
         // Check if an error message already exists to prevent duplicates
         if (document.querySelector('.notification-error')) {
@@ -388,7 +373,6 @@ CRAPP.notifications = (function() {
     function initUI(pushSupported) {
         const enableNotificationsCheckbox = document.getElementById('enable-notifications');
         const enableEmailCheckbox = document.getElementById('enable-email-notifications');
-        const notificationSettings = document.getElementById('notification-settings');
         const addReminderTimeButton = document.getElementById('add-reminder-time');
         
         // Disable push notification checkbox if not supported

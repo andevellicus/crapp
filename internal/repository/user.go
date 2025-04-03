@@ -54,21 +54,44 @@ func (r *UserRepository) Update(user *models.User) error {
 }
 
 func (r *UserRepository) Delete(email string) error {
-	// Start a transaction for related cleanup
+	// Start a transaction
 	tx := r.db.Begin()
 
-	// Delete the user
-	result := tx.Where("email = ?", email).Delete(&models.User{})
-	if result.Error != nil {
+	// Delete related data first to maintain referential integrity
+	// Delete form states
+	if err := tx.Delete(&models.FormState{}, "user_email = ?", email).Error; err != nil {
 		tx.Rollback()
-		r.log.Errorw("Database error deleting user", "error", result.Error, "email", email)
-		return fmt.Errorf("failed to delete user: %w", result.Error)
+		return fmt.Errorf("error deleting form states: %w", err)
 	}
 
-	// Check if user was found
-	if result.RowsAffected == 0 {
+	// Delete refresh tokens
+	if err := tx.Delete(&models.RefreshToken{}, "user_email = ?", email).Error; err != nil {
 		tx.Rollback()
-		return fmt.Errorf("user not found: %s", email)
+		return fmt.Errorf("error deleting refresh tokens: %w", err)
+	}
+
+	// Delete password reset tokens
+	if err := tx.Delete(&models.PasswordResetToken{}, "user_email = ?", email).Error; err != nil {
+		tx.Rollback()
+		return fmt.Errorf("error deleting password reset tokens: %w", err)
+	}
+
+	// Delete devices
+	if err := tx.Delete(&models.Device{}, "user_email = ?", email).Error; err != nil {
+		tx.Rollback()
+		return fmt.Errorf("error deleting devices: %w", err)
+	}
+
+	// Delete assessments
+	if err := tx.Delete(&models.Assessment{}, "user_email = ?", email).Error; err != nil {
+		tx.Rollback()
+		return fmt.Errorf("error deleting assessments: %w", err)
+	}
+
+	// Finally, delete the user
+	if err := tx.Delete(&models.User{}, "email = ?", email).Error; err != nil {
+		tx.Rollback()
+		return fmt.Errorf("error deleting user: %w", err)
 	}
 
 	// Commit transaction

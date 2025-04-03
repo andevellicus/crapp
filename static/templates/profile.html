@@ -110,7 +110,37 @@
                     <div class="form-actions">
                         <button type="submit" class="submit-button">Save Changes</button>
                     </div>
+
+                    <div class="form-section danger-zone">
+                        <h4>Delete Account</h4>
+                        <p class="warning-text">This action cannot be undone. All your data will be permanently deleted.</p>
+                        <div class="form-group">
+                            <label for="delete-account-password">Enter your password to confirm</label>
+                            <input type="password" id="delete-account-password" name="delete_account_password">
+                        </div>
+                        <button type="button" id="delete-account-button" class="danger-button">Delete My Account</button>
+                    </div>
                 </form>
+            </div>
+
+            <div class="modal" id="delete-account-modal">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h4>Delete Account</h4>
+                        <button class="close-modal">&times;</button>
+                    </div>
+                    <div class="modal-body">
+                        <p class="warning-text">This action CANNOT be undone. All your data will be permanently deleted.</p>
+                        <p>Please type "DELETE" to confirm:</p>
+                        <div class="form-group">
+                            <input type="text" id="delete-confirmation" autocomplete="off">
+                        </div>
+                        <div class="form-actions">
+                            <button type="button" class="cancel-button">Cancel</button>
+                            <button type="button" id="confirm-delete-button" class="delete-button" disabled>Delete Account</button>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
         
