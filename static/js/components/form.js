@@ -140,37 +140,6 @@ CRAPP.form = {
     navButtons.appendChild(nextBtn);
     formEl.appendChild(navButtons);
 
-      // If this is a cognitive test, we need to handle the navigation visibility
-    if (data.question.type === 'cognitive_test') {
-      const navButtons = document.getElementById('nav-buttons');
-      const testType = data.question.metrics_type || 'cpt';
-      
-      // Initial state - hide buttons if test module exists
-      if (CRAPP.cognitiveTests && CRAPP.cognitiveTests[testType.toUpperCase()]) {
-        const testModule = CRAPP.cognitiveTests[testType.toUpperCase()];
-        
-        // Check if we already have results for this question
-        if (this.formAnswers && this.formAnswers[data.question.id] && 
-            this.formAnswers[data.question.id].testEndTime) {
-          // Test already completed - keep buttons visible
-          navButtons.style.display = 'flex';
-        } else {
-          // Test not completed yet - hide buttons initially
-          //navButtons.style.display = 'none';
-          
-          // Set up listeners for test events
-          testModule.onTestStart(() => {
-            // Hide navigation when test starts
-            navButtons.style.display = 'none';
-          });
-          
-          testModule.onTestEnd(() => {
-            // Show navigation when test ends
-            navButtons.style.display = 'flex';
-          });
-        }
-      }
-    }
   },
 
   renderRadioOptions: function(container, question, previousAnswer) {
@@ -388,7 +357,7 @@ CRAPP.form = {
         this.initializeCPTTest(testContainerEl, question);
       } else if (testType === 'trail_making') {
         // Initialize trail making test
-        // To be implemented
+        // TODO to be implemented
       }
     }, 100);
     
@@ -399,21 +368,21 @@ CRAPP.form = {
   initializeCPTTest: function(container, question) {
     // Make sure CPT module is loaded
     if (!CRAPP.cognitiveTests || !CRAPP.cognitiveTests.CPT) {
-      console.error('CPT module not loaded');
-      container.innerHTML = '<div class="error-message">Cognitive test module failed to load. Please refresh the page.</div>';
-      return;
+        console.error('CPT module not loaded');
+        container.innerHTML = '<div class="error-message">Cognitive test module failed to load. Please refresh the page.</div>';
+        return;
     }
     
     // Get custom settings from question if available
     let settings = {};
     try {
-      if (question.settings && typeof question.settings === 'string') {
-        settings = JSON.parse(question.settings);
-      } else if (question.settings && typeof question.settings === 'object') {
-        settings = question.settings;
-      }
+        if (question.settings && typeof question.settings === 'string') {
+            settings = JSON.parse(question.settings);
+        } else if (question.settings && typeof question.settings === 'object') {
+            settings = question.settings;
+        }
     } catch (error) {
-      console.warn('Failed to parse CPT settings', error);
+        console.warn('Failed to parse CPT settings', error);
     }
     
     // Initialize the CPT test
@@ -421,15 +390,15 @@ CRAPP.form = {
     
     // Set up result callback
     CRAPP.cognitiveTests.CPT.onTestEnd((results) => {
-      // Store in the form answers for internal use
-      this.formAnswers[question.id] = results;
-      
-      // Save results in hidden input for form submission
-      const hiddenInput = document.createElement('input');
-      hiddenInput.type = 'hidden';
-      hiddenInput.name = question.id;
-      hiddenInput.value = JSON.stringify(results);
-      container.appendChild(hiddenInput);
+        // Store in the form answers for internal use
+        this.formAnswers[question.id] = results;
+        
+        // Add a hidden input for form submission
+        const hiddenInput = document.createElement('input');
+        hiddenInput.type = 'hidden';
+        hiddenInput.name = question.id;
+        hiddenInput.value = JSON.stringify(results);
+        container.appendChild(hiddenInput);
     });
   },
   
@@ -562,6 +531,7 @@ CRAPP.form = {
       
     } catch (error) {
       // Error handling is done by the API service
+      console.error('Form submission error:', error);
     }
   },
 

@@ -40,9 +40,7 @@
             CRAPP.cognitiveTests.CPT.initialize(container);
             
             // Handle test completion
-            CRAPP.cognitiveTests.CPT.onTestEnd(function(results) {
-                console.log('Test completed with results:', results);
-                
+            CRAPP.cognitiveTests.CPT.onTestEnd(function(results) {              
                 // You could submit the results to the server here
                 if (CRAPP.auth && CRAPP.auth.isAuthenticated()) {
                     const userData = CRAPP.auth.getCurrentUser();

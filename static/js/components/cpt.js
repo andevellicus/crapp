@@ -17,6 +17,14 @@ CRAPP.cognitiveTests.CPT = (function() {
         nonTargets: ['A', 'B', 'C', 'E', 'F', 'H', 'K', 'L'], // Non-target stimuli to ignore
     };
 
+    const cptState = {
+        isRunning: false,
+        isComplete: false,
+        currentStimulus: null,
+        results: null,
+        settings: { ...DEFAULT_SETTINGS }
+    };
+
     // Test results tracking
     let results = {
         stimuliPresented: [],
@@ -90,8 +98,7 @@ CRAPP.cognitiveTests.CPT = (function() {
             remainingTime: results.settings.testDuration,
             startCallback: null,
             endCallback: null,
-        };
-        
+        };        
         // Clear any existing intervals/timeouts
         if (testState.currentInterval) {
             clearInterval(testState.currentInterval);
@@ -294,8 +301,11 @@ CRAPP.cognitiveTests.CPT = (function() {
      * Start the test
      */
     function startTest() {
-        // Reset test
-        resetTest();
+        // Hide nav buttons
+        const navButtons = document.getElementById('nav-buttons');
+        if (navButtons != null && navButtons.style.display != null ) {
+            navButtons.style.display = 'none';
+        }
         
         // Set test as running
         testState.isRunning = true;
@@ -321,6 +331,12 @@ CRAPP.cognitiveTests.CPT = (function() {
         // Set test as not running
         testState.isRunning = false;
         results.testEndTime = performance.now();
+
+        // Show nav buttons
+        const navButtons = document.getElementById('nav-buttons');
+        if (navButtons != null && navButtons.style.display != null ) {
+            navButtons.style.display = 'flex';
+        }
         
         // Clear intervals and timeouts
         if (testState.currentInterval) {
@@ -337,7 +353,7 @@ CRAPP.cognitiveTests.CPT = (function() {
         
         // Calculate final results
         calculateResults();
-        
+       
         // Render results
         renderResultsScreen();
         
@@ -386,7 +402,19 @@ CRAPP.cognitiveTests.CPT = (function() {
     function renderResultsScreen() {
         if (!testState.container) return;
         
-        const resultsHtml = `
+        // Check if the user is an admin
+        const isAdmin = CRAPP.auth && CRAPP.auth.getCurrentUser()?.is_admin;
+        
+        if (!isAdmin) {
+            // Non-admin users only see completion message
+            testState.container.innerHTML = `
+                <div class="cpt-completion-message">
+                    <p>Test completed! You can now proceed to the next question.</p>
+                </div>
+            `;
+        } else {
+            // Admin users see detailed results
+            const resultsHtml = `
             <div class="cpt-results">
                 <h3>Continuous Performance Test Results</h3>
                 <div class="cpt-results-summary">
@@ -431,14 +459,14 @@ CRAPP.cognitiveTests.CPT = (function() {
                 </div>
             </div>
         `;
+            
+            testState.container.innerHTML = resultsHtml;
+        }
         
-        testState.container.innerHTML = resultsHtml;
-        
-        // Show navigation buttons - no longer needed since we handle this with events
-        // but we'll add a notification that the test is complete
+        // Add status notification
         const statusEl = document.getElementById(`${testState.container.id.replace('-container', '')}-status`);
         if (statusEl) {
-        statusEl.innerHTML = '<p class="complete">Test completed successfully. You can now proceed to the next question.</p>';
+            statusEl.innerHTML = '<p class="complete">Test completed successfully. You can now proceed to the next question.</p>';
         }
     }
 
@@ -473,7 +501,18 @@ CRAPP.cognitiveTests.CPT = (function() {
 
     // Public API
     return {
-        initialize,
+        // React-friendly state accessor
+        getState: () => ({ ...cptState }),
+        
+        initialize: function(container, props = {}) {
+            resetTest();
+            
+            // Update settings with props (React-like)
+            cptState.settings = { ...DEFAULT_SETTINGS, ...props };
+            testState.container = container;
+            renderIntroScreen();
+        },        
+
         startTest,
         forceEndTest,
         onTestStart,
@@ -484,7 +523,6 @@ CRAPP.cognitiveTests.CPT = (function() {
         isComplete: () => !testState.isRunning && results.testEndTime > 0,
         forceComplete: function() {
             if (testState.isRunning) {
-                console.log("Forcing CPT test completion");
                 endTest();
                 return true;
             }

@@ -256,15 +256,23 @@ CRAPP.auth = (function() {
           if (!refreshToken) {
               return false;
           }
-          
+
+          // Clear any existing timers to prevent multiple refreshes
+          if (this.refreshTimer) {
+            clearTimeout(this.refreshTimer);
+            this.refreshTimer = null;
+          }
+            
           // Include device ID in request body instead of query param
           const requestBody = {
               refresh_token: refreshToken,
               device_id: deviceId || ''
           };
           
-        // Use API service instead of direct fetch
-        const data = await CRAPP.api.post('/api/auth/refresh', requestBody);
+          // Use API service instead of direct fetch
+          const data = await CRAPP.api.post('/api/auth/refresh', requestBody, {
+            bypassAuthRefresh: true
+          });
           
           // Save new tokens
           saveTokens(data.access_token, data.refresh_token, data.expires_in);

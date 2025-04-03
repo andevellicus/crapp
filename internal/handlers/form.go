@@ -352,6 +352,7 @@ func (h *FormHandler) processCognitiveTestResults(c *gin.Context, tests []models
 				CreatedAt:    time.Now(),
 			}
 
+			// TODO -- maybe we can clean this up somehow
 			// Extract key metrics
 			if startTime, ok := cptData["testStartTime"].(float64); ok {
 				cptResult.TestStartTime = time.Unix(0, int64(startTime)*int64(time.Millisecond))

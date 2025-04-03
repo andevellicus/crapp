@@ -16,14 +16,8 @@ type Assessment struct {
 	// Responses (stored as JSON)
 	Responses JSON `json:"responses" gorm:"type:text"`
 
-	// All metrics stored as JSON
-	Metrics JSON `json:"metrics,omitempty" gorm:"type:text"`
-
-	// Per-question metrics (stored as JSON)
-	QuestionMetrics JSON `json:"question_metrics,omitempty" gorm:"type:text"`
-
 	// Metadata
-	RawData JSON `json:"raw_data,omitempty" gorm:"type:text"`
+	RawData json.RawMessage `json:"raw_data,omitempty" gorm:"type:text"`
 }
 
 // AssessmentMetric represents an indexed metric for efficient querying

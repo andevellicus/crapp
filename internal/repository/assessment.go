@@ -86,6 +86,7 @@ func (r *AssessmentRepository) Create(assessment *models.AssessmentSubmission) (
 		Date:        time.Now(),
 		SubmittedAt: time.Now(),
 		Responses:   assessment.Responses, // Keep JSON copy for reference
+		RawData:     assessment.Metadata,
 	}
 
 	// Save to database

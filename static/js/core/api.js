@@ -6,6 +6,10 @@ window.CRAPP = window.CRAPP || {};
 CRAPP.api = (function() {
   // Private variables
   const API_BASE = ''; // Empty for same-origin API
+
+  let isRefreshingToken = false;
+  let lastAuthRedirect = 0;
+  const AUTH_REDIRECT_COOLDOWN = 1000; // 1 second cooldown between redirects
   
   // Default request options
   const defaultOptions = {
@@ -21,6 +25,11 @@ CRAPP.api = (function() {
    * @returns {Object} - Options with auth headers
    */
   async function withAuth(options = {}) {
+    if (options.bypassAuthRefresh) {
+      delete options.bypassAuthRefresh;
+      return options;
+    }
+
     // Check if auth module is available
     if (!CRAPP.auth) {
       console.warn('Auth module not available');
@@ -67,32 +76,44 @@ CRAPP.api = (function() {
       }
       
       // For non-auth endpoints, try token refresh once
-      if (!window.isRefreshingToken && CRAPP.auth) {
-        window.isRefreshingToken = true;
-        
+      if (isRefreshingToken && CRAPP.auth) {       
         try {
-          if (await CRAPP.auth.refreshToken()) {
-            window.isRefreshingToken = false;
+          isRefreshingToken = true;
+          const refreshSucess = await CRAPP.auth.refreshToken();
+
+          if (refreshSucess) {
             // Retry original request with new token
             const retryOptions = await withAuth({
               method: response.request?.method || 'GET',
               headers: response.request?.headers || {},
-              body: response.request?.body
             });
+
+            isRefreshingToken = false;
             return fetch(response.url, retryOptions).then(handleResponse);
           }
+
+          // Clear local storage and session if refresh failed
+          CRAPP.auth.clearAuthData && CRAPP.auth.clearAuthData();
+
         } catch (error) {
           // Ignore refresh errors and continue with normal error flow
+          console.warn('Token refresh failed:', error);
+        } finally {
+          // Always reset the flag:
+          isRefreshingToken = false;
         }
-        
-        window.isRefreshingToken = false;
+      }
+
+      // Add debounce for redirects to prevent multiple redirects
+      const now = Date.now();
+      if (now - lastAuthRedirect > AUTH_REDIRECT_COOLDOWN) {
+        lastAuthRedirect = now;
+        // Use timeout to allow current error to be processed first
+        setTimeout(() => {
+          CRAPP.auth.redirectToLogin();
+        }, 50);
       }
       
-      // If we get here, refresh failed or wasn't attempted - handle logout
-      if (!window.isHandlingAuthRedirect) {
-        window.isHandlingAuthRedirect = true;
-        CRAPP.auth.redirectToLogin();
-      }
       throw new Error('Authentication failed');
     }
     
