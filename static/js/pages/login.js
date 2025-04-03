@@ -1,4 +1,3 @@
-// static/js/pages/login.js
 document.addEventListener('DOMContentLoaded', function() {
     const form = document.getElementById('login-form');
 

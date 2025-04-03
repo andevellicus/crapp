@@ -1,4 +1,3 @@
-// static/js/core/notifications.js
 window.CRAPP = window.CRAPP || {};
 
 CRAPP.notifications = (function() {

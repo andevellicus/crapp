@@ -1,5 +1,3 @@
-// static/js/core/api.js
-
 /**
  * Core API client for CRAPP application
  * Handles all API requests with consistent error handling and authentication
@@ -58,30 +56,44 @@ CRAPP.api = (function() {
   async function handleResponse(response) {
     // Handle 401 separately for auth refresh logic
     if (response.status === 401) {
-      // Check if auth module is available
-      if (!CRAPP.auth) {
-        throw new Error('Authentication required');
+      // Skip refresh attempts for auth endpoints to prevent loops
+      if (response.url.includes('/api/auth/')) {
+        const error = await response.json().catch(() => ({ error: 'Authentication failed' }));
+        throw { 
+          message: error.error || 'Authentication failed',
+          status: response.status,
+          response: error 
+        };
       }
       
-      // Try to refresh token if possible
-      if (await CRAPP.auth.refreshToken()) {
-        // Retry the original request with new token
-        const retryOptions = await withAuth({
-          method: response.request?.method || 'GET',
-          headers: response.request?.headers || {},
-          body: response.request?.body
-        });
-       
-        return fetch(response.url, retryOptions).then(handleResponse);
-      } else {
-        // Guard against multiple redirects
-        if (!window.isHandlingAuthRedirect) {
-          window.isHandlingAuthRedirect = true;
-          // If refresh fails, redirect to login
-          CRAPP.auth.redirectToLogin();
+      // For non-auth endpoints, try token refresh once
+      if (!window.isRefreshingToken && CRAPP.auth) {
+        window.isRefreshingToken = true;
+        
+        try {
+          if (await CRAPP.auth.refreshToken()) {
+            window.isRefreshingToken = false;
+            // Retry original request with new token
+            const retryOptions = await withAuth({
+              method: response.request?.method || 'GET',
+              headers: response.request?.headers || {},
+              body: response.request?.body
+            });
+            return fetch(response.url, retryOptions).then(handleResponse);
+          }
+        } catch (error) {
+          // Ignore refresh errors and continue with normal error flow
         }
-        throw new Error('Authentication failed');
+        
+        window.isRefreshingToken = false;
       }
+      
+      // If we get here, refresh failed or wasn't attempted - handle logout
+      if (!window.isHandlingAuthRedirect) {
+        window.isHandlingAuthRedirect = true;
+        CRAPP.auth.redirectToLogin();
+      }
+      throw new Error('Authentication failed');
     }
     
     // Handle other error responses

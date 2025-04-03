@@ -8,19 +8,22 @@ import (
 
 	webpush "github.com/SherClockHolmes/webpush-go"
 	"github.com/andevellicus/crapp/internal/repository"
+	"go.uber.org/zap"
 )
 
 // PushService handles push notifications
 type PushService struct {
 	repo         *repository.Repository
+	log          *zap.SugaredLogger
 	vapidPublic  string
 	vapidPrivate string
 }
 
 // NewPushService creates a new push notification service
-func NewPushService(repo *repository.Repository, vapidPublic, vapidPrivate string) *PushService {
+func NewPushService(repo *repository.Repository, log *zap.SugaredLogger, vapidPublic, vapidPrivate string) *PushService {
 	return &PushService{
 		repo:         repo,
+		log:          log,
 		vapidPublic:  vapidPublic,
 		vapidPrivate: vapidPrivate,
 	}
@@ -95,6 +98,21 @@ func (s *PushService) SendReminderToAllEligibleUsers(reminderTime string) error 
 	}
 
 	for _, user := range users {
+		// Check if user has already completed today's assessment
+		completed, err := s.repo.Users.HasCompletedAssessment(user.Email)
+		if err != nil {
+			s.log.Warnw("Failed to check assessment completion status",
+				"error", err, "user", user.Email)
+			continue
+		}
+
+		// Skip push reminder if assessment is already completed
+		if completed {
+			s.log.Infow("Skipping push reminder - assessment already completed",
+				"user", user.Email)
+			continue
+		}
+
 		if err := s.SendNotification(user.Email,
 			"Daily Symptom Report Reminder",
 			"Don't forget to complete your symptom report for today!"); err != nil {

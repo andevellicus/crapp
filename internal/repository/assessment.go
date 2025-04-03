@@ -24,7 +24,7 @@ type CorrelationDataPoint struct {
 	MetricValue  float64 `json:"metric_value"`
 }
 
-// MetricsData contains pre-processed metrics data for visualization
+// MetricsData contains pre-processed metrics data for charts
 type MetricsData struct {
 	SymptomName  string                 `json:"symptom_name"`
 	MetricName   string                 `json:"metric_name"`
@@ -79,7 +79,7 @@ func (r *AssessmentRepository) Create(assessment *models.AssessmentSubmission) (
 	device.LastActive = time.Now()
 	r.db.Save(&device)
 
-	// Create assessment record - JSON fields stay for reference but aren't used for visualization
+	// Create assessment record - JSON fields stay for reference but aren't used for charts
 	newAssessment := models.Assessment{
 		UserEmail:   assessment.UserEmail,
 		DeviceID:    assessment.DeviceID,

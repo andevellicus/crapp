@@ -1,4 +1,3 @@
-// static/js/core/validation.js
 window.CRAPP = window.CRAPP || {};
 
 CRAPP.validation = (function() {

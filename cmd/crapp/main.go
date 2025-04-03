@@ -72,9 +72,6 @@ func main() {
 	// Create auth service -- MUST BE DONE BEFORE SETTING UP ROUTES AND MIDDLEWARE
 	// BECAUSE JWT GETS INITIALIZED
 	authService := auth.NewAuthService(repo, &cfg.JWT)
-	// Load VAPID keys
-	vapidPublic := cfg.PWA.VAPIDPublicKey
-	vapidPrivate := cfg.PWA.VAPIDPrivateKey
 
 	// Initialize email service if enabled
 	var emailService *email.EmailService
@@ -85,7 +82,7 @@ func main() {
 		log.Infow("Email service disabled")
 	}
 	// Initialize push service
-	pushService := push.NewPushService(repo, vapidPublic, vapidPrivate)
+	pushService := push.NewPushService(repo, log, cfg.PWA.VAPIDPublicKey, cfg.PWA.VAPIDPrivateKey)
 	// Initialize the reminder scheduler
 	reminderScheduler := scheduler.NewReminderScheduler(repo, log, cfg, pushService, emailService)
 
@@ -208,7 +205,7 @@ func main() {
 	admin.Use(middleware.AuthMiddleware(authService), middleware.AdminMiddleware())
 	{
 		// Admin endpoints can be added here
-		admin.GET("/visualize", viewHandler.ServeVisualize)
+		admin.GET("/charts", viewHandler.ServeCharts)
 		admin.GET("/users", viewHandler.ServeAdminUsers)
 		admin.GET("/api/users/search", apiHandler.SearchUsers)
 	}

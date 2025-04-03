@@ -1,4 +1,3 @@
-// Improved form.js with proper validation
 const CRAPP = window.CRAPP || {};
 
 CRAPP.form = {

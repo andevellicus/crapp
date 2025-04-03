@@ -8,7 +8,7 @@
     <nav class="main-nav">
         <div class="nav-links">
             <a href="/">Home</a>
-            <!-- Only show visualization link for admins -->
+            <!-- Only show admin link for admins -->
             <span id="admin-links" style="display: none">
                 <a href="/admin/users">Manage Users</a>
             </span>
@@ -44,11 +44,6 @@
         const guestNav = document.getElementById('guest-nav');
         const userName = document.getElementById('user-name');
         const adminLinks = document.getElementById('admin-links');
-
-        // Show admin links if user is admin -- DEPRECATED?
-        //         //if (CRAPP.auth.getCurrentUser().is_admin) {
-        //    document.getElementById('admin-links').style.display = 'inline';
-        //}
         
         if (CRAPP.auth.isAuthenticated()) {
             // User is logged in

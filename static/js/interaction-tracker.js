@@ -1,4 +1,3 @@
-// simplified-interaction-tracker.js
 class InteractionTracker {
     constructor() {
         // Basic data storage

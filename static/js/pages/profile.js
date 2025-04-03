@@ -1,5 +1,3 @@
-// static/js/profile.js - Refactored with centralized API service
-
 window.CRAPP = window.CRAPP || {};
 CRAPP.profilePage = {
     profileRules: {

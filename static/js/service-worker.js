@@ -1,4 +1,3 @@
-// static/js/service-worker.js
 const CACHE_NAME = 'crapp-v1';
 
 // Cache files list

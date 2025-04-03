@@ -130,7 +130,7 @@ async function searchUsers() {
             
             // View data button
             const viewButton = document.createElement('a');
-            viewButton.href = `/admin/visualize?user_id=${encodeURIComponent(user.email)}`;
+            viewButton.href = `/admin/charts?user_id=${encodeURIComponent(user.email)}`;
             viewButton.className = 'action-button';
             viewButton.textContent = 'View Data';
             actionsCell.appendChild(viewButton);

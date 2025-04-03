@@ -31,34 +31,28 @@ func (h *GinViewHandler) ServeIndex(c *gin.Context) {
 // ServeLogin serves the login.html file
 func (h *GinViewHandler) ServeLogin(c *gin.Context) {
 	c.HTML(http.StatusOK, "login.html", gin.H{
-		"title":       "Login - CRAPP",
-		"includeAuth": true,
+		"title": "Login - CRAPP",
 	})
 }
 
 // ServeRegister serves the register.html file
 func (h *GinViewHandler) ServeRegister(c *gin.Context) {
 	c.HTML(http.StatusOK, "register.html", gin.H{
-		"title":       "Register - CRAPP",
-		"includeAuth": true,
+		"title": "Register - CRAPP",
 	})
 }
 
 // ServeProfile serves the user profile page
 func (h *GinViewHandler) ServeProfile(c *gin.Context) {
 	c.HTML(http.StatusOK, "profile.html", gin.H{
-		"title":          "Profile - CRAPP",
-		"includeAuth":    true,
-		"includeProfile": true,
+		"title": "Profile - CRAPP",
 	})
 }
 
 // ServeDevices serves the user devices management page
 func (h *GinViewHandler) ServeDevices(c *gin.Context) {
 	c.HTML(http.StatusOK, "devices.html", gin.H{
-		"title":          "Devices - CRAPP",
-		"includeAuth":    true,
-		"includeProfile": true,
+		"title": "Devices - CRAPP",
 	})
 }
 
@@ -70,28 +64,25 @@ func (h *GinViewHandler) ServeAdminUsers(c *gin.Context) {
 	})
 }
 
-// ServeVisualize serves the visualization.html file
-func (h *GinViewHandler) ServeVisualize(c *gin.Context) {
-	c.HTML(http.StatusOK, "visualize.html", gin.H{
-		"title":       "Visulization - CRAPP",
+// ServeCharts serves the charts.html file
+func (h *GinViewHandler) ServeCharts(c *gin.Context) {
+	c.HTML(http.StatusOK, "charts.html", gin.H{
+		"title":       "Charts - CRAPP",
 		"isAdminPage": true,
-		"includeViz":  true,
 	})
 }
 
 // ServeForgotPassword serves the forgot password page
 func (h *GinViewHandler) ServeForgotPassword(c *gin.Context) {
 	c.HTML(http.StatusOK, "forgot_password.html", gin.H{
-		"title":       "Forgot Password - CRAPP",
-		"includeAuth": true,
+		"title": "Forgot Password - CRAPP",
 	})
 }
 
 // ServeResetPassword serves the reset password page
 func (h *GinViewHandler) ServeResetPassword(c *gin.Context) {
 	c.HTML(http.StatusOK, "reset_password.html", gin.H{
-		"title":       "Reset Password - CRAPP",
-		"includeAuth": true,
+		"title": "Reset Password - CRAPP",
 	})
 }
 

@@ -1,5 +1,3 @@
-// static/js/core/auth.js
-
 /**
  * Authentication module for CRAPP application
  * Handles login, logout, token management, and user info

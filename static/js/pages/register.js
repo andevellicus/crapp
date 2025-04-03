@@ -1,4 +1,3 @@
-// static/js/pages/register.js
 document.addEventListener('DOMContentLoaded', function() {
     const form = document.getElementById('register-form');
     

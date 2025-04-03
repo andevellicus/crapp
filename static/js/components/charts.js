@@ -1,5 +1,3 @@
-// Updated visualization.js to use pre-formatted data
-
 document.addEventListener('DOMContentLoaded', function() {
     // DOM elements
     const metricSelect = document.getElementById('metric-select');
