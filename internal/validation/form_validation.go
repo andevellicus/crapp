@@ -64,7 +64,6 @@ func isEmptyAnswer(answer any) bool {
 	if answer == nil {
 		return true
 	}
-
 	switch v := answer.(type) {
 	case string:
 		return strings.TrimSpace(v) == ""
@@ -137,6 +136,11 @@ func (v *FormValidator) validateDropdownAnswer(question *utils.Question, answer 
 // Enhanced text validation
 func (v *FormValidator) validateTextAnswer(question *utils.Question, answer any) []ValidationError {
 	var errors []ValidationError
+
+	// If no answer:
+	if answer == nil {
+		answer = ""
+	}
 
 	str, ok := answer.(string)
 	if !ok {

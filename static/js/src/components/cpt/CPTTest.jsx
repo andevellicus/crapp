@@ -1,3 +1,5 @@
+import { useAuth } from '../../context/AuthContext';
+
 export default function CPTTest({ onTestEnd }) {
     const DEFAULT_SETTINGS = {
       testDuration: 120000, // 2 minutes in milliseconds
