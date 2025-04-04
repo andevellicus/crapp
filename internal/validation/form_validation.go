@@ -127,10 +127,72 @@ func (v *FormValidator) validateRadioAnswer(question *utils.Question, answer any
 	return errors
 }
 
-// Similarly implement validateDropdownAnswer
 func (v *FormValidator) validateDropdownAnswer(question *utils.Question, answer any) []ValidationError {
-	// Similar to radio validation
-	return v.validateRadioAnswer(question, answer)
+	var errors []ValidationError
+
+	// If no answer:
+	if answer == nil {
+		answer = ""
+	}
+
+	// Convert answer to string for comparison
+	var answerStr string
+	switch v := answer.(type) {
+	case string:
+		answerStr = v
+	case float64:
+		answerStr = fmt.Sprintf("%g", v)
+	case int:
+		answerStr = fmt.Sprintf("%d", v)
+	default:
+		// For other types, convert to string
+		answerStr = fmt.Sprintf("%v", answer)
+	}
+
+	// Skip validation for empty answers on non-required fields
+	if answerStr == "" && !question.Required {
+		return errors
+	}
+
+	// Required field check
+	if answerStr == "" && question.Required {
+		errors = append(errors, ValidationError{
+			Field:   question.ID,
+			Message: "This question is required",
+		})
+		return errors
+	}
+
+	// Validate against allowed options
+	valid := false
+	for _, option := range question.Options {
+		// Convert option value to string for comparison
+		var optionStr string
+		switch v := option.Value.(type) {
+		case string:
+			optionStr = v
+		case float64:
+			optionStr = fmt.Sprintf("%g", v)
+		case int:
+			optionStr = fmt.Sprintf("%d", v)
+		default:
+			optionStr = fmt.Sprintf("%v", option.Value)
+		}
+
+		if answerStr == optionStr {
+			valid = true
+			break
+		}
+	}
+
+	if !valid && answerStr != "" {
+		errors = append(errors, ValidationError{
+			Field:   question.ID,
+			Message: "Invalid option selected",
+		})
+	}
+
+	return errors
 }
 
 // Enhanced text validation
