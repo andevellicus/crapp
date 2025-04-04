@@ -137,14 +137,15 @@ func main() {
 	})
 
 	// View routes
-	router.GET("/", middleware.AuthRedirectMiddleware(authService), formHandler.ServeForm)
-	router.GET("/login", viewHandler.ServeLogin)
-	router.GET("/register", viewHandler.ServeRegister)
-	router.GET("/profile", middleware.AuthMiddleware(authService), viewHandler.ServeProfile)
-	router.GET("/devices", middleware.AuthMiddleware(authService), viewHandler.ServeDevices)
-	router.GET("/cognitive-tests", middleware.AuthMiddleware(authService), viewHandler.ServeCognitiveTests)
-	router.GET("/forgot-password", viewHandler.ServeForgotPassword)
-	router.GET("/reset-password", viewHandler.ServeResetPassword)
+	// Use a single handler for all React routes:
+	router.GET("/", viewHandler.ServeReactApp)
+	router.GET("/login", viewHandler.ServeReactApp)
+	router.GET("/register", viewHandler.ServeReactApp)
+	router.GET("/profile", middleware.AuthMiddleware(authService), viewHandler.ServeReactApp)
+	router.GET("/devices", middleware.AuthMiddleware(authService), viewHandler.ServeReactApp)
+	router.GET("/cognitive-tests", middleware.AuthMiddleware(authService), viewHandler.ServeReactApp)
+	router.GET("/forgot-password", viewHandler.ServeReactApp)
+	router.GET("/reset-password", viewHandler.ServeReactApp)
 
 	// Auth API routes
 	auth := router.Group("/api/auth")

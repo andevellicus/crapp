@@ -28,6 +28,13 @@ func (h *GinViewHandler) ServeIndex(c *gin.Context) {
 	})
 }
 
+// Create a new handler:
+func (h *GinViewHandler) ServeReactApp(c *gin.Context) {
+	c.HTML(http.StatusOK, "index.html", gin.H{
+		"title": "CRAPP - Cognitive Reporting APP",
+	})
+}
+
 // ServeLogin serves the login.html file
 func (h *GinViewHandler) ServeLogin(c *gin.Context) {
 	c.HTML(http.StatusOK, "login.html", gin.H{
