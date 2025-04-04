@@ -1,5 +1,5 @@
 // static/js/react/components/Header.jsx
-function Header() {
+export default function Header() {
   const { user, isAuthenticated, logout } = useAuth();
   const [dropdownOpen, setDropdownOpen] = React.useState(false);
   
