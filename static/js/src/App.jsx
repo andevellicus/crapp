@@ -1,4 +1,4 @@
-// App.jsx
+// static/js/src/App.jsx
 import React from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 
@@ -12,7 +12,7 @@ import Footer from './components/layout/Footer';
 import Message from './components/layout/Message';
 
 // Page components
-import Home from './components/pages/Home';
+import SymptomForm from './components/pages/SymptomForm';
 import Login from './components/auth/Login';
 import Register from './components/auth/Register';
 import ForgotPassword from './components/auth/ForgotPassword';
@@ -23,26 +23,26 @@ import Devices from './components/pages/Devices';
 import CognitiveTests from './components/pages/CognitiveTests';
 import NotFound from './components/pages/NotFound';
 
-
-export default function App() {
+const App = () => {
   return (
-    <AuthProvider>
-      <NotificationProvider>
-        <BrowserRouter>
+    <BrowserRouter>
+      <AuthProvider>
+        <NotificationProvider>
           <div className="app">
             <div className="container">
               <Header />
               <Message />
               <Routes>
+                {/* Public routes */}
                 <Route path="/login" element={<Login />} />
                 <Route path="/register" element={<Register />} />
                 <Route path="/forgot-password" element={<ForgotPassword />} />
                 <Route path="/reset-password" element={<ResetPassword />} />
                 
-                {/* Protected Routes */}
+                {/* Protected routes */}
                 <Route path="/" element={
                   <ProtectedRoute>
-                    <Home />
+                    <SymptomForm />
                   </ProtectedRoute>
                 } />
                 <Route path="/profile" element={
@@ -61,13 +61,16 @@ export default function App() {
                   </ProtectedRoute>
                 } />
                 
+                {/* Catch-all route */}
                 <Route path="*" element={<NotFound />} />
               </Routes>
               <Footer />
             </div>
           </div>
-        </BrowserRouter>
-      </NotificationProvider>
-    </AuthProvider>
+        </NotificationProvider>
+      </AuthProvider>
+    </BrowserRouter>
   );
-}
+};
+
+export default App;

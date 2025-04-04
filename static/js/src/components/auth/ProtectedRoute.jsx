@@ -1,21 +1,23 @@
-// components/auth/ProtectedRoute.jsx
+// static/js/src/components/auth/ProtectedRoute.jsx
 import React from 'react';
-import { Navigate } from 'react-router-dom';
+import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 
-export default function ProtectedRoute({ children }) {
-  const { isAuthenticated, authChecked } = useAuth();
-  
-  // While checking auth, show loading
-  if (!authChecked) {
+const ProtectedRoute = ({ children }) => {
+  const { isAuthenticated, loading } = useAuth();
+  const location = useLocation();
+
+  if (loading) {
+    // You could render a loading spinner here
     return <div className="loading">Loading...</div>;
   }
-  
-  // If not authenticated, redirect to login
+
   if (!isAuthenticated) {
-    return <Navigate to="/login" />;
+    // Redirect to login page and save the attempted URL
+    return <Navigate to="/login" state={{ from: location.pathname }} replace />;
   }
-  
-  // Otherwise, show the protected component
+
   return children;
-}
+};
+
+export default ProtectedRoute;

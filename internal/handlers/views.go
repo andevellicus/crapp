@@ -30,7 +30,7 @@ func (h *GinViewHandler) ServeIndex(c *gin.Context) {
 
 // Create a new handler:
 func (h *GinViewHandler) ServeReactApp(c *gin.Context) {
-	c.HTML(http.StatusOK, "index.html", gin.H{
+	c.HTML(http.StatusOK, "app.html", gin.H{
 		"title": "CRAPP - Cognitive Reporting APP",
 	})
 }

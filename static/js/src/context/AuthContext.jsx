@@ -1,59 +1,63 @@
-// Authentication context for user state
-const AuthContext = React.createContext();
+// static/js/src/context/AuthContext.jsx
+import React, { createContext, useContext, useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 
-export default function AuthProvider({ children }) {
-  const [user, setUser] = React.useState(null);
-  const [isAuthenticated, setIsAuthenticated] = React.useState(false);
-  const [deviceId, setDeviceId] = React.useState(null);
-  const [authChecked, setAuthChecked] = React.useState(false);
-  
-  React.useEffect(() => {
-    const originalFetch = window.fetch;
-    window.fetch = async (...args) => {
+const AuthContext = createContext();
+
+export function AuthProvider({ children }) {
+  const [user, setUser] = useState(null);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [deviceId, setDeviceId] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const navigate = useNavigate();
+
+  // Check authentication status on mount
+  useEffect(() => {
+    const checkAuth = async () => {
+      const token = localStorage.getItem('auth_token');
+      if (!token) {
+        setLoading(false);
+        return;
+      }
+
       try {
-        const response = await originalFetch(...args);
-        
-        // Check if the response is unauthorized
-        if (response.status === 401) {
-          // Try to refresh token once
+        // Verify token validity by making a request to the user endpoint
+        const response = await fetch('/api/user', {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+
+        if (response.ok) {
+          const userData = await response.json();
+          setUser(userData);
+          setIsAuthenticated(true);
+          setDeviceId(localStorage.getItem('device_id'));
+        } else {
+          // If token is invalid, try to refresh it
           const refreshed = await refreshToken();
           if (!refreshed) {
-            // If refresh failed, log out
-            await logout();
-            return response;
+            // Clear invalid tokens
+            clearAuthData();
           }
-          
-          // If token was refreshed, retry the request with new token
-          const [url, config] = args;
-          const newConfig = {
-            ...config,
-            headers: {
-              ...config?.headers,
-              'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
-            }
-          };
-          return originalFetch(url, newConfig);
         }
-        return response;
       } catch (error) {
-        throw error;
+        console.error('Auth check error:', error);
+        setError('Authentication check failed');
+        clearAuthData();
+      } finally {
+        setLoading(false);
       }
     };
-    
-    // Check token expiration on load
-    checkTokenExpiration();
-    
-    // Set interval to check token expiration
-    const interval = setInterval(checkTokenExpiration, 60000); // Every minute
-    
-    return () => {
-      window.fetch = originalFetch;
-      clearInterval(interval);
-    };
+
+    checkAuth();
   }, []);
-  
+
   // Login function
-  const login = async (email, password, deviceInfo) => {
+  const login = async (email, password, deviceInfo = {}) => {
+    setError(null);
+    
     try {
       const response = await fetch('/api/auth/login', {
         method: 'POST',
@@ -62,73 +66,62 @@ export default function AuthProvider({ children }) {
         },
         body: JSON.stringify({ email, password, device_info: deviceInfo })
       });
-      
+
       if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Login failed');
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Login failed');
       }
-      
+
       const data = await response.json();
       
-      // Store authentication data
+      // Store auth data
       localStorage.setItem('auth_token', data.access_token);
       localStorage.setItem('refresh_token', data.refresh_token);
-      localStorage.setItem('user_info', JSON.stringify(data.user));
       localStorage.setItem('device_id', data.device_id);
+      localStorage.setItem('user_info', JSON.stringify(data.user));
       
       // Update state
       setUser(data.user);
       setIsAuthenticated(true);
       setDeviceId(data.device_id);
 
-      // Trigger storage event for header to detect
-      window.dispatchEvent(new Event('storage'));
-      
       return data;
     } catch (error) {
-      console.error('Login error:', error);
+      setError(error.message || 'Login failed');
       throw error;
     }
   };
-  
+
   // Logout function
   const logout = async () => {
     try {
-      await fetch('/api/auth/logout', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
-        }
-      });
+      const token = localStorage.getItem('auth_token');
+      if (token) {
+        await fetch('/api/auth/logout', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+      }
     } catch (error) {
       console.error('Logout error:', error);
+    } finally {
+      clearAuthData();
+      navigate('/login');
     }
-    
-    // Clear auth data
-    localStorage.removeItem('auth_token');
-    localStorage.removeItem('refresh_token');
-    localStorage.removeItem('user_info');
-    
-    // Update state
-    setUser(null);
-    setIsAuthenticated(false);
-
-    // Trigger storage event for header to detect
-    window.dispatchEvent(new Event('storage'));
-    
-    // Redirect to login
-    window.location.href = '/login';
   };
-  
+
   // Refresh token function
   const refreshToken = async () => {
     try {
       const refreshToken = localStorage.getItem('refresh_token');
+      const deviceId = localStorage.getItem('device_id');
       
       if (!refreshToken) {
-        throw new Error('No refresh token available');
+        return false;
       }
-      
+
       const response = await fetch('/api/auth/refresh', {
         method: 'POST',
         headers: {
@@ -139,11 +132,11 @@ export default function AuthProvider({ children }) {
           device_id: deviceId
         })
       });
-      
+
       if (!response.ok) {
         throw new Error('Failed to refresh token');
       }
-      
+
       const data = await response.json();
       
       // Update stored tokens
@@ -153,52 +146,32 @@ export default function AuthProvider({ children }) {
       return true;
     } catch (error) {
       console.error('Token refresh failed:', error);
-      
-      // Clear auth data on refresh failure
-      localStorage.removeItem('auth_token');
-      localStorage.removeItem('refresh_token');
-      localStorage.removeItem('user_info');
-      
-      setUser(null);
-      setIsAuthenticated(false);
-      setDeviceId(null);
-      
+      clearAuthData();
       return false;
     }
   };
 
-  const checkTokenExpiration = () => {
-    const token = localStorage.getItem('auth_token');
-    if (!token) return;
-    
-    // Parse token to check expiration (without library)
-    try {
-      const base64Url = token.split('.')[1];
-      const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-      const jsonPayload = decodeURIComponent(atob(base64).split('').map(function(c) {
-        return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
-      }).join(''));
-      
-      const payload = JSON.parse(jsonPayload);
-      
-      // Check if token is expired or will expire in next 5 min
-      if (payload.exp * 1000 < Date.now() + 300000) {
-        refreshToken();
-      }
-    } catch (e) {
-      console.error('Error checking token expiration', e);
-    }
+  // Clear authentication data
+  const clearAuthData = () => {
+    localStorage.removeItem('auth_token');
+    localStorage.removeItem('refresh_token');
+    localStorage.removeItem('user_info');
+    setUser(null);
+    setIsAuthenticated(false);
+    setDeviceId(null);
   };
-  
+
   return (
     <AuthContext.Provider value={{
       user,
       isAuthenticated,
       deviceId,
-      authChecked,
+      loading,
+      error,
       login,
       logout,
-      refreshToken
+      refreshToken,
+      clearAuthData
     }}>
       {children}
     </AuthContext.Provider>
@@ -206,10 +179,12 @@ export default function AuthProvider({ children }) {
 }
 
 // Custom hook for using auth context
-function useAuth() {
-  const context = React.useContext(AuthContext);
+export function useAuth() {
+  const context = useContext(AuthContext);
   if (context === undefined) {
     throw new Error('useAuth must be used within an AuthProvider');
   }
   return context;
 }
+
+export default AuthContext;
