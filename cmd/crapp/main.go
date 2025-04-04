@@ -89,8 +89,13 @@ func main() {
 	// Create Gin router
 	router := gin.New()
 
-	// Set the template engine
-	router.SetHTMLTemplate(handlers.SetupTemplates())
+	t, err := handlers.SetupTemplates()
+	if err != nil {
+		log.Warnw("Error setting up templates", "error", err)
+	} else {
+		// Set the template engine
+		router.SetHTMLTemplate(t)
+	}
 
 	// Static files
 	router.Static("/static", "./static")

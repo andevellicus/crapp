@@ -1,8 +1,10 @@
 package handlers
 
 import (
+	"fmt"
 	"html/template"
 	"net/http"
+	"os"
 	"path/filepath"
 
 	"github.com/gin-gonic/gin"
@@ -20,46 +22,10 @@ func NewViewHandler(staticDir string) *GinViewHandler {
 	}
 }
 
-// ServeIndex serves the index.html file
-func (h *GinViewHandler) ServeIndex(c *gin.Context) {
-	c.HTML(http.StatusOK, "index.html", gin.H{
-		"title":         "CRAPP - Home",
-		"usePostMethod": false,
-	})
-}
-
 // Create a new handler:
 func (h *GinViewHandler) ServeReactApp(c *gin.Context) {
 	c.HTML(http.StatusOK, "app.html", gin.H{
 		"title": "CRAPP - Cognitive Reporting APP",
-	})
-}
-
-// ServeLogin serves the login.html file
-func (h *GinViewHandler) ServeLogin(c *gin.Context) {
-	c.HTML(http.StatusOK, "login.html", gin.H{
-		"title": "Login - CRAPP",
-	})
-}
-
-// ServeRegister serves the register.html file
-func (h *GinViewHandler) ServeRegister(c *gin.Context) {
-	c.HTML(http.StatusOK, "register.html", gin.H{
-		"title": "Register - CRAPP",
-	})
-}
-
-// ServeProfile serves the user profile page
-func (h *GinViewHandler) ServeProfile(c *gin.Context) {
-	c.HTML(http.StatusOK, "profile.html", gin.H{
-		"title": "Profile - CRAPP",
-	})
-}
-
-// ServeDevices serves the user devices management page
-func (h *GinViewHandler) ServeDevices(c *gin.Context) {
-	c.HTML(http.StatusOK, "devices.html", gin.H{
-		"title": "Devices - CRAPP",
 	})
 }
 
@@ -79,29 +45,8 @@ func (h *GinViewHandler) ServeCharts(c *gin.Context) {
 	})
 }
 
-// ServeForgotPassword serves the forgot password page
-func (h *GinViewHandler) ServeForgotPassword(c *gin.Context) {
-	c.HTML(http.StatusOK, "forgot_password.html", gin.H{
-		"title": "Forgot Password - CRAPP",
-	})
-}
-
-// ServeResetPassword serves the reset password page
-func (h *GinViewHandler) ServeResetPassword(c *gin.Context) {
-	c.HTML(http.StatusOK, "reset_password.html", gin.H{
-		"title": "Reset Password - CRAPP",
-	})
-}
-
-// ServeCognitiveTests serves the cognitive tests page
-func (h *GinViewHandler) ServeCognitiveTests(c *gin.Context) {
-	c.HTML(http.StatusOK, "cpt.html", gin.H{
-		"title": "Cognitive Tests - CRAPP",
-	})
-}
-
 // setupTemplates initializes templates with custom functions
-func SetupTemplates() *template.Template {
+func SetupTemplates() (*template.Template, error) {
 	// Define custom template functions
 	funcMap := template.FuncMap{
 		"add": func(a, b int) int {
@@ -116,13 +61,21 @@ func SetupTemplates() *template.Template {
 	// Create template with functions
 	templates := template.New("").Funcs(funcMap)
 
-	// Parse template files
-	partialsDir := filepath.Join("static", "templates", "partials", "*.html")
-	pagesDir := filepath.Join("static", "templates", "*.html")
+	templatePath := filepath.Join("static", "templates")
 
-	// Add partials first so they're available to pages
-	template.Must(templates.ParseGlob(partialsDir))
-	template.Must(templates.ParseGlob(pagesDir))
+	// Check for existence of directories:
+	info, err := os.Stat(templatePath)
+	if os.IsNotExist(err) {
+		return nil, fmt.Errorf("directory does not exist: %s", templatePath)
+	}
+	if err != nil {
+		return nil, fmt.Errorf("error checking directory %s: %v", templatePath, err)
+	}
+	if !info.IsDir() {
+		return nil, fmt.Errorf("expected directory but found a file: %s", templatePath)
+	}
 
-	return templates
+	template.Must(templates.ParseGlob(filepath.Join(templatePath, "*.html")))
+
+	return templates, nil
 }

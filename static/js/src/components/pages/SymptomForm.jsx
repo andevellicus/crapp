@@ -104,7 +104,7 @@ export default function SymptomForm() {
                     getQuestionAnswer(currentQuestion.id);
       
       // Validate if going forward
-      if (direction === 'next' && currentQuestion.required && !answer) {
+      if (direction === 'next' && currentQuestion.required && answer == undefined) {
         setValidationError('This question is required');
         return;
       }
@@ -200,7 +200,9 @@ export default function SymptomForm() {
         // Reset form after delay
         setTimeout(() => {
           initForm(true);
-        }, 2000);
+          // Redirect to index
+          window.location.href = '/';
+        }, 500);
       } catch (error) {
         console.error('Error submitting form:', error);
         showMessage('Failed to submit assessment: ' + error.message, 'error');
