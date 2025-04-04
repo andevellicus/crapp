@@ -1,27 +1,29 @@
-<!-- static/templates/index.html -->
 <!DOCTYPE html>
 <html lang="en">
 {{ template "head" . }}
-<!-- Include the cognitive test CSS -->
-<link rel="stylesheet" href="/static/css/cpt.css">
 <body>
     <div class="container">
         {{ template "header" . }}
         
         <div id="message" class="message"></div>
         
-        <form id="symptom-form"{{ if .usePostMethod }} method="post" action="/api/submit"{{ end }}>
-            <!-- Questions will be loaded dynamically -->
-        </form>
+        <!-- React root element -->
+        <div id="react-root"></div>
         
         <footer>
             <p>© 2025 CRAPP - Daily Symptom Reporting</p>
         </footer>
     </div>
     
-    <!-- Include scripts -->
+    <!-- Include React component scripts as type="text/babel" -->
+    <script type="text/babel" src="/static/js/react/context/AuthContext.jsx"></script>
+    <script type="text/babel" src="/static/js/react/context/NotificationContext.jsx"></script>
+    <script type="text/babel" src="/static/js/react/components/cpt/CPTTest.jsx"></script>
+    <script type="text/babel" src="/static/js/react/components/form/SymptomForm.jsx"></script>
+    <script type="text/babel" src="/static/js/react/App.jsx"></script>
+    <script type="text/babel" src="/static/js/react/index.jsx"></script>
+    
+    <!-- Keep interaction tracker -->
     <script src="/static/js/interaction-tracker.js"></script>
-    <script src="/static/js/components/cpt.js"></script>
-    <script src="/static/js/components/form.js"></script>
 </body>
 </html>
