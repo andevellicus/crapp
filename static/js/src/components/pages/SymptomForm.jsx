@@ -1,3 +1,6 @@
+import { useAuth } from '../../context/AuthContext';
+import CPTTest from '../cpt/CPTTest';
+
 export default function SymptomForm() {
     const [stateId, setStateId] = React.useState(null);
     const [currentStep, setCurrentStep] = React.useState(0);
@@ -8,12 +11,12 @@ export default function SymptomForm() {
     const [isComplete, setIsComplete] = React.useState(false);
     const [validationError, setValidationError] = React.useState(null);
     const [isSubmitting, setIsSubmitting] = React.useState(false);
-    const { isAuthenticated, authChecked } = useAuth();
+    const {isAuthenticated, loading } = useAuth();
     
     // Initialize form on component mount
     React.useEffect(() => {
       // If we haven't checked auth yet, do nothing (show a loading spinner or something)
-      if (!authChecked) return;
+      if (loading) return;
 
       // Check authentication
       if (!isAuthenticated) {
@@ -28,7 +31,7 @@ export default function SymptomForm() {
       if (window.interactionTracker) {
         window.interactionTracker.reset();
       }
-    }, [isAuthenticated, isAuthenticated]);
+    }, []);
     
     // Initialize form state
     const initForm = async (forceNew = false) => {

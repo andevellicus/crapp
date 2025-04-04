@@ -1,3 +1,5 @@
+import { useAuth } from '../../context/AuthContext';
+
 export default function Devices() {
     const [devices, setDevices] = React.useState([]);
     const [isLoading, setIsLoading] = React.useState(true);

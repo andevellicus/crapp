@@ -1,4 +1,6 @@
 // static/js/react/components/Header.jsx
+import { useAuth } from '../../context/AuthContext';
+
 export default function Header() {
   const { user, isAuthenticated, logout } = useAuth();
   const [dropdownOpen, setDropdownOpen] = React.useState(false);

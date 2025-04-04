@@ -1,3 +1,5 @@
+import { useAuth } from '../../context/AuthContext';
+
 export default function CognitiveTests() {
     const [testResults, setTestResults] = React.useState(null);
     const [isSubmitting, setIsSubmitting] = React.useState(false);

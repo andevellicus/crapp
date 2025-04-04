@@ -1,5 +1,6 @@
 const path = require('path');
 const MiniCssExtractPlugin = require('mini-css-extract-plugin');
+const webpack = require('webpack'); // add this
 
 module.exports = {
   mode: 'development',
@@ -19,7 +20,7 @@ module.exports = {
           options: {
             presets: [
               '@babel/preset-env',
-              ['@babel/preset-react', {"runtime": "automatic"}]
+              ['@babel/preset-react', { "runtime": "automatic" }]
             ]
           }
         }
@@ -39,8 +40,11 @@ module.exports = {
   plugins: [
     new MiniCssExtractPlugin({
       filename: 'css/[name].css'
+    }),
+    // This plugin injects React automatically
+    new webpack.ProvidePlugin({
+      React: 'react'
     })
   ],
-  devtool: 'source-map',
-  
+  devtool: 'source-map'
 };

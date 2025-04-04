@@ -1,3 +1,5 @@
+import { useAuth } from '../../context/AuthContext';
+
 export default function Profile() {
     const [formData, setFormData] = React.useState({
       first_name: '',
