@@ -1,6 +1,13 @@
 import { useAuth } from '../../context/AuthContext';
+import { urlBase64ToUint8Array, isPushNotificationSupported } from '../../utils/utils';
 
 export default function Profile() {
+    // Section refs for scrolling
+    const personalInfoRef = React.useRef(null);
+    const passwordSectionRef = React.useRef(null);
+    const notificationSectionRef = React.useRef(null);
+    const dangerZoneRef = React.useRef(null);
+    
     const [formData, setFormData] = React.useState({
       first_name: '',
       last_name: '',
@@ -10,24 +17,98 @@ export default function Profile() {
       confirm_password: ''
     });
     
+    // Section-specific message states
+    const [messages, setMessages] = React.useState({
+      general: { text: '', type: '' },
+      personal: { text: '', type: '' },
+      password: { text: '', type: '' },
+      notification: { text: '', type: '' },
+      danger: { text: '', type: '' }
+    });
+    
+    // State for notification preferences
     const [notificationPrefs, setNotificationPrefs] = React.useState({
       pushEnabled: false,
       emailEnabled: false,
       reminderTimes: ['20:00']
     });
+
+    // State to track if push notifications are supported on this device/browser
+    const [pushSupported, setPushSupported] = React.useState(false);
     
     const [isLoading, setIsLoading] = React.useState(true);
     const [isSaving, setIsSaving] = React.useState(false);
-    const [errorMessage, setErrorMessage] = React.useState('');
-    const [successMessage, setSuccessMessage] = React.useState('');
     const [showDeleteModal, setShowDeleteModal] = React.useState(false);
     const [deleteConfirmation, setDeleteConfirmation] = React.useState('');
     const [deletePassword, setDeletePassword] = React.useState('');
     
     const { user } = useAuth();
     
+    // Function to show a message in a specific section and scroll to it
+    const showSectionMessage = (section, text, type = 'error') => {
+      setMessages(prev => ({
+        ...prev,
+        [section]: { text, type }
+      }));
+      
+      // Scroll to the message
+      setTimeout(() => {
+        scrollToSection(section);
+        
+        // Auto-clear success messages after 5 seconds
+        if (type === 'success') {
+          setTimeout(() => {
+            setMessages(prev => ({
+              ...prev,
+              [section]: { text: '', type: '' }
+            }));
+          }, 5000);
+        }
+      }, 100);
+    };
+    
+    // Function to scroll to a section
+    const scrollToSection = (section) => {
+      const refs = {
+        general: null, // Top of page
+        personal: personalInfoRef,
+        password: passwordSectionRef,
+        notification: notificationSectionRef,
+        danger: dangerZoneRef
+      };
+      
+      const ref = refs[section];
+      if (ref && ref.current) {
+        ref.current.scrollIntoView({ 
+          behavior: 'smooth', 
+          block: 'start' 
+        });
+      }
+    };
+    
+    // Clear all messages
+    const clearAllMessages = () => {
+      setMessages({
+        general: { text: '', type: '' },
+        personal: { text: '', type: '' },
+        password: { text: '', type: '' },
+        notification: { text: '', type: '' },
+        danger: { text: '', type: '' }
+      });
+    };
+    
     // Load user data on component mount
     React.useEffect(() => {
+      // Check if push notifications are supported on this device/browser
+      const checkPushSupport = () => {
+        const supported = 'Notification' in window && 
+                        'serviceWorker' in navigator && 
+                        'PushManager' in window;
+        
+        setPushSupported(supported);
+        return supported;
+      };
+      
       if (user) {
         setFormData({
           ...formData,
@@ -36,13 +117,15 @@ export default function Profile() {
           email: user.email || ''
         });
         
-        fetchNotificationPreferences();
+        // Check for push support and fetch preferences
+        const pushIsSupported = checkPushSupport();
+        fetchNotificationPreferences(pushIsSupported);
       }
       setIsLoading(false);
     }, [user]);
     
     // Fetch notification preferences
-    const fetchNotificationPreferences = async () => {
+    const fetchNotificationPreferences = async (isPushSupported) => {
       try {
         const response = await fetch('/api/push/preferences', {
           headers: {
@@ -56,13 +139,29 @@ export default function Profile() {
         }
         
         const data = await response.json();
+        
+        // If push is not supported, force it to be disabled
+        const pushEnabled = isPushSupported ? data.push_enabled : false;
+        
         setNotificationPrefs({
-          pushEnabled: data.push_enabled,
+          pushEnabled: pushEnabled,
           emailEnabled: data.email_enabled,
           reminderTimes: data.reminder_times && data.reminder_times.length > 0 
             ? data.reminder_times 
             : ['20:00']
         });
+        
+        // If user has push enabled, check if permission is still granted
+        if (pushEnabled && Notification.permission !== 'granted') {
+          // Permission was revoked, update preferences
+          setNotificationPrefs(prev => ({
+            ...prev,
+            pushEnabled: false
+          }));
+          
+          // Let the user know
+          showSectionMessage('notification', 'Push notification permission was revoked. Please re-enable if desired.', 'error');
+        }
       } catch (error) {
         console.error('Error fetching notification preferences:', error);
       }
@@ -78,12 +177,83 @@ export default function Profile() {
     };
     
     // Handle notification preference changes
-    const handlePrefChange = (e) => {
+    const handlePrefChange = async (e) => {
       const { name, checked } = e.target;
-      setNotificationPrefs(prev => ({
-        ...prev,
+      const isEnablingPush = name === 'enable_notifications' && checked;
+      
+      // Create a new preferences object
+      const newPrefs = {
+        ...notificationPrefs,
         [name === 'enable_notifications' ? 'pushEnabled' : 'emailEnabled']: checked
-      }));
+      };
+      
+      // If enabling push notifications, request permission first
+      if (isEnablingPush) {
+        // Show a message about what will happen
+        showSectionMessage('notification', 'Browser will request notification permission...', 'success');
+        
+        try {
+          // Request notification permission
+          const permission = await Notification.requestPermission();
+          
+          if (permission !== 'granted') {
+            // If permission denied, don't enable push
+            newPrefs.pushEnabled = false;
+            showSectionMessage('notification', 'Push notification permission was denied', 'error');
+            setNotificationPrefs(newPrefs);
+            return;
+          }
+          
+          // Register with push service
+          const registration = await navigator.serviceWorker.ready;
+          
+          // Get VAPID key
+          const response = await fetch('/api/push/vapid-public-key', {
+            headers: {
+              'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
+            }
+          });
+          
+          if (!response.ok) {
+            throw new Error('Failed to get VAPID key');
+          }
+          
+          const data = await response.json();
+          const publicKey = data.publicKey;
+          
+          if (!publicKey) {
+            throw new Error('No VAPID public key available');
+          }
+          
+          // Convert public key
+          const convertedKey = urlBase64ToUint8Array(publicKey);
+          
+          // Subscribe to push service
+          const subscription = await registration.pushManager.subscribe({
+            userVisibleOnly: true,
+            applicationServerKey: convertedKey
+          });
+          
+          // Send subscription to server
+          await fetch('/api/push/subscribe', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
+            },
+            body: JSON.stringify(subscription)
+          });
+          
+          showSectionMessage('notification', 'Push notifications enabled successfully!', 'success');
+        } catch (error) {
+          console.error('Error enabling push notifications:', error);
+          newPrefs.pushEnabled = false;
+          showSectionMessage('notification', 'Failed to enable push notifications: ' + error.message, 'error');
+        }
+      }
+      
+      // Update local state
+      setNotificationPrefs(newPrefs);
     };
     
     // Handle reminder time changes
@@ -114,12 +284,18 @@ export default function Profile() {
     
     // Validate form before submission
     const validateForm = () => {
-      // Reset error message
-      setErrorMessage('');
+      // Reset all error messages
+      clearAllMessages();
+      
+      // Validate personal info
+      if (!formData.first_name || !formData.last_name) {
+        showSectionMessage('personal', 'Name fields are required', 'error');
+        return false;
+      }
       
       // Validate password confirmation
       if (formData.new_password && formData.new_password !== formData.confirm_password) {
-        setErrorMessage('New passwords do not match');
+        showSectionMessage('password', 'New passwords do not match', 'error');
         return false;
       }
       
@@ -127,14 +303,14 @@ export default function Profile() {
       if (formData.new_password) {
         const passwordRegex = /^(?=.*\d)(?=.*[a-z])(?=.*[A-Z]).{8,}$/;
         if (!passwordRegex.test(formData.new_password)) {
-          setErrorMessage('Password must include uppercase, lowercase, and numbers');
+          showSectionMessage('password', 'Password must include uppercase, lowercase, and numbers', 'error');
           return false;
         }
       }
       
       // Require current password if changing password
       if (formData.new_password && !formData.current_password) {
-        setErrorMessage('Current password is required to set a new password');
+        showSectionMessage('password', 'Current password is required to set a new password', 'error');
         return false;
       }
       
@@ -150,8 +326,7 @@ export default function Profile() {
       }
       
       setIsSaving(true);
-      setErrorMessage('');
-      setSuccessMessage('');
+      clearAllMessages();
       
       // Save profile info and password
       try {
@@ -171,29 +346,40 @@ export default function Profile() {
         
         if (!updateResponse.ok) {
           const errorData = await updateResponse.json();
-          throw new Error(errorData.error || 'Failed to update profile');
+          // Determine which section has the error
+          if (errorData.error && errorData.error.toLowerCase().includes('password')) {
+            throw { message: errorData.error, section: 'password' };
+          } else {
+            throw { message: errorData.error || 'Failed to update profile', section: 'personal' };
+          }
+        }
+        
+        // Show success for profile update
+        showSectionMessage('personal', 'Profile information updated successfully', 'success');
+        
+        // If password was changed, show success message
+        if (formData.new_password) {
+          showSectionMessage('password', 'Password updated successfully', 'success');
+          
+          // Clear password fields
+          setFormData(prev => ({
+            ...prev,
+            current_password: '',
+            new_password: '',
+            confirm_password: ''
+          }));
         }
         
         // Save notification preferences
         await saveNotificationPreferences();
         
-        // Clear password fields
-        setFormData(prev => ({
-          ...prev,
-          current_password: '',
-          new_password: '',
-          confirm_password: ''
-        }));
-        
-        setSuccessMessage('Profile updated successfully');
-        
-        // Clear success message after delay
-        setTimeout(() => {
-          setSuccessMessage('');
-        }, 5000);
       } catch (error) {
         console.error('Error updating profile:', error);
-        setErrorMessage(error.message || 'Failed to update profile');
+        showSectionMessage(
+          error.section || 'general',
+          error.message || 'Failed to update profile',
+          'error'
+        );
       } finally {
         setIsSaving(false);
       }
@@ -202,6 +388,31 @@ export default function Profile() {
     // Save notification preferences
     const saveNotificationPreferences = async () => {
       try {
+        // First make sure that push notifications are properly set up if enabled
+        if (notificationPrefs.pushEnabled) {
+          // Check if notifications are already permitted
+          if (Notification.permission !== 'granted') {
+            // If not, disable push in preferences since permission wasn't granted
+            setNotificationPrefs(prev => ({
+              ...prev,
+              pushEnabled: false
+            }));
+            
+            throw { message: 'Push notifications require permission', section: 'notification' };
+          }
+          
+          // Make sure service worker is registered
+          if (!('serviceWorker' in navigator)) {
+            setNotificationPrefs(prev => ({
+              ...prev,
+              pushEnabled: false
+            }));
+            
+            throw { message: 'Service Worker not supported', section: 'notification' };
+          }
+        }
+        
+        // Save preferences to the server
         const response = await fetch('/api/push/preferences', {
           method: 'PUT',
           headers: {
@@ -216,10 +427,34 @@ export default function Profile() {
         });
         
         if (!response.ok) {
-          throw new Error('Failed to update notification preferences');
+          const errorData = await response.json();
+          throw { 
+            message: errorData.error || 'Failed to update notification preferences', 
+            section: 'notification' 
+          };
+        }
+        
+        // If we get here, notification settings were saved successfully
+        if (notificationPrefs.pushEnabled || notificationPrefs.emailEnabled) {
+          showSectionMessage(
+            'notification', 
+            'Notification preferences saved. You will receive reminders at your selected times.', 
+            'success'
+          );
+        } else {
+          showSectionMessage(
+            'notification', 
+            'Notification preferences saved. All notifications are disabled.', 
+            'success'
+          );
         }
       } catch (error) {
         console.error('Error saving notification preferences:', error);
+        showSectionMessage(
+          error.section || 'notification',
+          error.message || 'Failed to save notification preferences',
+          'error'
+        );
         throw error;
       }
     };
@@ -249,17 +484,17 @@ export default function Profile() {
     // Handle account deletion
     const handleDeleteAccount = async () => {
       if (deleteConfirmation !== 'DELETE') {
-        setErrorMessage('Please type DELETE to confirm');
+        showSectionMessage('danger', 'Please type DELETE to confirm', 'error');
         return;
       }
       
       if (!deletePassword) {
-        setErrorMessage('Password is required to delete your account');
+        showSectionMessage('danger', 'Password is required to delete your account', 'error');
         return;
       }
       
       setIsSaving(true);
-      setErrorMessage('');
+      clearAllMessages();
       
       try {
         const response = await fetch('/api/user/delete', {
@@ -290,11 +525,22 @@ export default function Profile() {
         window.location.href = '/login';
       } catch (error) {
         console.error('Error deleting account:', error);
-        setErrorMessage(error.message || 'Failed to delete account');
+        showSectionMessage('danger', error.message || 'Failed to delete account', 'error');
       } finally {
         setIsSaving(false);
         closeDeleteModal();
       }
+    };
+    
+    // Message rendering component
+    const SectionMessage = ({ message }) => {
+      if (!message.text) return null;
+      
+      return (
+        <div className={`message ${message.type}`} style={{ display: 'block', marginBottom: '15px' }}>
+          {message.text}
+        </div>
+      );
     };
     
     if (isLoading) {
@@ -318,21 +564,15 @@ export default function Profile() {
         <div className="profile-content">
           <h3>Account Settings</h3>
           
-          {errorMessage && (
-            <div className="message error" style={{ display: 'block' }}>
-              {errorMessage}
-            </div>
-          )}
-          
-          {successMessage && (
-            <div className="message success" style={{ display: 'block' }}>
-              {successMessage}
-            </div>
-          )}
+          {/* General messages appear at the top */}
+          <SectionMessage message={messages.general} />
           
           <form className="profile-form" onSubmit={handleSubmit}>
-            <div className="form-section">
+            <div className="form-section" ref={personalInfoRef}>
               <h4>Personal Information</h4>
+              
+              {/* Personal info section messages */}
+              <SectionMessage message={messages.personal} />
               
               <div className="form-row">
                 <div className="form-group">
@@ -374,8 +614,12 @@ export default function Profile() {
               </div>
             </div>
             
-            <div className="form-section">
+            <div className="form-section" ref={passwordSectionRef}>
               <h4>Change Password</h4>
+              
+              {/* Password section messages */}
+              <SectionMessage message={messages.password} />
+              
               <div className="form-group">
                 <label htmlFor="current_password">Current Password</label>
                 <input
@@ -417,8 +661,11 @@ export default function Profile() {
               <div className="field-note">Leave password fields empty if you don't want to change your password</div>
             </div>
             
-            <div className="form-section">
+            <div className="form-section" ref={notificationSectionRef}>
               <h4>Notification Preferences</h4>
+              
+              {/* Notification section messages */}
+              <SectionMessage message={messages.notification} />
               
               <div className="notification-types">
                 {/* Push Notifications */}
@@ -430,12 +677,23 @@ export default function Profile() {
                       name="enable_notifications"
                       checked={notificationPrefs.pushEnabled}
                       onChange={handlePrefChange}
+                      disabled={!pushSupported}
                     />
-                    <label htmlFor="enable_notifications">Enable Push Notifications</label>
+                    <label htmlFor="enable_notifications" style={!pushSupported ? {color: '#999'} : {}}>
+                      Enable Push Notifications
+                    </label>
                   </div>
                   <div className="field-note">
                     Receive browser notifications when it's time to complete your assessment.
                   </div>
+                  {!pushSupported && (
+                    <div style={{color: '#e53e3e', padding: '10px', marginTop: '10px'}}>
+                      Push notifications are not supported in your browser.
+                      <div style={{marginTop: '10px', color: '#2f855a'}}>
+                        However, you can still use email notifications.
+                      </div>
+                    </div>
+                  )}
                 </div>
                 
                 {/* Email Notifications */}
@@ -456,7 +714,10 @@ export default function Profile() {
                 </div>
               </div>
               
-              <div id="notification-settings" style={{ marginTop: '20px' }}>
+              <div id="notification-settings" style={{ 
+                marginTop: '20px', 
+                display: (notificationPrefs.pushEnabled || notificationPrefs.emailEnabled) ? 'block' : 'none' 
+              }}>
                 <label>Reminder Times:</label>
                 <p className="field-note">Set the times when you want to receive reminders.</p>
                 
@@ -517,8 +778,12 @@ export default function Profile() {
               </button>
             </div>
             
-            <div className="form-section danger-zone">
+            <div className="form-section danger-zone" ref={dangerZoneRef}>
               <h4>Delete Account</h4>
+              
+              {/* Danger section messages */}
+              <SectionMessage message={messages.danger} />
+              
               <p className="warning-text">This action cannot be undone. All your data will be permanently deleted.</p>
               <button
                 type="button"
@@ -578,4 +843,4 @@ export default function Profile() {
         )}
       </div>
     );
-  }
+}

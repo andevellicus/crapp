@@ -165,8 +165,6 @@ func (s *ReminderScheduler) sendReminders(timeStr string) error {
 		if err := s.pushService.SendReminderToAllEligibleUsers(timeStr); err != nil {
 			s.log.Errorw("Error sending push reminders", "error", err, "time", timeStr)
 			// Continue to email reminders even if push fails
-		} else {
-			s.log.Infow("Push reminders sent successfully", "time", timeStr)
 		}
 	}
 
