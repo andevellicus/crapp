@@ -47,6 +47,9 @@ function AuthProvider({ children }) {
       setUser(data.user);
       setIsAuthenticated(true);
       setDeviceId(data.device_id);
+
+      // Trigger storage event for header to detect
+      window.dispatchEvent(new Event('storage'));
       
       return data;
     } catch (error) {
@@ -76,6 +79,9 @@ function AuthProvider({ children }) {
     // Update state
     setUser(null);
     setIsAuthenticated(false);
+
+    // Trigger storage event for header to detect
+    window.dispatchEvent(new Event('storage'));
     
     // Redirect to login
     window.location.href = '/login';

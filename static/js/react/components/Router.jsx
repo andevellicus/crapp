@@ -1,27 +1,45 @@
-// Simple router component to handle different pages
-function Router() {
-    // Get the current path
-    const path = window.location.pathname;
-    
-    // Render different components based on path
+// static/js/react/components/Router.jsx
+function Router({ setTitle }) {
+  // Get the current path
+  const path = window.location.pathname;
+  
+  // Set page title based on the route
+  React.useEffect(() => {
     switch (path) {
-      case '/':
-        return <SymptomForm />;
       case '/login':
-        return <Login />;
+        setTitle("Login - CRAPP");
+        break;
       case '/register':
-        return <Register />;
+        setTitle("Register - CRAPP");
+        break;
       case '/profile':
-        return <Profile />;
-      case '/devices':
-        return <Devices />;
-      case '/cognitive-tests':
-        return <CognitiveTests />;
-      case '/forgot-password':
-        return <ForgotPassword />;
-      case '/reset-password':
-        return <ResetPassword />;
+        setTitle("Profile - CRAPP");
+        break;
+      // Add more routes as needed
       default:
-        return <NotFound />;
+        setTitle("CRAPP: Cognitive Reporting Application");
     }
+  }, [path, setTitle]);
+  
+  // Render different components based on path
+  switch (path) {
+    case '/':
+      return <SymptomForm />;
+    case '/login':
+      return <Login />;
+    case '/register':
+      return <Register />;
+    case '/profile':
+      return <Profile />;
+    case '/devices':
+      return <Devices />;
+    case '/cognitive-tests':
+      return <CognitiveTests />;
+    case '/forgot-password':
+      return <ForgotPassword />;
+    case '/reset-password':
+      return <ResetPassword />;
+    default:
+      return <NotFound />;
   }
+}
