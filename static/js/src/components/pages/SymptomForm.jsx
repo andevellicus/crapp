@@ -1,4 +1,4 @@
-function SymptomForm() {
+export default function SymptomForm() {
     const [stateId, setStateId] = React.useState(null);
     const [currentStep, setCurrentStep] = React.useState(0);
     const [totalSteps, setTotalSteps] = React.useState(0);

@@ -1,5 +1,5 @@
 // static/js/react/components/Router.jsx
-function Router({ setTitle }) {
+export default function Router({ setTitle }) {
   // Get the current path
   const path = window.location.pathname;
 
@@ -7,6 +7,17 @@ function Router({ setTitle }) {
   
   // Set page title based on the route
   React.useEffect(() => {
+    // Load the CPT CSS if on cognitive tests page
+    if (path === '/cognitive-tests') {
+      if (!document.getElementById('cpt-styles')) {
+        const link = document.createElement('link');
+        link.id = 'cpt-styles';
+        link.rel = 'stylesheet';
+        link.href = '/static/css/cpt.css';
+        document.head.appendChild(link);
+      }
+    }
+
     switch (path) {
       case '/login':
         setTitle("Login - CRAPP");
@@ -23,10 +34,11 @@ function Router({ setTitle }) {
     }
   }, [path, setTitle]);
 
-  // If not authenticated, force the login page
-  if (!isAuthenticated && path !== '/login') {
-    return <Login />;
-  }
+  // If not authenticated, force the login page for protected routes
+  if (!isAuthenticated && 
+    !['/login', '/register', '/forgot-password', '/reset-password'].includes(path)) {
+  return <Login />;
+}
   
   // Render different components based on path
   switch (path) {

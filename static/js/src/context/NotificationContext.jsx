@@ -1,7 +1,7 @@
 // Notification context for managing app notifications
 const NotificationContext = React.createContext();
 
-function NotificationProvider({ children }) {
+export default function NotificationProvider({ children }) {
   const [preferences, setPreferences] = React.useState({
     pushEnabled: false,
     emailEnabled: false,

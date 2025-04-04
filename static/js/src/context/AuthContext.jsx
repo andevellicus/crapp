@@ -1,25 +1,55 @@
 // Authentication context for user state
 const AuthContext = React.createContext();
 
-function AuthProvider({ children }) {
+export default function AuthProvider({ children }) {
   const [user, setUser] = React.useState(null);
   const [isAuthenticated, setIsAuthenticated] = React.useState(false);
   const [deviceId, setDeviceId] = React.useState(null);
   const [authChecked, setAuthChecked] = React.useState(false);
   
   React.useEffect(() => {
-    // Check if user is already authenticated (e.g., from localStorage)
-    const storedUser = JSON.parse(localStorage.getItem('user_info'));
-    const storedToken = localStorage.getItem('auth_token');
-    const storedDeviceId = localStorage.getItem('device_id');
+    const originalFetch = window.fetch;
+    window.fetch = async (...args) => {
+      try {
+        const response = await originalFetch(...args);
+        
+        // Check if the response is unauthorized
+        if (response.status === 401) {
+          // Try to refresh token once
+          const refreshed = await refreshToken();
+          if (!refreshed) {
+            // If refresh failed, log out
+            await logout();
+            return response;
+          }
+          
+          // If token was refreshed, retry the request with new token
+          const [url, config] = args;
+          const newConfig = {
+            ...config,
+            headers: {
+              ...config?.headers,
+              'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
+            }
+          };
+          return originalFetch(url, newConfig);
+        }
+        return response;
+      } catch (error) {
+        throw error;
+      }
+    };
     
-    if (storedUser && storedToken) {
-      setUser(storedUser);
-      setIsAuthenticated(true);
-      setDeviceId(storedDeviceId);
-    }
-
-    setAuthChecked(true);
+    // Check token expiration on load
+    checkTokenExpiration();
+    
+    // Set interval to check token expiration
+    const interval = setInterval(checkTokenExpiration, 60000); // Every minute
+    
+    return () => {
+      window.fetch = originalFetch;
+      clearInterval(interval);
+    };
   }, []);
   
   // Login function
@@ -134,6 +164,29 @@ function AuthProvider({ children }) {
       setDeviceId(null);
       
       return false;
+    }
+  };
+
+  const checkTokenExpiration = () => {
+    const token = localStorage.getItem('auth_token');
+    if (!token) return;
+    
+    // Parse token to check expiration (without library)
+    try {
+      const base64Url = token.split('.')[1];
+      const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+      const jsonPayload = decodeURIComponent(atob(base64).split('').map(function(c) {
+        return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+      }).join(''));
+      
+      const payload = JSON.parse(jsonPayload);
+      
+      // Check if token is expired or will expire in next 5 min
+      if (payload.exp * 1000 < Date.now() + 300000) {
+        refreshToken();
+      }
+    } catch (e) {
+      console.error('Error checking token expiration', e);
     }
   };
   

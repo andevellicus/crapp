@@ -1,5 +1,5 @@
 // static/js/react/components/Message.jsx
-function Message() {
+export default function Message() {
     const [message, setMessage] = React.useState(null);
     const [type, setType] = React.useState('success');
     
