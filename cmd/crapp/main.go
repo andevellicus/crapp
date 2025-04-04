@@ -137,13 +137,13 @@ func main() {
 	})
 
 	// View routes
-	// Use a single handler for all React routes:
+	// Serve React app for all frontend routes
 	router.GET("/", viewHandler.ServeReactApp)
 	router.GET("/login", viewHandler.ServeReactApp)
 	router.GET("/register", viewHandler.ServeReactApp)
-	router.GET("/profile", middleware.AuthMiddleware(authService), viewHandler.ServeReactApp)
-	router.GET("/devices", middleware.AuthMiddleware(authService), viewHandler.ServeReactApp)
-	router.GET("/cognitive-tests", middleware.AuthMiddleware(authService), viewHandler.ServeReactApp)
+	router.GET("/profile", viewHandler.ServeReactApp)
+	router.GET("/devices", viewHandler.ServeReactApp)
+	router.GET("/cognitive-tests", viewHandler.ServeReactApp)
 	router.GET("/forgot-password", viewHandler.ServeReactApp)
 	router.GET("/reset-password", viewHandler.ServeReactApp)
 
@@ -217,10 +217,13 @@ func main() {
 	admin.Use(middleware.AuthMiddleware(authService), middleware.AdminMiddleware())
 	{
 		// Admin endpoints can be added here
-		admin.GET("/charts", viewHandler.ServeCharts)
-		admin.GET("/users", viewHandler.ServeAdminUsers)
+		admin.GET("/charts", viewHandler.ServeReactApp)
+		admin.GET("/users", viewHandler.ServeReactApp)
 		admin.GET("/api/users/search", apiHandler.SearchUsers)
 	}
+
+	// Handle all other routes to serve the React app for client-side routing
+	router.NoRoute(viewHandler.ServeReactApp)
 
 	// Start the reminder scheduler
 	if err := reminderScheduler.Start(); err != nil {

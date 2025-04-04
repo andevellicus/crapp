@@ -1,14 +1,13 @@
-// webpack.config.js
 const path = require('path');
-const HtmlWebpackPlugin = require('html-webpack-plugin');
 const MiniCssExtractPlugin = require('mini-css-extract-plugin');
 
 module.exports = {
+  mode: 'development',
   entry: './static/js/src/index.jsx',
   output: {
     path: path.resolve(__dirname, 'static/dist'),
-    filename: 'bundle.[contenthash].js',
-    publicPath: '/'
+    filename: 'js/main.js',
+    publicPath: '/static/dist/'
   },
   module: {
     rules: [
@@ -18,13 +17,19 @@ module.exports = {
         use: {
           loader: 'babel-loader',
           options: {
-            presets: ['@babel/preset-env', '@babel/preset-react']
+            presets: [
+              '@babel/preset-env',
+              ['@babel/preset-react', {"runtime": "automatic"}]
+            ]
           }
         }
       },
       {
         test: /\.css$/,
-        use: [MiniCssExtractPlugin.loader, 'css-loader']
+        use: [
+          MiniCssExtractPlugin.loader,
+          'css-loader'
+        ]
       }
     ]
   },
@@ -32,15 +37,10 @@ module.exports = {
     extensions: ['.js', '.jsx']
   },
   plugins: [
-    new HtmlWebpackPlugin({
-      template: './static/templates/app.html',
-      filename: 'index.html'
-    }),
     new MiniCssExtractPlugin({
-      filename: 'styles.[contenthash].css'
+      filename: 'css/[name].css'
     })
   ],
-  devServer: {
-    historyApiFallback: true
-  }
+  devtool: 'source-map',
+  
 };

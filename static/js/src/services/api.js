@@ -1,8 +1,49 @@
 // static/js/src/services/api.js
-import { refreshToken } from '../context/';
 
 // Base API configurations
 const API_BASE = '';  // Empty for same-origin API
+
+// Function to refresh the token - imported directly
+const refreshToken = async () => {
+  try {
+    const refreshToken = localStorage.getItem('refresh_token');
+    const deviceId = localStorage.getItem('device_id');
+    
+    if (!refreshToken) {
+      return false;
+    }
+
+    const response = await fetch('/api/auth/refresh', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        refresh_token: refreshToken,
+        device_id: deviceId
+      })
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to refresh token');
+    }
+
+    const data = await response.json();
+    
+    // Update stored tokens
+    localStorage.setItem('auth_token', data.access_token);
+    localStorage.setItem('refresh_token', data.refresh_token);
+    
+    return true;
+  } catch (error) {
+    console.error('Token refresh failed:', error);
+    // Clear authentication data
+    localStorage.removeItem('auth_token');
+    localStorage.removeItem('refresh_token');
+    localStorage.removeItem('user_info');
+    return false;
+  }
+};
 
 // Create a request handler with automatic token refreshing
 const apiRequest = async (url, options = {}) => {
