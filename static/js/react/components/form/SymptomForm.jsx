@@ -8,11 +8,13 @@ function SymptomForm() {
     const [isComplete, setIsComplete] = React.useState(false);
     const [validationError, setValidationError] = React.useState(null);
     const [isSubmitting, setIsSubmitting] = React.useState(false);
-    
-    const { isAuthenticated } = useAuth();
+    const { isAuthenticated, authChecked } = useAuth();
     
     // Initialize form on component mount
     React.useEffect(() => {
+      // If we haven't checked auth yet, do nothing (show a loading spinner or something)
+      if (!authChecked) return;
+
       // Check authentication
       if (!isAuthenticated) {
         window.location.href = '/login';
@@ -26,7 +28,7 @@ function SymptomForm() {
       if (window.interactionTracker) {
         window.interactionTracker.reset();
       }
-    }, [isAuthenticated]);
+    }, [isAuthenticated, isAuthenticated]);
     
     // Initialize form state
     const initForm = async (forceNew = false) => {
