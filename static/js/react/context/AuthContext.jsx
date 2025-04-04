@@ -5,6 +5,7 @@ function AuthProvider({ children }) {
   const [user, setUser] = React.useState(null);
   const [isAuthenticated, setIsAuthenticated] = React.useState(false);
   const [deviceId, setDeviceId] = React.useState(null);
+  const [authChecked, setAuthChecked] = React.useState(false);
   
   React.useEffect(() => {
     // Check if user is already authenticated (e.g., from localStorage)
@@ -17,6 +18,8 @@ function AuthProvider({ children }) {
       setIsAuthenticated(true);
       setDeviceId(storedDeviceId);
     }
+
+    setAuthChecked(true);
   }, []);
   
   // Login function
@@ -139,6 +142,7 @@ function AuthProvider({ children }) {
       user,
       isAuthenticated,
       deviceId,
+      authChecked,
       login,
       logout,
       refreshToken

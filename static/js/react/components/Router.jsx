@@ -2,6 +2,8 @@
 function Router({ setTitle }) {
   // Get the current path
   const path = window.location.pathname;
+
+  const { isAuthenticated } = React.useContext(AuthContext);
   
   // Set page title based on the route
   React.useEffect(() => {
@@ -20,6 +22,11 @@ function Router({ setTitle }) {
         setTitle("CRAPP: Cognitive Reporting Application");
     }
   }, [path, setTitle]);
+
+  // If not authenticated, force the login page
+  if (!isAuthenticated && path !== '/login') {
+    return <Login />;
+  }
   
   // Render different components based on path
   switch (path) {
