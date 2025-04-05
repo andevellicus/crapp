@@ -12,7 +12,7 @@ import Footer from './components/layout/Footer';
 import Message from './components/layout/Message';
 
 // Page components
-import SymptomForm from './components/pages/SymptomForm';
+import Form from './components/pages/Form';
 import Login from './components/auth/Login';
 import Register from './components/auth/Register';
 import ForgotPassword from './components/auth/ForgotPassword';
@@ -42,7 +42,7 @@ const App = () => {
                 {/* Protected routes */}
                 <Route path="/" element={
                   <ProtectedRoute>
-                    <SymptomForm />
+                    <Form />
                   </ProtectedRoute>
                 } />
                 <Route path="/profile" element={

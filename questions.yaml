@@ -174,12 +174,16 @@ questions:
     type: cognitive_test
     metrics_type: cpt
     required: false
-    settings: |
-      {
-        "testDuration": 120000,
-        "stimulusDuration": 250,
-        "interStimulusInterval": 2000,
-        "targetProbability": 0.7,
-        "targets": ["X"],
-        "nonTargets": ["A", "B", "C", "E", "F", "H", "K", "L"]
-      }
+    options:
+      - value: 10000 # Time in milliseconds
+        label: testDuration
+      - value: 250
+        label: stimulusDuration
+      - value: 2000
+        label: interStimulusInterval
+      - value: 0.7
+        label: targetProbability
+      - value: X
+        label: targets
+      - value: A, B, C, E, F, H, K, L
+        label: nonTargets

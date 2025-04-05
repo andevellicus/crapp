@@ -1,7 +1,7 @@
 import { useAuth } from '../../context/AuthContext';
 import CPTTest from '../cpt/CPTTest';
 
-export default function SymptomForm() {
+export default function Form() {
     const [stateId, setStateId] = React.useState(null);
     const [currentStep, setCurrentStep] = React.useState(0);
     const [totalSteps, setTotalSteps] = React.useState(0);
@@ -238,8 +238,49 @@ export default function SymptomForm() {
     
     // Render CPT test
     const renderCPTTest = (question) => {
+      // Initialize settings with default values
+      let testSettings = {
+        testDuration: 120000,
+        stimulusDuration: 250,
+        interStimulusInterval: 2000,
+        targetProbability: 0.7,
+        targets: ['X'],
+        nonTargets: ['A', 'B', 'C', 'E', 'F', 'H', 'K', 'L']
+      };
+      
+      if (question && question.options && Array.isArray(question.options)) {
+        // Process each option and convert to appropriate settings object
+        question.options.forEach(option => {
+          if (option.label && option.value !== undefined) {
+            let value = option.value;
+            
+            // Convert string values to appropriate types
+            if (typeof value === 'string') {
+              // Parse numeric values
+              if (!isNaN(value) && !isNaN(parseFloat(value))) {
+                value = parseFloat(value);
+              } 
+              // Parse arrays (comma-separated values)
+              else if (value.includes(',')) {
+                value = value.split(',').map(item => item.trim());
+              }
+              // Parse single value array for targets
+              else if (option.label === 'targets') {
+                value = [value];
+              }
+            }
+            
+            // Add to settings
+            testSettings[option.label] = value;
+          }
+        });
+        
+        console.log("Extracted CPT Test Settings:", testSettings); // Debug log
+      }
+      
       return (
         <CPTTest
+          settings={testSettings}
           onTestEnd={(results) => {
             handleAnswerChange(question.id, results);
           }}

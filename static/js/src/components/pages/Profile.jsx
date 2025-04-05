@@ -343,6 +343,25 @@ export default function Profile() {
             new_password: formData.new_password || undefined
           })
         });
+
+        // Check if unauthorized (401) - token expired or invalid
+        if (updateResponse.status === 401) {
+          // Clear auth data and redirect to login
+          localStorage.removeItem('auth_token');
+          localStorage.removeItem('refresh_token');
+          localStorage.removeItem('user_info');
+          localStorage.removeItem('device_id');
+          
+          // Show message and redirect
+          showSectionMessage('general', 'Your session has expired. Please log in again.', 'error');
+          
+          // Redirect after a short delay
+          setTimeout(() => {
+            window.location.href = '/login';
+          }, 1500);
+          
+          return;
+        }
         
         if (!updateResponse.ok) {
           const errorData = await updateResponse.json();
