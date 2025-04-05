@@ -132,10 +132,10 @@ func (r *RevokedTokenRepository) RevokeAllUserTokens(email string) error {
 type PasswordTokenRepository struct {
 	db       *gorm.DB
 	log      *zap.SugaredLogger
-	userRepo UserDB
+	userRepo *UserRepository
 }
 
-func NewPasswordTokenRepository(db *gorm.DB, log *zap.SugaredLogger, userRepo UserDB) *PasswordTokenRepository {
+func NewPasswordTokenRepository(db *gorm.DB, log *zap.SugaredLogger, userRepo *UserRepository) *PasswordTokenRepository {
 	return &PasswordTokenRepository{
 		db:       db,
 		log:      log.Named("pwd-reset-tok-repo"),

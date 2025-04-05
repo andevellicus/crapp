@@ -17,14 +17,14 @@ type Repository struct {
 	//questionLoader *utils.QuestionLoader
 
 	// Add specialized repositories
-	Users               UserDB
-	Devices             DeviceDB
-	Assessments         AsessmentDB
-	FormStates          FormStateDB
-	RefreshTokens       RefreshTokenDB
-	PasswordResetTokens PasswordResetTokenDB
-	RevokedTokens       RevokedTokenDB
-	CPTResults          CognitiveTestDB
+	Users               *UserRepository
+	Devices             *DeviceRepository
+	Assessments         *AssessmentRepository
+	FormStates          *FormStateRepository
+	RefreshTokens       *RefreshTokenRepository
+	PasswordResetTokens *PasswordTokenRepository
+	RevokedTokens       *RevokedTokenRepository
+	CPTResults          *CognitiveTestRepository
 }
 
 // NewRepository creates a new repository with the given database connection

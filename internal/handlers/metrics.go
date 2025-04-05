@@ -50,7 +50,7 @@ func (h *GinAPIHandler) GetChartCorrelationData(c *gin.Context) {
 
 	// If no data, return empty structure
 	if data == nil {
-		data = []repository.CorrelationDataPoint{}
+		data = &[]repository.CorrelationDataPoint{}
 	}
 
 	// Get question and metric labels
@@ -58,7 +58,7 @@ func (h *GinAPIHandler) GetChartCorrelationData(c *gin.Context) {
 	metricLabel := getMetricLabel(metricKey)
 
 	// Format for Chart.js
-	chartData := formatCorrelationDataForChart(data, questionLabel, metricLabel)
+	chartData := formatCorrelationDataForChart(*data, questionLabel, metricLabel)
 
 	c.JSON(http.StatusOK, chartData)
 }

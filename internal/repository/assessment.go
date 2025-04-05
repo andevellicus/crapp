@@ -3,7 +3,6 @@ package repository
 import (
 	"encoding/json"
 	"fmt"
-	"strconv"
 	"time"
 
 	"github.com/andevellicus/crapp/internal/models"
@@ -38,11 +37,11 @@ type MetricsData struct {
 type AssessmentRepository struct {
 	db       *gorm.DB
 	log      *zap.SugaredLogger
-	userRepo UserDB
+	userRepo *UserRepository
 }
 
 // NewAssessmentRepository creates a new assessment repository
-func NewAssessmentRepository(db *gorm.DB, log *zap.SugaredLogger, userRepo UserDB) AsessmentDB {
+func NewAssessmentRepository(db *gorm.DB, log *zap.SugaredLogger, userRepo *UserRepository) *AssessmentRepository {
 	return &AssessmentRepository{
 		db:       db,
 		log:      log.Named("assessment-repo"),
@@ -51,25 +50,25 @@ func NewAssessmentRepository(db *gorm.DB, log *zap.SugaredLogger, userRepo UserD
 }
 
 // CreateAssessment creates a new assessment with structured data
-func (r *AssessmentRepository) Create(assessment *models.AssessmentSubmission) (uint, error) {
+func (r *AssessmentRepository) Create(userEmail string, deviceID string) (uint, error) {
 	log := r.log.With(
 		"operation", "CreateAssessment",
-		"userEmail", assessment.UserEmail,
-		"deviceID", assessment.DeviceID,
+		"userEmail", userEmail,
+		"deviceID", deviceID,
 	)
 
 	// Check if user exists using the User repository
-	exists, err := r.userRepo.UserExists(assessment.UserEmail)
+	exists, err := r.userRepo.UserExists(userEmail)
 	if err != nil {
 		return 0, fmt.Errorf("error checking user: %w", err)
 	}
 	if !exists {
-		return 0, fmt.Errorf("user not found: %s", assessment.UserEmail)
+		return 0, fmt.Errorf("user not found: %s", userEmail)
 	}
 
 	// Check if device exists and belongs to user
 	var device models.Device
-	result := r.db.Where("id = ? AND user_email = ?", assessment.DeviceID, assessment.UserEmail).First(&device)
+	result := r.db.Where("id = ? AND user_email = ?", deviceID, userEmail).First(&device)
 	if result.Error != nil {
 		log.Errorw("Database error finding device", "error", result.Error)
 		return 0, fmt.Errorf("device not found or doesn't belong to user: %w", result.Error)
@@ -79,40 +78,31 @@ func (r *AssessmentRepository) Create(assessment *models.AssessmentSubmission) (
 	device.LastActive = time.Now()
 	r.db.Save(&device)
 
-	// Create assessment record - JSON fields stay for reference but aren't used for charts
-	newAssessment := models.Assessment{
-		UserEmail:   assessment.UserEmail,
-		DeviceID:    assessment.DeviceID,
-		Date:        time.Now(),
+	assessment := &models.Assessment{
+		UserEmail:   userEmail,
+		DeviceID:    deviceID,
 		SubmittedAt: time.Now(),
-		Responses:   assessment.Responses, // Keep JSON copy for reference
-		RawData:     assessment.Metadata,
 	}
 
 	// Save to database
-	if err := r.db.Create(&newAssessment).Error; err != nil {
+	if err := r.db.Create(assessment).Error; err != nil {
 		return 0, err
 	}
 
-	// Now save structured responses
-	if err := r.saveStructuredResponses(newAssessment.ID, assessment.Responses); err != nil {
-		log.Warnw("Error saving structured responses", "error", err)
-		// Don't fail the entire operation
-	}
-
-	// Save structured metrics if metadata available
-	if assessment.Metadata != nil {
-		if err := r.extractAndSaveMetrics(newAssessment.ID, assessment.Metadata); err != nil {
+	// TODO Move out to handler.
+	// Save structured metrics if rawData available
+	if assessment.RawData != nil {
+		if err := r.extractAndSaveMetrics(assessment.ID, assessment.RawData); err != nil {
 			log.Warnw("Error saving structured metrics", "error", err)
 			// Don't fail the entire operation
 		}
 	}
 
-	return newAssessment.ID, nil
+	return assessment.ID, nil
 }
 
 // GetMetricsCorrelation gets correlation data from structured tables
-func (r *AssessmentRepository) GetMetricsCorrelation(userID, symptomKey, metricKey string) ([]CorrelationDataPoint, error) {
+func (r *AssessmentRepository) GetMetricsCorrelation(userID, symptomKey, metricKey string) (*[]CorrelationDataPoint, error) {
 	var result []CorrelationDataPoint
 
 	// Use a different JOIN approach - first get the response data, then match metrics
@@ -143,7 +133,7 @@ func (r *AssessmentRepository) GetMetricsCorrelation(userID, symptomKey, metricK
 		"metric", metricKey,
 		"points_count", len(result))
 
-	return result, nil
+	return &result, nil
 }
 
 // GetMetricsTimeline gets timeline data from structured tables
@@ -184,71 +174,18 @@ func (r *AssessmentRepository) GetMetricsTimeline(userID, symptomKey, metricKey 
 	return result, nil
 }
 
-// Save structured responses
-func (r *AssessmentRepository) saveStructuredResponses(assessmentID uint, responses models.JSON) error {
-	questionResponses := make([]models.QuestionResponse, 0, len(responses))
-
-	for questionID, value := range responses {
-		response := models.QuestionResponse{
-			AssessmentID: assessmentID,
-			QuestionID:   questionID,
-			CreatedAt:    time.Now(),
-		}
-
-		// Handle different value types
-		switch v := value.(type) {
-		case float64:
-			response.ValueType = "number"
-			response.NumericValue = v
-		case int:
-			response.ValueType = "number"
-			response.NumericValue = float64(v)
-		case string:
-			response.ValueType = "string"
-			response.TextValue = v
-			// Try to convert to number if possible
-			if f, err := strconv.ParseFloat(v, 64); err == nil {
-				response.NumericValue = f
-			}
-		case bool:
-			response.ValueType = "boolean"
-			if v {
-				response.NumericValue = 1.0
-			} else {
-				response.NumericValue = 0.0
-			}
-			response.TextValue = strconv.FormatBool(v)
-		default:
-			// For complex types, store as JSON
-			response.ValueType = "object"
-			if bytes, err := json.Marshal(v); err == nil {
-				response.TextValue = string(bytes)
-			}
-		}
-
-		questionResponses = append(questionResponses, response)
-	}
-
-	// Save all responses in a batch
-	if len(questionResponses) > 0 {
-		return r.db.CreateInBatches(questionResponses, 100).Error
-	}
-
-	return nil
-}
-
 // Add a new function to handle the extraction and saving of metrics
-func (r *AssessmentRepository) extractAndSaveMetrics(assessmentID uint, metadata json.RawMessage) error {
-	// Parse the metadata
-	var metadataMap map[string]any
-	if err := json.Unmarshal(metadata, &metadataMap); err != nil {
-		return fmt.Errorf("failed to parse metadata: %w", err)
+func (r *AssessmentRepository) extractAndSaveMetrics(assessmentID uint, rawData json.RawMessage) error {
+	// Parse the rawData
+	var rawDataMap map[string]any
+	if err := json.Unmarshal(rawData, &rawDataMap); err != nil {
+		return fmt.Errorf("failed to parse rawData: %w", err)
 	}
 
 	metrics := make([]*models.AssessmentMetric, 0)
 
 	// Process global metrics (interaction_metrics)
-	if interactionMetrics, ok := metadataMap["interaction_metrics"].(map[string]any); ok {
+	if interactionMetrics, ok := rawDataMap["interaction_metrics"].(map[string]any); ok {
 		for metricKey, metricValue := range interactionMetrics {
 			// Handle metric result objects
 			if metricObj, ok := metricValue.(map[string]any); ok {
@@ -284,7 +221,7 @@ func (r *AssessmentRepository) extractAndSaveMetrics(assessmentID uint, metadata
 	}
 
 	// Process question metrics
-	if questionMetrics, ok := metadataMap["question_metrics"].(map[string]any); ok {
+	if questionMetrics, ok := rawDataMap["question_metrics"].(map[string]any); ok {
 		for questionID, qData := range questionMetrics {
 			if qMetrics, ok := qData.(map[string]any); ok {
 				for metricKey, metricValue := range qMetrics {
