@@ -16,9 +16,3 @@ type FormState struct {
 	LastUpdatedAt time.Time `json:"last_updated_at"`
 	Completed     bool      `json:"completed"`
 }
-
-// SubmissionResponse is sent back after processing a submission
-type SubmissionResponse struct {
-	Status       string `json:"status"`
-	AssessmentID uint   `json:"assessment_id"`
-}

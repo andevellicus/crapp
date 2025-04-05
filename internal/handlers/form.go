@@ -272,39 +272,18 @@ func (h *FormHandler) SubmitForm(c *gin.Context) {
 	req := c.MustGet("validatedRequest").(*validation.SubmitFormRequest)
 
 	// Process metrics data
-	calculator := metrics.NewMetricCalculator(req.InteractionData)
-	calculatedMetrics := calculator.CalculateAllMetrics()
-
-	// Create metadata structure
-	metadata := map[string]any{
-		"interaction_metrics": calculatedMetrics,
-		"question_metrics":    calculatedMetrics["questionMetrics"],
-		"question_order":      questionOrder,
-	}
-
-	// Marshal to JSON
-	metadataBytes, err := json.Marshal(metadata)
-	if err != nil {
-		h.log.Errorw("Error marshaling metadata", "error", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error processing form data"})
-		return
-	}
-
-	// Create submission
-	submission := &models.AssessmentSubmission{
-		UserEmail: userEmail.(string),
-		DeviceID:  c.GetHeader("X-Device-ID"), // Use device ID from header
-		Responses: formState.Answers,
-		Metadata:  json.RawMessage(metadataBytes),
-	}
+	calculator := metrics.NewMetricCalculator(req.InteractionData, req.CPTData)
+	calculatedMetrics := calculator.CalculateMetrics()
 
 	// Save assessment
-	assessmentID, err := h.repo.Assessments.Create(submission)
+	assessmentID, err := h.repo.Assessments.Create(userEmail.(string), c.GetHeader("X-Device-ID"))
 	if err != nil {
 		h.log.Errorw("Error saving assessment", "error", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error saving assessment"})
 		return
 	}
+
+	// TODO Should save metric data here
 
 	// Process cognitive test results if present
 	if len(req.CognitiveTests) > 0 {
@@ -323,6 +302,7 @@ func (h *FormHandler) SubmitForm(c *gin.Context) {
 
 // processCognitiveTestResults handles saving cognitive test results
 func (h *FormHandler) processCognitiveTestResults(c *gin.Context, tests []models.CognitiveTestResult, userEmail, deviceID string, assessmentID uint) {
+
 	for _, test := range tests {
 		question := h.questionLoader.GetQuestionByID(test.QuestionID)
 		if question != nil && question.MetricsType != "" {

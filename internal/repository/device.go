@@ -16,7 +16,7 @@ type DeviceRepository struct {
 }
 
 // NewDeviceRepository creates a new device repository
-func NewDeviceRepository(db *gorm.DB, log *zap.SugaredLogger) DeviceDB {
+func NewDeviceRepository(db *gorm.DB, log *zap.SugaredLogger) *DeviceRepository {
 	return &DeviceRepository{
 		db:  db,
 		log: log.Named("device-repo"),

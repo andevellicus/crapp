@@ -15,7 +15,7 @@ type UserRepository struct {
 }
 
 // NewUserRepository creates a new user repository
-func NewUserRepository(db *gorm.DB, log *zap.SugaredLogger) UserDB {
+func NewUserRepository(db *gorm.DB, log *zap.SugaredLogger) *UserRepository {
 	return &UserRepository{
 		db:  db,
 		log: log.Named("user-repo"),
@@ -152,7 +152,7 @@ func (r *UserRepository) HasCompletedAssessment(userEmail string) (bool, error) 
 }
 
 // SearchUsers searches for users by email or name
-func (r *UserRepository) SearchUsers(query string, skip, limit int) ([]models.User, int64, error) {
+func (r *UserRepository) SearchUsers(query string, skip, limit int) (*[]models.User, int64, error) {
 	var users []models.User
 	var total int64
 
@@ -175,7 +175,7 @@ func (r *UserRepository) SearchUsers(query string, skip, limit int) ([]models.Us
 		users[i].Password = nil
 	}
 
-	return users, total, nil
+	return &users, total, nil
 }
 
 // Helper method for validation

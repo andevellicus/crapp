@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/andevellicus/crapp/internal/metrics"
-	"github.com/andevellicus/crapp/internal/models"
 )
 
 // Auth validation models
@@ -56,8 +55,8 @@ type SaveAnswerRequest struct {
 }
 
 type SubmitFormRequest struct {
-	InteractionData metrics.InteractionData      `json:"interaction_data"`
-	CognitiveTests  []models.CognitiveTestResult `json:"cognitive_tests,omitempty"`
+	InteractionData *metrics.InteractionData `json:"interaction_data"`
+	CPTData         *metrics.CPTData         `json:"cpt,omitempty"`
 }
 
 // Push validation models

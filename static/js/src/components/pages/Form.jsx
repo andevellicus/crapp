@@ -186,7 +186,7 @@ export default function Form() {
           },
           body: JSON.stringify({
             interaction_data: interactionData,
-            cognitive_tests: cognitiveTestResults
+            cpt: cognitiveTestResults
           })
         });
         
@@ -233,6 +233,8 @@ export default function Form() {
       if (window.confirm('Are you sure you want to start over? All your current answers will be lost.')) {
         showMessage('Starting a new assessment...', 'success');
         initForm(true);
+        // Redirect to index
+        window.location.href = '/';
       }
     };
     
