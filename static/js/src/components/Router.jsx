@@ -43,7 +43,7 @@ export default function Router({ setTitle }) {
   // Render different components based on path
   switch (path) {
     case '/':
-      return <SymptomForm />;
+      return <Form />;
     case '/login':
       return <Login />;
     case '/register':
