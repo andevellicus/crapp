@@ -274,8 +274,6 @@ export default function Form() {
             testSettings[option.label] = value;
           }
         });
-        
-        console.log("Extracted CPT Test Settings:", testSettings); // Debug log
       }
       
       return (

@@ -35,25 +35,43 @@ export default function CPTTest({ onTestEnd, settings }) {
     // References for timeouts and intervals
     const timerIntervalRef = React.useRef(null);
     const stimulusTimeoutRef = React.useRef(null);
+
+    const stimulusStartTimeRef = React.useRef(0);
     
     // Check if user is admin
     const { user } = useAuth();
     const isAdmin = user?.is_admin;
 
-    const isRunningRef = React.useRef(isRunning);
+    const testStateRef = React.useRef({
+      testStartTime: 0,
+      stimuliPresented: [],
+      responses: [],
+      correctDetections: 0,
+      commissionErrors: 0,
+      omissionErrors: 0,
+      reactionTimes: []
+    });
 
+    const currentStimulusRef = React.useRef(currentStimulus);
+    React.useEffect(() => {
+      currentStimulusRef.current = currentStimulus;
+    }, [currentStimulus]);
+
+    const isRunningRef = React.useRef(isRunning);
     React.useEffect(() => {
       isRunningRef.current = isRunning;
     }, [isRunning]);
     
     // Effect to handle keyboard events
     React.useEffect(() => {
+      // Only attach when running
       if (isRunning) {
-        document.addEventListener('keydown', handleKeyPress);
+        document.addEventListener('keydown', handleKeyPress);        
+        // Return cleanup function
+        return () => {
+          document.removeEventListener('keydown', handleKeyPress);
+        };
       }
-      return () => {
-        document.removeEventListener('keydown', handleKeyPress);
-      };
     }, [isRunning]);
     
     // Format time as MM:SS
@@ -69,11 +87,10 @@ export default function CPTTest({ onTestEnd, settings }) {
     const startTest = () => {
       setIsRunning(true);
       setRemainingTime(testSettings.testDuration);
-      
       const startTime = performance.now();
       
-      setTestState({
-        ...testState,
+      // Immediately initialize the test state ref
+      testStateRef.current = {
         testStartTime: startTime,
         stimuliPresented: [],
         responses: [],
@@ -81,12 +98,12 @@ export default function CPTTest({ onTestEnd, settings }) {
         commissionErrors: 0,
         omissionErrors: 0,
         reactionTimes: []
-      });
+      };
       
-      // Start timer
+      // Start the timer to update the display
       timerIntervalRef.current = setInterval(updateTimerDisplay, 1000);
       
-      // Present first stimulus after a short delay
+      // Present the first stimulus after a short delay
       stimulusTimeoutRef.current = setTimeout(presentStimulus, 1000);
     };
     
@@ -106,10 +123,10 @@ export default function CPTTest({ onTestEnd, settings }) {
     };
     
     // Present a stimulus
-    const presentStimulus = () => {
+    const presentStimulus = React.useCallback(() => {
       if (!isRunningRef.current) return;
-    
-      // Determine if this should be a target or non-target
+      
+      // Determine stimulus type and value
       const isTarget = Math.random() < testSettings.targetProbability;
       let stimulus;
       if (isTarget) {
@@ -119,11 +136,12 @@ export default function CPTTest({ onTestEnd, settings }) {
         const randomIndex = Math.floor(Math.random() * testSettings.nonTargets.length);
         stimulus = testSettings.nonTargets[randomIndex];
       }
-    
+      
       const currentTime = performance.now();
-      setStimulusStartTime(currentTime);
-    
-      // Create a local copy of the stimulus object
+      stimulusStartTimeRef.current = currentTime; // Update ref for timing calculations
+      setStimulusStartTime(currentTime); // Update state (for UI rendering)
+      
+      // Create new stimulus object
       const newStimulus = {
         value: stimulus,
         isTarget: isTarget,
@@ -131,104 +149,86 @@ export default function CPTTest({ onTestEnd, settings }) {
         responded: false,
         correct: null
       };
-    
-      // Set the current stimulus with the newly created object
+      
+      // Important: Set both the ref and state
+      currentStimulusRef.current = newStimulus;
       setCurrentStimulus(newStimulus);
-    
-      // Record the stimulus in the test state
-      setTestState(prev => ({
-        ...prev,
-        stimuliPresented: [
-          ...prev.stimuliPresented,
-          {
-            value: stimulus,
-            isTarget: isTarget,
-            presentedAt: currentTime - prev.testStartTime
-          }
-        ]
-      }));
-    
-      // Set a timeout to hide the stimulus after the stimulusDuration
+      
+      // Record stimulus presentation
+      testStateRef.current.stimuliPresented.push({
+        value: stimulus,
+        isTarget: isTarget,
+        presentedAt: currentTime - testStateRef.current.testStartTime,
+      });
+      
+      // Set timeout to hide stimulus and check for omission
       stimulusTimeoutRef.current = setTimeout(() => {
-        // Use newStimulus instead of the state variable currentStimulus
-        setTestState(prev => {
-          let newState = { ...prev };
-          // If no response was recorded for a target, count as omission error
-          if (isTarget && !newStimulus.responded) {
-            newState.omissionErrors += 1;
-          }
-          return newState;
-        });
-    
-        // Clear the current stimulus so that it disappears from the screen
+        // Check if no response was recorded for a target stimulus
+        if (isTarget && !currentStimulusRef.current.responded) {
+          testStateRef.current.omissionErrors++;
+        }
+        
+        // Clear the stimulus - update both ref and state
+        currentStimulusRef.current = null;
         setCurrentStimulus(null);
-    
-        // Schedule the next stimulus after the interStimulusInterval minus the stimulusDuration
+        
+        // Schedule the next stimulus
         stimulusTimeoutRef.current = setTimeout(
           presentStimulus,
           testSettings.interStimulusInterval - testSettings.stimulusDuration
         );
       }, testSettings.stimulusDuration);
-    };
-    
+    }, [testSettings]);
+       
     // Handle key press events
-    const handleKeyPress = (event) => {
+    const handleKeyPress = React.useCallback((event) => {
+      // Check if test is running
+      if (!isRunningRef.current) return;
+      
       // Only respond to spacebar
-      if (event.code !== 'Space' || !isRunning || !currentStimulus) return;
+      if (event.code !== 'Space') return;
+           
+      // Need reference to the stimulus, not the state variable
+      if (!currentStimulusRef.current) return;
       
       // Prevent default (page scrolling)
       event.preventDefault();
       
-      // Get response time
-      const responseTime = performance.now() - stimulusStartTime;
+      const currentTime = performance.now();
+      const responseTime = currentTime - stimulusStartTimeRef.current;
       
-      // Mark as responded
-      setCurrentStimulus(prev => {
-        if (!prev) return null;
-        return {
-          ...prev,
-          responded: true,
-          responseTime: responseTime
-        };
+      // Update the stimulus reference
+      const updatedStimulus = {
+        ...currentStimulusRef.current,
+        responded: true,
+        responseTime: responseTime
+      };
+      
+      // Update both the ref and the state
+      currentStimulusRef.current = updatedStimulus;
+      setCurrentStimulus(updatedStimulus);
+            
+      // Update test state ref
+      testStateRef.current.responses.push({
+        stimulus: updatedStimulus.value,
+        isTarget: updatedStimulus.isTarget,
+        responseTime: responseTime,
+        stimulusIndex: testStateRef.current.stimuliPresented.length - 1,
       });
       
-      // Update test state
-      setTestState(prev => {
-        const newState = { ...prev };
-        
-        if (currentStimulus) {
-          // Record response
-          newState.responses = [
-            ...newState.responses,
-            {
-              stimulus: currentStimulus.value,
-              isTarget: currentStimulus.isTarget,
-              responseTime: responseTime,
-              stimulusIndex: newState.stimuliPresented.length - 1
-            }
-          ];
-          
-          // Check if response is correct
-          if (currentStimulus.isTarget) {
-            // Correct detection of target
-            newState.correctDetections += 1;
-            newState.reactionTimes = [...newState.reactionTimes, responseTime];
-          } else {
-            // Commission error (responded to non-target)
-            newState.commissionErrors += 1;
-          }
-        }
-        
-        return newState;
-      });
-    };
+      if (updatedStimulus.isTarget) {
+        testStateRef.current.correctDetections++;
+        testStateRef.current.reactionTimes.push(responseTime);
+      } else {
+        testStateRef.current.commissionErrors++;
+      }
+    }, []);
     
     // End the test
     const endTest = () => {
       // Set test as not running
       setIsRunning(false);
       setIsComplete(true);
-      
       // Update test end time
       setTestState(prev => ({
         ...prev,
@@ -247,16 +247,26 @@ export default function CPTTest({ onTestEnd, settings }) {
       }
       
       // Calculate final results
-      calculateResults();
+      const finalResults = calculateResults();
+
+      // Call onTestEnd callback if provided
+      if (onTestEnd) {
+        setTimeout(() => {
+          onTestEnd(finalResults);
+        }, 0);
+      }      
     };
     
     // Calculate final test results
-    const calculateResults = () => {
+    const calculateResults = React.useCallback(() => {
+      // Get the final state from the ref
       const { 
-        testStartTime, testEndTime, stimuliPresented, 
+        testStartTime, stimuliPresented, 
         responses, correctDetections, commissionErrors, 
         omissionErrors, reactionTimes 
-      } = testState;
+      } = testStateRef.current;
+      
+      const testEndTime = performance.now();
       
       // Count total targets presented
       const totalTargets = stimuliPresented.filter(stim => stim.isTarget).length;
@@ -302,11 +312,8 @@ export default function CPTTest({ onTestEnd, settings }) {
       // Set results state
       setResults(finalResults);
       
-      // Call onTestEnd callback if provided
-      if (onTestEnd) {
-        onTestEnd(finalResults);
-      }
-    };
+      return finalResults;
+    }, [testSettings]);
     
     // Render intro screen
     const renderIntroScreen = () => (
