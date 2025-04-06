@@ -53,6 +53,14 @@ func NewRepository(cfg *config.Config, log *zap.SugaredLogger, questionLoader *u
 	return repo
 }
 
+func (r *Repository) CreateInBatches(value any, batchSize int) error {
+	// Create in batches
+	if err := r.db.CreateInBatches(value, batchSize).Error; err != nil {
+		return err
+	}
+	return nil
+}
+
 // setupDatabase initializes the database connection
 func setupDatabase(cfg *config.Config) (*gorm.DB, error) {
 	// Get database configuration

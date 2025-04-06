@@ -41,7 +41,7 @@ type InteractionData struct {
 }
 
 // Calculate per-question metrics
-func (mc *MetricCalculator) calculatePerQuestionMetrics() map[string]map[string]any {
+func (mc *MetricCalculator) calculatePerQuestionMetrics() map[string]map[string]MetricResult {
 	// Get unique question IDs
 	questionIDs := make(map[string]bool)
 
@@ -64,10 +64,10 @@ func (mc *MetricCalculator) calculatePerQuestionMetrics() map[string]map[string]
 	}
 
 	// Calculate metrics for each question
-	result := make(map[string]map[string]any)
+	result := make(map[string]map[string]MetricResult)
 
 	for questionID := range questionIDs {
-		qMetrics := make(map[string]any)
+		qMetrics := make(map[string]MetricResult)
 		qID := questionID // Create a copy for pointer safety
 
 		// Mouse metrics

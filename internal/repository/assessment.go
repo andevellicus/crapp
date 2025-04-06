@@ -1,7 +1,6 @@
 package repository
 
 import (
-	"encoding/json"
 	"fmt"
 	"time"
 
@@ -89,15 +88,6 @@ func (r *AssessmentRepository) Create(userEmail string, deviceID string) (uint, 
 		return 0, err
 	}
 
-	// TODO Move out to handler.
-	// Save structured metrics if rawData available
-	if assessment.RawData != nil {
-		if err := r.extractAndSaveMetrics(assessment.ID, assessment.RawData); err != nil {
-			log.Warnw("Error saving structured metrics", "error", err)
-			// Don't fail the entire operation
-		}
-	}
-
 	return assessment.ID, nil
 }
 
@@ -172,97 +162,4 @@ func (r *AssessmentRepository) GetMetricsTimeline(userID, symptomKey, metricKey 
 		"points_count", len(result))
 
 	return result, nil
-}
-
-// Add a new function to handle the extraction and saving of metrics
-func (r *AssessmentRepository) extractAndSaveMetrics(assessmentID uint, rawData json.RawMessage) error {
-	// Parse the rawData
-	var rawDataMap map[string]any
-	if err := json.Unmarshal(rawData, &rawDataMap); err != nil {
-		return fmt.Errorf("failed to parse rawData: %w", err)
-	}
-
-	metrics := make([]*models.AssessmentMetric, 0)
-
-	// Process global metrics (interaction_metrics)
-	if interactionMetrics, ok := rawDataMap["interaction_metrics"].(map[string]any); ok {
-		for metricKey, metricValue := range interactionMetrics {
-			// Handle metric result objects
-			if metricObj, ok := metricValue.(map[string]any); ok {
-				if calculated, cOk := metricObj["calculated"].(bool); cOk && calculated {
-					if value, vOk := metricObj["value"].(float64); vOk {
-						sampleSize := 0
-						if s, sok := metricObj["sampleSize"].(float64); sok {
-							sampleSize = int(s)
-						}
-
-						metrics = append(metrics, &models.AssessmentMetric{
-							AssessmentID: assessmentID,
-							QuestionID:   "", // Empty for global metrics
-							MetricKey:    metricKey,
-							MetricValue:  value,
-							SampleSize:   sampleSize,
-							CreatedAt:    time.Now(),
-						})
-					}
-				}
-			} else if value, ok := metricValue.(float64); ok {
-				// Direct numeric value
-				metrics = append(metrics, &models.AssessmentMetric{
-					AssessmentID: assessmentID,
-					QuestionID:   "",
-					MetricKey:    metricKey,
-					MetricValue:  value,
-					SampleSize:   0,
-					CreatedAt:    time.Now(),
-				})
-			}
-		}
-	}
-
-	// Process question metrics
-	if questionMetrics, ok := rawDataMap["question_metrics"].(map[string]any); ok {
-		for questionID, qData := range questionMetrics {
-			if qMetrics, ok := qData.(map[string]any); ok {
-				for metricKey, metricValue := range qMetrics {
-					if metricObj, ok := metricValue.(map[string]any); ok {
-						if calculated, cOk := metricObj["calculated"].(bool); cOk && calculated {
-							if value, vOk := metricObj["value"].(float64); vOk {
-								sampleSize := 0
-								if s, sok := metricObj["sampleSize"].(float64); sok {
-									sampleSize = int(s)
-								}
-
-								metrics = append(metrics, &models.AssessmentMetric{
-									AssessmentID: assessmentID,
-									QuestionID:   questionID,
-									MetricKey:    metricKey,
-									MetricValue:  value,
-									SampleSize:   sampleSize,
-									CreatedAt:    time.Now(),
-								})
-							}
-						}
-					} else if value, ok := metricValue.(float64); ok {
-						// Direct numeric value
-						metrics = append(metrics, &models.AssessmentMetric{
-							AssessmentID: assessmentID,
-							QuestionID:   questionID,
-							MetricKey:    metricKey,
-							MetricValue:  value,
-							SampleSize:   0,
-							CreatedAt:    time.Now(),
-						})
-					}
-				}
-			}
-		}
-	}
-
-	// Save metrics in batches if we have any
-	if len(metrics) > 0 {
-		return r.db.CreateInBatches(metrics, 100).Error
-	}
-
-	return nil
 }

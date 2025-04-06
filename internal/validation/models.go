@@ -54,7 +54,7 @@ type SaveAnswerRequest struct {
 	Direction  string `json:"direction" validate:"required,oneof=next prev"`
 }
 
-type SubmitFormRequest struct {
+type SubmitMetricsRequest struct {
 	InteractionData *metrics.InteractionData `json:"interaction_data"`
 	CPTData         *metrics.CPTData         `json:"cpt,omitempty"`
 }
