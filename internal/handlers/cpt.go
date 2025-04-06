@@ -5,9 +5,7 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/andevellicus/crapp/internal/models"
 	"github.com/andevellicus/crapp/internal/repository"
-	"github.com/andevellicus/crapp/internal/validation"
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
 )
@@ -26,6 +24,8 @@ func NewCognitiveTestHandler(repo *repository.Repository, log *zap.SugaredLogger
 	}
 }
 
+/*
+DEPRECATED?? //TODO
 // SaveCPTResults handles saving CPT test results
 func (h *CognitiveTestHandler) SaveCPTResults(c *gin.Context) {
 	// Get user email from context (set by auth middleware)
@@ -76,6 +76,7 @@ func (h *CognitiveTestHandler) SaveCPTResults(c *gin.Context) {
 		"result_id": resultID,
 	})
 }
+*/
 
 // GetCPTResults retrieves CPT results for a user
 func (h *CognitiveTestHandler) GetCPTResults(c *gin.Context) {

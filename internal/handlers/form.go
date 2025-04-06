@@ -269,25 +269,53 @@ func (h *FormHandler) SubmitForm(c *gin.Context) {
 	}
 
 	// Get validated interaction data
-	req := c.MustGet("validatedRequest").(*validation.SubmitFormRequest)
+	req := c.MustGet("validatedRequest").(*validation.SubmitMetricsRequest)
 
 	// Process metrics data
 	calculator := metrics.NewMetricCalculator(req.InteractionData, req.CPTData)
 	calculatedMetrics := calculator.CalculateMetrics()
 
-	// Save assessment
+	// Create assessment -- have to do this first to get the assessment ID
 	assessmentID, err := h.repo.Assessments.Create(userEmail.(string), c.GetHeader("X-Device-ID"))
 	if err != nil {
-		h.log.Errorw("Error saving assessment", "error", err)
+		h.log.Errorw("Error creating assessment", "error", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error saving assessment"})
 		return
 	}
 
-	// TODO Should save metric data here
+	// Set assessment ID for all metrics
+	for i := range calculatedMetrics.GlobalMetrics {
+		calculatedMetrics.GlobalMetrics[i].AssessmentID = assessmentID
+	}
+	for i := range calculatedMetrics.QuestionMetrics {
+		calculatedMetrics.QuestionMetrics[i].AssessmentID = assessmentID
+	}
 
-	// Process cognitive test results if present
-	if len(req.CognitiveTests) > 0 {
-		h.processCognitiveTestResults(c, req.CognitiveTests, userEmail.(string), c.GetHeader("X-Device-ID"), assessmentID)
+	// Combine all metrics for efficient batch insert
+	allMetrics := append(calculatedMetrics.GlobalMetrics, calculatedMetrics.QuestionMetrics...)
+	// Save metrics in a single batch operation
+	if len(allMetrics) > 0 {
+		if err := h.repo.CreateInBatches(allMetrics, 100).Error; err != nil {
+			h.log.Warnw("Error saving metrics", "error", err)
+		} else {
+			h.log.Infow("Saved metrics successfully", "count", len(allMetrics))
+		}
+	}
+
+	// If CPT result is available, save it
+	// Save CPT result if available
+	if calculatedMetrics.CPTResult != nil {
+		// Set the fields that couldn't be set during calculation
+		calculatedMetrics.CPTResult.AssessmentID = assessmentID
+		calculatedMetrics.CPTResult.UserEmail = userEmail.(string)
+		calculatedMetrics.CPTResult.DeviceID = c.GetHeader("X-Device-ID")
+
+		// Save the result
+		if _, err := h.repo.CPTResults.SaveCPTResults(calculatedMetrics.CPTResult, assessmentID); err != nil {
+			h.log.Warnw("Error saving CPT result", "error", err)
+		} else {
+			h.log.Infow("Saved CPT result successfully")
+		}
 	}
 
 	// Mark form state as completed
@@ -326,10 +354,6 @@ func (h *FormHandler) processCognitiveTestResults(c *gin.Context, tests []models
 				}
 
 				// TODO -- maybe we can clean this up somehow
-				// Extract key metrics
-				if startTime, ok := cptData["testStartTime"].(float64); ok {
-					cptResult.TestStartTime = time.Unix(0, int64(startTime)*int64(time.Millisecond))
-				}
 
 				if endTime, ok := cptData["testEndTime"].(float64); ok {
 					cptResult.TestEndTime = time.Unix(0, int64(endTime)*int64(time.Millisecond))
