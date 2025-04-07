@@ -3,6 +3,7 @@ package handlers
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"math/rand"
 	"net/http"
@@ -16,6 +17,7 @@ import (
 	"github.com/andevellicus/crapp/internal/validation"
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
+	"gorm.io/gorm"
 )
 
 type FormHandler struct {
@@ -80,8 +82,18 @@ func (h *FormHandler) InitForm(c *gin.Context) {
 
 	// Check if user has an active form state
 	existingState, err := h.repo.FormStates.GetUserActiveFormState(userEmail.(string))
-	if err == nil && existingState != nil {
+	if err != nil {
+		// Only create new state if error is NOT a "not found" error
+		if !errors.Is(err, gorm.ErrRecordNotFound) {
+			h.log.Errorw("Database error getting form state", "error", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error"})
+			return
+		}
+		// If record not found, continue to create new state
+		h.log.Infow("No active form state found, creating new one", "user", userEmail.(string))
+	} else if existingState != nil {
 		// Return existing form state
+		h.log.Infow("Using existing form state", "user", userEmail.(string), "stateId", existingState.ID)
 		c.JSON(http.StatusOK, existingState)
 		return
 	}
@@ -309,19 +321,23 @@ func (h *FormHandler) SubmitForm(c *gin.Context) {
 		if err := json.Unmarshal(formState.CPTData, &cptData); err != nil {
 			h.log.Warnw("Error parsing CPT data", "error", err)
 		} else {
-			// Calculate CPT metrics from the raw data
-			cptResults := metrics.CalculateCPTMetrics(&cptData)
-
-			// Set assessment ID and user info
-			cptResults.UserEmail = userEmail.(string)
-			cptResults.DeviceID = c.GetHeader("X-Device-ID")
-			cptResults.AssessmentID = assessmentID
-
-			// Save CPT results
-			if err := h.repo.CPTResults.Create(cptResults); err != nil {
-				h.log.Warnw("Error saving CPT results", "error", err)
+			// If these aren't set, then we haven't perfomed the test
+			if cptData.TestStartTime == 0.0 && cptData.TestEndTime == 0.0 {
+				h.log.Info("CPT data missing start or end time, skipping processing")
 			} else {
-				h.log.Infow("Saved CPT results successfully", "assessment_id", assessmentID)
+				cptResults := metrics.CalculateCPTMetrics(&cptData)
+
+				// Set assessment ID and user info
+				cptResults.UserEmail = userEmail.(string)
+				cptResults.DeviceID = c.GetHeader("X-Device-ID")
+				cptResults.AssessmentID = assessmentID
+
+				// Save CPT results
+				if err := h.repo.CPTResults.Create(cptResults); err != nil {
+					h.log.Warnw("Error saving CPT results", "error", err)
+				} else {
+					h.log.Infow("Saved CPT results successfully", "assessment_id", assessmentID)
+				}
 			}
 		}
 	}

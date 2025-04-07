@@ -29,16 +29,6 @@ type CalculatedMetrics struct {
 	QuestionMetrics []models.AssessmentMetric
 }
 
-/*
-// NewMetricCalculator creates a new metric calculator
-func NewMetricCalculator(interactions *InteractionData, cpt *CPTData) *MetricCalculator {
-	return &MetricCalculator{
-		InteractionData: interactions,
-		CPTData:         cpt,
-	}
-}
-*/
-
 // CalculateInteractionMetrics calculates all interaction metrics
 func CalculateInteractionMetrics(interactions *InteractionData) *CalculatedMetrics {
 	result := &CalculatedMetrics{

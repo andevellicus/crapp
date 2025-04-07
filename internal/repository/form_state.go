@@ -31,7 +31,7 @@ func (r *FormStateRepository) Create(userEmail string, questionOrder []int) (*mo
 		ID:            uuid.New().String(),
 		UserEmail:     userEmail,
 		CurrentStep:   0,
-		Answers:       models.JSON{}, // Use the custom type
+		Answers:       models.JSON{},
 		QuestionOrder: string(questionOrderBytes),
 		StartedAt:     time.Now(),
 		LastUpdatedAt: time.Now(),
@@ -66,8 +66,15 @@ func (r *FormStateRepository) GetByID(stateID string) (*models.FormState, error)
 
 // UpdateFormState updates a user's form state
 func (r *FormStateRepository) Update(formState *models.FormState) error {
+
+	// Parse question order
+	var questionOrder []int
+	if err := json.Unmarshal([]byte(formState.QuestionOrder), &questionOrder); err != nil {
+		r.log.Errorw("Failed to parse question order", "error", err, "id", formState.ID)
+		return err
+	}
 	// State transition validation
-	if formState.Completed && formState.CurrentStep < len(formState.QuestionOrder) {
+	if formState.Completed && formState.CurrentStep < len(questionOrder) {
 		return fmt.Errorf("cannot mark form as completed when questions remain")
 	}
 
@@ -77,11 +84,13 @@ func (r *FormStateRepository) Update(formState *models.FormState) error {
 	// Use selective field update to prevent overwriting certain fields
 	result := r.db.Model(&models.FormState{}).
 		Where("id = ? AND user_email = ?", formState.ID, formState.UserEmail).
-		Updates(map[string]interface{}{
-			"current_step":    formState.CurrentStep,
-			"answers":         formState.Answers,
-			"last_updated_at": formState.LastUpdatedAt,
-			"completed":       formState.Completed,
+		Updates(map[string]any{
+			"current_step":     formState.CurrentStep,
+			"answers":          formState.Answers,
+			"interaction_data": formState.InteractionData,
+			"cpt_data":         formState.CPTData,
+			"last_updated_at":  formState.LastUpdatedAt,
+			"completed":        formState.Completed,
 		})
 
 	if result.Error != nil {
