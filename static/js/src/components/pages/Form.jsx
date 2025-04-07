@@ -15,6 +15,7 @@ export default function Form() {
       interactionData: null,
       cptResults: null
   });
+  const [cptResults, setCptResults] = useState(null);
   const [isComplete, setIsComplete] = useState(false);
   const [validationError, setValidationError] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -33,6 +34,12 @@ export default function Form() {
         return;
       }
       
+      // If we have a stateId, we are already in the form
+      // and don't need to initialize again
+      if (stateId) {
+        return;
+      }
+
       // Initialize form
       initForm();
       
@@ -43,22 +50,26 @@ export default function Form() {
         
         // Set up interval to periodically capture interaction data
         const trackingInterval = setInterval(() => {
-            if (window.interactionTracker) {
-                // Get current interaction data
-                const currentData = window.interactionTracker.getData();
-                
-                // Update form data with latest interaction tracking
-                setFormData(prevData => ({
-                    ...prevData,
-                    interactionData: currentData
-                }));
+          if (window.interactionTracker) {
+            try {
+              // Get current interaction data
+              const currentData = window.interactionTracker.getData();
+              
+              // Update form data with latest interaction tracking
+              setFormData(prevData => ({
+                ...prevData,
+                interactionData: currentData
+              }));
+            } catch (err) {
+              console.error('Error capturing interaction data:', err);
             }
+          }
         }, 10000); // Update every 10 seconds
         
         // Cleanup interval on unmount
         return () => clearInterval(trackingInterval);
       }
-   }, [isAuthenticated, loading]);
+   }, [isAuthenticated, loading, stateId]);
     
     // Initialize form state
     const initForm = async (forceNew = false) => {
@@ -211,29 +222,28 @@ export default function Form() {
       
       try {
         // Get final interaction data snapshot
-        let finalInteractionData = formData.interactionData;
+        let finalInteractionData = null;
         if (window.interactionTracker) {
+          try {
             finalInteractionData = window.interactionTracker.getData();
+          } catch (err) {
+            console.error('Error getting final interaction data:', err);
+          }
         }
-        
-        // Final form data with latest interaction tracking
-        const finalFormData = {
-            ...formData,
-            interactionData: finalInteractionData
-        };
         
         // Submit all data together
         const response = await fetch(`/api/form/state/${stateId}/submit`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${localStorage.getItem('auth_token')}`,
-                'X-Device-ID': localStorage.getItem('device_id') || ''
-            },
-            body: JSON.stringify({
-                interaction_data: finalFormData.interactionData,
-                cpt_data: finalFormData.cptResults
-            })
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${localStorage.getItem('auth_token')}`,
+            'X-Device-ID': localStorage.getItem('device_id') || ''
+          },
+          body: JSON.stringify({
+            // Only include final interaction data and CPT results
+            interaction_data: finalInteractionData,
+            cpt_data: cptResults
+          })
         });
         
         if (!response.ok) {
@@ -313,24 +323,30 @@ export default function Form() {
                 testSettings[option.label] = value;
             }
         });
-    }
+      }
       
       return (
         <CPTTest
-        settings={testSettings}
-        questionId={question.id}
-        onTestEnd={(results) => {
-            // Store CPT results both in answers and in dedicated state
-            handleAnswerChange(question.id, results);
+          settings={testSettings}
+          questionId={question.id}
+          onTestEnd={(results) => {
+            // Store CPT results
             setCptResults(results);
+            
+            // Also update formData for consistency
+            setFormData(prev => ({
+              ...prev,
+              cptResults: results
+            }));
+            
             setIsDoingCognitiveTest(false);
-        }}
-        onTestStart={() => {
+          }}
+          onTestStart={() => {
             setIsDoingCognitiveTest(true);
-        }}
-    />
-);
-};
+          }}
+        />
+      );
+    };
     
     // Render radio question
     const renderRadioQuestion = (question) => {

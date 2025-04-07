@@ -7,6 +7,9 @@ import App from './App';
 import '../../css/main.css';
 import '../../css/cpt.css';
 
+// Import interaction tracker - add this line
+import '../../js/interaction-tracker';
+
 const root = ReactDOM.createRoot(document.getElementById('react-root'));
 root.render(
   <React.StrictMode>
