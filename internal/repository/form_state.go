@@ -105,21 +105,6 @@ func (r *FormStateRepository) Delete(id string) error {
 	return nil
 }
 
-// SaveFormAnswer saves an answer for a specific question
-func (r *FormStateRepository) SaveFormAnswer(stateID string, questionID string, answer any) error {
-	var formState models.FormState
-
-	err := r.db.Where("id = ?", stateID).First(&formState).Error
-	if err != nil {
-		return err
-	}
-
-	formState.Answers[questionID] = answer
-	formState.LastUpdatedAt = time.Now()
-
-	return r.db.Save(&formState).Error
-}
-
 // GetUserActiveFormState gets a user's most recent active form state
 func (r *FormStateRepository) GetUserActiveFormState(userEmail string) (*models.FormState, error) {
 	var formState models.FormState

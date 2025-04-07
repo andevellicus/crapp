@@ -166,15 +166,13 @@ export default function Form() {
           interactionData = window.interactionTracker.getData();
         }
         
-        // Extract cognitive test results
-        const cognitiveTestResults = [];
+        // Extract CPT test results - get the first one found
+        let cptData = null;
         for (const [questionId, answer] of Object.entries(formAnswers)) {
           if (typeof answer === 'object' && answer !== null && 
               answer.stimuliPresented && answer.responses) {
-            cognitiveTestResults.push({
-              question_id: questionId,
-              results: answer
-            });
+            cptData = answer;
+            break; // Just use the first CPT test found
           }
         }
         
@@ -188,7 +186,7 @@ export default function Form() {
           },
           body: JSON.stringify({
             interaction_data: interactionData,
-            cpt: cognitiveTestResults
+            cpt: cptData // Send the direct CPTData object, not an array
           })
         });
         

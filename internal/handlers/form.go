@@ -3,10 +3,14 @@ package handlers
 
 import (
 	"encoding/json"
+	"fmt"
 	"math/rand"
 	"net/http"
+	"strconv"
+	"time"
 
 	"github.com/andevellicus/crapp/internal/metrics"
+	"github.com/andevellicus/crapp/internal/models"
 	"github.com/andevellicus/crapp/internal/repository"
 	"github.com/andevellicus/crapp/internal/utils"
 	"github.com/andevellicus/crapp/internal/validation"
@@ -280,6 +284,20 @@ func (h *FormHandler) SubmitForm(c *gin.Context) {
 		return
 	}
 
+	// Process form answers and save as question responses
+	questionResponses, err := h.processFormAnswers(formState, assessmentID)
+	if err != nil {
+		h.log.Errorw("Error processing form answers", "error", err)
+		// Continue with other processing - don't fail the entire submission
+	} else if len(questionResponses) > 0 {
+		// Save question responses
+		if err := h.repo.QuestionResponses.SaveBatch(questionResponses); err != nil {
+			h.log.Errorw("Error saving question responses", "error", err, "count", len(questionResponses))
+		} else {
+			h.log.Infow("Saved question responses successfully", "count", len(questionResponses))
+		}
+	}
+
 	// Set assessment ID for all metrics
 	for i := range calculatedMetrics.GlobalMetrics {
 		calculatedMetrics.GlobalMetrics[i].AssessmentID = assessmentID
@@ -307,4 +325,116 @@ func (h *FormHandler) SubmitForm(c *gin.Context) {
 		"success":       true,
 		"assessment_id": assessmentID,
 	})
+}
+
+// ProcessFormAnswers converts formState.Answers map to a slice of QuestionResponse structs
+func (h *FormHandler) processFormAnswers(formState *models.FormState, assessmentID uint) ([]models.QuestionResponse, error) {
+	// Get question definitions to help determine value types
+	allQuestions := h.questionLoader.GetQuestions()
+	questionMap := make(map[string]utils.Question)
+	for _, q := range allQuestions {
+		questionMap[q.ID] = q
+	}
+
+	var responses []models.QuestionResponse
+	now := time.Now()
+
+	// Log number of answers being processed
+	h.log.Infow("Processing form answers",
+		"assessment_id", assessmentID,
+		"answer_count", len(formState.Answers),
+		"user_email", formState.UserEmail)
+
+	// Iterate through all answers
+	for questionID, answerValue := range formState.Answers {
+		// Skip null or nil values
+		if answerValue == nil {
+			continue
+		}
+
+		// Skip questions with complex object answers (like CPT tests)
+		switch answerValue.(type) {
+		case map[string]interface{}, []interface{}:
+			// This is likely a complex object (CPT test result, etc.)
+			h.log.Debugw("Skipping complex answer object",
+				"question_id", questionID,
+				"value_type", fmt.Sprintf("%T", answerValue))
+			continue
+		}
+
+		// Create a new response
+		response := models.QuestionResponse{
+			AssessmentID: assessmentID,
+			QuestionID:   questionID,
+			CreatedAt:    now,
+		}
+
+		// Get question definition to help determine expected answer type
+		question, questionExists := questionMap[questionID]
+
+		// Determine value type and set appropriate field
+		switch value := answerValue.(type) {
+		case float64:
+			// Handle float values (common from JSON)
+			response.ValueType = "number"
+			response.NumericValue = value
+
+		case int:
+			// Handle integer values
+			response.ValueType = "number"
+			response.NumericValue = float64(value)
+
+		case string:
+			// For string values, check if it should be a number
+			if questionExists && (question.Type == "radio" || question.Type == "dropdown") {
+				// Try to convert to float if this is a radio or dropdown
+				if numValue, err := strconv.ParseFloat(value, 64); err == nil {
+					response.ValueType = "number"
+					response.NumericValue = numValue
+				} else {
+					// If conversion fails, store as string
+					response.ValueType = "string"
+					response.TextValue = value
+				}
+			} else {
+				// Regular string answer
+				response.ValueType = "string"
+				response.TextValue = value
+			}
+
+		case bool:
+			// Convert boolean to numeric (1.0 or 0.0)
+			response.ValueType = "boolean"
+			if value {
+				response.NumericValue = 1.0
+			} else {
+				response.NumericValue = 0.0
+			}
+
+		default:
+			// For other types, convert to string via JSON marshaling
+			h.log.Warnw("Converting unexpected answer type to string",
+				"question_id", questionID,
+				"type", fmt.Sprintf("%T", value))
+
+			if bytes, err := json.Marshal(value); err == nil {
+				response.ValueType = "string"
+				response.TextValue = string(bytes)
+			} else {
+				// Skip if we can't convert
+				h.log.Errorw("Failed to convert answer to string",
+					"question_id", questionID,
+					"error", err)
+				continue
+			}
+		}
+
+		responses = append(responses, response)
+	}
+
+	h.log.Infow("Processed form answers",
+		"assessment_id", assessmentID,
+		"processed_count", len(responses))
+
+	return responses, nil
 }
