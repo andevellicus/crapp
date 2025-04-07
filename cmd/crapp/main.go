@@ -150,7 +150,7 @@ func main() {
 	router.GET("/register", viewHandler.ServeReactApp)
 	router.GET("/profile", viewHandler.ServeReactApp)
 	router.GET("/devices", viewHandler.ServeReactApp)
-	router.GET("/cognitive-tests", viewHandler.ServeReactApp) //DEPRECATED??
+	// router.GET("/cognitive-tests", viewHandler.ServeReactApp) //DEPRECATED??
 	router.GET("/forgot-password", viewHandler.ServeReactApp)
 	router.GET("/reset-password", viewHandler.ServeReactApp)
 
@@ -190,7 +190,7 @@ func main() {
 		// Metric routes
 		api.GET("/metrics/chart/correlation", apiHandler.GetChartCorrelationData)
 		api.GET("/metrics/chart/timeline", apiHandler.GetChartTimelineData)
-		api.GET("/metrics/cpt/results", apiHandler.GetCPTResults)
+		api.GET("/metrics/cpt/results", apiHandler.GetCPTMetrics)
 	}
 
 	form := router.Group("/api/form")
