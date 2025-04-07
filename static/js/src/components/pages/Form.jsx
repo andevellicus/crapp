@@ -12,6 +12,8 @@ export default function Form() {
     const [validationError, setValidationError] = React.useState(null);
     const [isSubmitting, setIsSubmitting] = React.useState(false);
     const {isAuthenticated, loading } = useAuth();
+
+    const [isDoingCognitiveTest, setIsDoingCognitiveTest] = useState(false);
     
     // Initialize form on component mount
     React.useEffect(() => {
@@ -293,31 +295,22 @@ export default function Form() {
       const answer = getQuestionAnswer(question.id);
       
       return (
-        <div className="symptom-scale">
-          {question.options.map(option => (
-            <label key={option.value} className="option-label">
-              <input
-                type="radio"
-                name={question.id}
-                value={option.value}
-                checked={answer?.toString() === option.value?.toString()}
-                onChange={() => handleAnswerChange(question.id, option.value)}
-                required={question.required}
-              />
-              <div className="option-text">
-                <strong>{option.label}</strong>
-                {option.description && (
-                  <>
-                    <br />
-                    {option.description}
-                  </>
-                )}
-              </div>
-            </label>
-          ))}
-        </div>
-      );
-    };
+        <CPTTest
+        settings={testSettings}
+        questionId={question.id}
+        onTestEnd={(results) => {
+          // Store raw results in form answers
+          handleAnswerChange(question.id, results);
+          // Allow navigation again
+          setIsDoingCognitiveTest(false);
+        }}
+        onTestStart={() => {
+          // Hide navigation when test starts
+          setIsDoingCognitiveTest(true);
+        }}
+      />
+    );
+  };
     
     // Render dropdown question
     const renderDropdownQuestion = (question) => {

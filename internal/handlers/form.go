@@ -5,10 +5,8 @@ import (
 	"encoding/json"
 	"math/rand"
 	"net/http"
-	"time"
 
 	"github.com/andevellicus/crapp/internal/metrics"
-	"github.com/andevellicus/crapp/internal/models"
 	"github.com/andevellicus/crapp/internal/repository"
 	"github.com/andevellicus/crapp/internal/utils"
 	"github.com/andevellicus/crapp/internal/validation"
@@ -272,8 +270,7 @@ func (h *FormHandler) SubmitForm(c *gin.Context) {
 	req := c.MustGet("validatedRequest").(*validation.SubmitMetricsRequest)
 
 	// Process metrics data
-	calculator := metrics.NewMetricCalculator(req.InteractionData, req.CPTData)
-	calculatedMetrics := calculator.CalculateMetrics()
+	calculatedMetrics := metrics.CalculateInteractionMetrics(req.InteractionData)
 
 	// Create assessment -- have to do this first to get the assessment ID
 	assessmentID, err := h.repo.Assessments.Create(userEmail.(string), c.GetHeader("X-Device-ID"))
@@ -295,26 +292,10 @@ func (h *FormHandler) SubmitForm(c *gin.Context) {
 	allMetrics := append(calculatedMetrics.GlobalMetrics, calculatedMetrics.QuestionMetrics...)
 	// Save metrics in a single batch operation
 	if len(allMetrics) > 0 {
-		if err := h.repo.CreateInBatches(allMetrics, 100).Error; err != nil {
+		if err := h.repo.CreateInBatches(allMetrics, 100); err != nil {
 			h.log.Warnw("Error saving metrics", "error", err)
 		} else {
 			h.log.Infow("Saved metrics successfully", "count", len(allMetrics))
-		}
-	}
-
-	// If CPT result is available, save it
-	// Save CPT result if available
-	if calculatedMetrics.CPTResult != nil {
-		// Set the fields that couldn't be set during calculation
-		calculatedMetrics.CPTResult.AssessmentID = assessmentID
-		calculatedMetrics.CPTResult.UserEmail = userEmail.(string)
-		calculatedMetrics.CPTResult.DeviceID = c.GetHeader("X-Device-ID")
-
-		// Save the result
-		if _, err := h.repo.CPTResults.SaveCPTResults(calculatedMetrics.CPTResult, assessmentID); err != nil {
-			h.log.Warnw("Error saving CPT result", "error", err)
-		} else {
-			h.log.Infow("Saved CPT result successfully")
 		}
 	}
 
@@ -326,94 +307,4 @@ func (h *FormHandler) SubmitForm(c *gin.Context) {
 		"success":       true,
 		"assessment_id": assessmentID,
 	})
-}
-
-// processCognitiveTestResults handles saving cognitive test results
-func (h *FormHandler) processCognitiveTestResults(c *gin.Context, tests []models.CognitiveTestResult, userEmail, deviceID string, assessmentID uint) {
-
-	for _, test := range tests {
-		question := h.questionLoader.GetQuestionByID(test.QuestionID)
-		if question != nil && question.MetricsType != "" {
-			switch question.MetricsType {
-			case "cpt":
-				// Parse CPT data
-				var cptData map[string]interface{}
-				if err := json.Unmarshal(test.Results, &cptData); err != nil {
-					h.log.Warnw("Error parsing CPT data", "error", err)
-					continue
-				}
-
-				// Create CPT result model
-				cptResult := &models.CPTResult{
-					UserEmail:    userEmail,
-					DeviceID:     deviceID,
-					AssessmentID: assessmentID,
-					RawData:      test.Results,
-					CreatedAt:    time.Now(),
-					TestType:     models.CPTest,
-				}
-
-				// TODO -- maybe we can clean this up somehow
-
-				if endTime, ok := cptData["testEndTime"].(float64); ok {
-					cptResult.TestEndTime = time.Unix(0, int64(endTime)*int64(time.Millisecond))
-				}
-
-				if correctDetections, ok := cptData["correctDetections"].(float64); ok {
-					cptResult.CorrectDetections = int(correctDetections)
-				}
-
-				if commissionErrors, ok := cptData["commissionErrors"].(float64); ok {
-					cptResult.CommissionErrors = int(commissionErrors)
-				}
-
-				if omissionErrors, ok := cptData["omissionErrors"].(float64); ok {
-					cptResult.OmissionErrors = int(omissionErrors)
-				}
-
-				if avgReactionTime, ok := cptData["averageReactionTime"].(float64); ok {
-					cptResult.AverageReactionTime = avgReactionTime
-				}
-
-				if reactionTimeSD, ok := cptData["reactionTimeSD"].(float64); ok {
-					cptResult.ReactionTimeSD = reactionTimeSD
-				}
-
-				if detectionRate, ok := cptData["detectionRate"].(float64); ok {
-					cptResult.DetectionRate = detectionRate
-				}
-
-				if omissionErrorRate, ok := cptData["omissionErrorRate"].(float64); ok {
-					cptResult.OmissionErrorRate = omissionErrorRate
-				}
-
-				if commissionErrorRate, ok := cptData["commissionErrorRate"].(float64); ok {
-					cptResult.CommissionErrorRate = commissionErrorRate
-				}
-
-				// Save CPT result
-				if _, err := h.repo.CPTResults.SaveCPTResults(cptResult, assessmentID); err != nil {
-					h.log.Warnw("Error saving CPT result", "error", err)
-					return
-				}
-				return
-			case "trail_making":
-				// Similar processing for trail making test
-				h.log.Infow("Trail making test result processing not implemented yet")
-				return
-			default:
-				h.log.Warnw("Unknown metrics type", "metrics_type", question.MetricsType)
-				return
-			}
-		}
-
-		// We shouldn't get here, so there's some error if we have:
-		h.log.Errorw("Error in processing cognitive test results",
-			"assessment_id", assessmentID,
-			"question_id", test.QuestionID)
-
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error processing cognitive test results"})
-		return
-	}
-
 }

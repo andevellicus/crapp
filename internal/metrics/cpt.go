@@ -28,9 +28,9 @@ type CPTData struct {
 }
 
 // Helper methods for CPT calculations
-func (mc *MetricCalculator) countCorrectDetections() int {
+func countCorrectDetections(data *CPTData) int {
 	count := 0
-	for _, response := range mc.CPTData.Responses {
+	for _, response := range data.Responses {
 		if response.IsTarget {
 			count++
 		}
@@ -38,9 +38,9 @@ func (mc *MetricCalculator) countCorrectDetections() int {
 	return count
 }
 
-func (mc *MetricCalculator) countCommissionErrors() int {
+func countCommissionErrors(data *CPTData) int {
 	count := 0
-	for _, response := range mc.CPTData.Responses {
+	for _, response := range data.Responses {
 		if !response.IsTarget {
 			count++
 		}
@@ -48,24 +48,24 @@ func (mc *MetricCalculator) countCommissionErrors() int {
 	return count
 }
 
-func (mc *MetricCalculator) countOmissionErrors() int {
+func countOmissionErrors(data *CPTData) int {
 	// Count total targets presented
 	totalTargets := 0
-	for _, stim := range mc.CPTData.StimuliPresented {
+	for _, stim := range data.StimuliPresented {
 		if stim.IsTarget {
 			totalTargets++
 		}
 	}
 
 	// Omission errors = targets missed
-	return totalTargets - mc.countCorrectDetections()
+	return totalTargets - countCorrectDetections(data)
 }
 
-func (mc *MetricCalculator) calculateAverageReactionTime() float64 {
+func calculateAverageReactionTime(data *CPTData) float64 {
 	var sum float64
 	var count int
 
-	for _, response := range mc.CPTData.Responses {
+	for _, response := range data.Responses {
 		if response.IsTarget {
 			sum += response.ResponseTime
 			count++
@@ -78,10 +78,10 @@ func (mc *MetricCalculator) calculateAverageReactionTime() float64 {
 	return sum / float64(count)
 }
 
-func (mc *MetricCalculator) calculateReactionTimeSD() float64 {
+func calculateReactionTimeSD(data *CPTData) float64 {
 	// Get reaction times and average
 	var reactionTimes []float64
-	for _, response := range mc.CPTData.Responses {
+	for _, response := range data.Responses {
 		if response.IsTarget {
 			reactionTimes = append(reactionTimes, response.ResponseTime)
 		}
@@ -91,7 +91,7 @@ func (mc *MetricCalculator) calculateReactionTimeSD() float64 {
 		return 0
 	}
 
-	avg := mc.calculateAverageReactionTime()
+	avg := calculateAverageReactionTime(data)
 	var sumSquaredDiff float64
 
 	for _, rt := range reactionTimes {
@@ -103,10 +103,10 @@ func (mc *MetricCalculator) calculateReactionTimeSD() float64 {
 	return math.Sqrt(variance)
 }
 
-func (mc *MetricCalculator) calculateDetectionRate() float64 {
+func calculateDetectionRate(data *CPTData) float64 {
 	// Count total targets presented
 	totalTargets := 0
-	for _, stim := range mc.CPTData.StimuliPresented {
+	for _, stim := range data.StimuliPresented {
 		if stim.IsTarget {
 			totalTargets++
 		}
@@ -116,13 +116,13 @@ func (mc *MetricCalculator) calculateDetectionRate() float64 {
 		return 0
 	}
 
-	return float64(mc.countCorrectDetections()) / float64(totalTargets)
+	return float64(countCorrectDetections(data)) / float64(totalTargets)
 }
 
-func (mc *MetricCalculator) calculateOmissionErrorRate() float64 {
+func calculateOmissionErrorRate(data *CPTData) float64 {
 	// Count total targets presented
 	totalTargets := 0
-	for _, stim := range mc.CPTData.StimuliPresented {
+	for _, stim := range data.StimuliPresented {
 		if stim.IsTarget {
 			totalTargets++
 		}
@@ -132,13 +132,13 @@ func (mc *MetricCalculator) calculateOmissionErrorRate() float64 {
 		return 0
 	}
 
-	return float64(mc.countOmissionErrors()) / float64(totalTargets)
+	return float64(countOmissionErrors(data)) / float64(totalTargets)
 }
 
-func (mc *MetricCalculator) calculateCommissionErrorRate() float64 {
+func calculateCommissionErrorRate(data *CPTData) float64 {
 	// Count non-targets
 	nonTargetCount := 0
-	for _, stim := range mc.CPTData.StimuliPresented {
+	for _, stim := range data.StimuliPresented {
 		if !stim.IsTarget {
 			nonTargetCount++
 		}
@@ -148,13 +148,13 @@ func (mc *MetricCalculator) calculateCommissionErrorRate() float64 {
 		return 0
 	}
 
-	return float64(mc.countCommissionErrors()) / float64(nonTargetCount)
+	return float64(countCommissionErrors(data)) / float64(nonTargetCount)
 }
 
-func (mc *MetricCalculator) serializeCPTData() json.RawMessage {
-	data, err := json.Marshal(mc.CPTData)
+func serializeCPTData(data *CPTData) json.RawMessage {
+	result, err := json.Marshal(data)
 	if err != nil {
 		return json.RawMessage("{}")
 	}
-	return data
+	return result
 }

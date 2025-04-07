@@ -14,7 +14,6 @@ import (
 type Repository struct {
 	db  *gorm.DB
 	log *zap.SugaredLogger
-	//questionLoader *utils.QuestionLoader
 
 	// Add specialized repositories
 	Users               *UserRepository

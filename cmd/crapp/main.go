@@ -193,7 +193,7 @@ func main() {
 	// Add cognitive test routes to the API group
 	cognitiveTests := api.Group("/cognitive-tests")
 	{
-		//cognitiveTests.POST("/cpt/submit", middleware.ValidateRequest(validation.CPTResultsRequest{}), cognitiveTestHandler.SaveCPTResults) DEPRECATED??
+		cognitiveTests.POST("/cpt/submit", middleware.ValidateRequest(validation.CPTResultsRequest{}), cognitiveTestHandler.SaveCPTResults) //DEPRECATED??
 		cognitiveTests.GET("/cpt/results", cognitiveTestHandler.GetCPTResults)
 		//cognitiveTests.GET("/cpt/metrics", cognitiveTestHandler.GetCPTMetrics) TODO
 	}

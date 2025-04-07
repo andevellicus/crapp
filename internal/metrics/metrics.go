@@ -6,11 +6,13 @@ import (
 	"github.com/andevellicus/crapp/internal/models"
 )
 
+/*
 // MetricCalculator calculates interaction metrics from raw data
 type MetricCalculator struct {
 	InteractionData *InteractionData
 	CPTData         *CPTData
 }
+*/
 
 // MetricResult represents a calculated metric with status and metadata
 type MetricResult struct {
@@ -25,11 +27,9 @@ type CalculatedMetrics struct {
 
 	// Per-question metrics
 	QuestionMetrics []models.AssessmentMetric
-
-	// CPT metrics if available
-	CPTResult *models.CPTResult
 }
 
+/*
 // NewMetricCalculator creates a new metric calculator
 func NewMetricCalculator(interactions *InteractionData, cpt *CPTData) *MetricCalculator {
 	return &MetricCalculator{
@@ -37,9 +37,10 @@ func NewMetricCalculator(interactions *InteractionData, cpt *CPTData) *MetricCal
 		CPTData:         cpt,
 	}
 }
+*/
 
-// CalculateAllMetrics calculates all interaction metrics
-func (mc *MetricCalculator) CalculateMetrics() *CalculatedMetrics {
+// CalculateInteractionMetrics calculates all interaction metrics
+func CalculateInteractionMetrics(interactions *InteractionData) *CalculatedMetrics {
 	result := &CalculatedMetrics{
 		GlobalMetrics:   []models.AssessmentMetric{},
 		QuestionMetrics: []models.AssessmentMetric{},
@@ -47,15 +48,15 @@ func (mc *MetricCalculator) CalculateMetrics() *CalculatedMetrics {
 
 	// Get global mouse metrics
 	globalMetrics := map[string]MetricResult{
-		"click_precision":      mc.calculateClickPrecision(nil),
-		"path_efficiency":      mc.calculatePathEfficiency(nil),
-		"overshoot_rate":       mc.calculateOvershootRate(nil),
-		"average_velocity":     mc.calculateAverageVelocity(nil),
-		"velocity_variability": mc.calculateVelocityVariability(nil),
+		"click_precision":      calculateClickPrecision(nil, interactions),
+		"path_efficiency":      calculatePathEfficiency(nil, interactions),
+		"overshoot_rate":       calculateOvershootRate(nil, interactions),
+		"average_velocity":     calculateAverageVelocity(nil, interactions),
+		"velocity_variability": calculateVelocityVariability(nil, interactions),
 	}
 
 	// Add keyboard metrics
-	keyboardMetrics := mc.calculateKeyboardMetrics(nil)
+	keyboardMetrics := calculateKeyboardMetrics(nil, interactions)
 	for k, v := range keyboardMetrics {
 		globalMetrics[k] = v
 	}
@@ -74,7 +75,7 @@ func (mc *MetricCalculator) CalculateMetrics() *CalculatedMetrics {
 	}
 
 	// Calculate per-question metrics
-	questionMetricsMap := mc.calculatePerQuestionMetrics()
+	questionMetricsMap := calculatePerQuestionMetrics(interactions)
 
 	// Convert question metrics to AssessmentMetric models
 	for questionID, metricsMap := range questionMetricsMap {
@@ -91,35 +92,31 @@ func (mc *MetricCalculator) CalculateMetrics() *CalculatedMetrics {
 		}
 	}
 
-	// If CPT data is available, calculate those metrics too
-	if mc.CPTData != nil {
-		// Create CPT result model with all fields properly populated
-		cptResult := &models.CPTResult{
-			// These fields will be set by the handler
-			// UserEmail, DeviceID, AssessmentID
-
-			// Time fields
-			TestStartTime: time.Unix(0, int64(mc.CPTData.TestStartTime)*int64(time.Millisecond)),
-			TestEndTime:   time.Unix(0, int64(mc.CPTData.TestEndTime)*int64(time.Millisecond)),
-
-			// Performance metrics
-			CorrectDetections:   mc.countCorrectDetections(),
-			CommissionErrors:    mc.countCommissionErrors(),
-			OmissionErrors:      mc.countOmissionErrors(),
-			AverageReactionTime: mc.calculateAverageReactionTime(),
-			ReactionTimeSD:      mc.calculateReactionTimeSD(),
-			DetectionRate:       mc.calculateDetectionRate(),
-			OmissionErrorRate:   mc.calculateOmissionErrorRate(),
-			CommissionErrorRate: mc.calculateCommissionErrorRate(),
-
-			// Store the raw data for future analysis
-			RawData:   mc.serializeCPTData(),
-			CreatedAt: time.Now(),
-			TestType:  models.CPTest,
-		}
-
-		result.CPTResult = cptResult
-	}
-
 	return result
+}
+
+func CalculateCPTMetrics(results *CPTData) *models.CPTResult {
+	// Create CPT result model with all fields properly populated
+	return &models.CPTResult{
+		// These fields will be set by the handler
+		// UserEmail, DeviceID, AssessmentID
+
+		// Time fields
+		TestStartTime: time.Unix(0, int64(results.TestStartTime)*int64(time.Millisecond)),
+		TestEndTime:   time.Unix(0, int64(results.TestEndTime)*int64(time.Millisecond)),
+
+		// Performance metrics
+		CorrectDetections:   countCorrectDetections(results),
+		CommissionErrors:    countCommissionErrors(results),
+		OmissionErrors:      countOmissionErrors(results),
+		AverageReactionTime: calculateAverageReactionTime(results),
+		ReactionTimeSD:      calculateReactionTimeSD(results),
+		DetectionRate:       calculateDetectionRate(results),
+		OmissionErrorRate:   calculateOmissionErrorRate(results),
+		CommissionErrorRate: calculateCommissionErrorRate(results),
+
+		// Store the raw data for future analysis
+		RawData:   serializeCPTData(results),
+		CreatedAt: time.Now(),
+	}
 }
