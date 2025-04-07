@@ -7,17 +7,6 @@ export default function Router({ setTitle }) {
   
   // Set page title based on the route
   React.useEffect(() => {
-    // Load the CPT CSS if on cognitive tests page
-    if (path === '/cognitive-tests') {
-      if (!document.getElementById('cpt-styles')) {
-        const link = document.createElement('link');
-        link.id = 'cpt-styles';
-        link.rel = 'stylesheet';
-        link.href = '/static/css/cpt.css';
-        document.head.appendChild(link);
-      }
-    }
-
     switch (path) {
       case '/login':
         setTitle("Login - CRAPP");
@@ -52,8 +41,6 @@ export default function Router({ setTitle }) {
       return <Profile />;
     case '/devices':
       return <Devices />;
-    case '/cognitive-tests':
-      return <CognitiveTests />;
     case '/forgot-password':
       return <ForgotPassword />;
     case '/reset-password':

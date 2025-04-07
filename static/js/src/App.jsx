@@ -21,7 +21,6 @@ import ProtectedRoute from './components/auth/ProtectedRoute';
 import AdminRoute from './components/admin/AdminRoute';
 import Profile from './components/pages/Profile';
 import Devices from './components/pages/Devices';
-import CognitiveTests from './components/pages/CognitiveTests';
 import AdminUsers from './components/admin/AdminUsers';
 import AdminUserCharts from './components/admin/AdminUserCharts';
 import NotFound from './components/pages/NotFound';
@@ -56,11 +55,6 @@ const App = () => {
                 <Route path="/devices" element={
                   <ProtectedRoute>
                     <Devices />
-                  </ProtectedRoute>
-                } />
-                <Route path="/cognitive-tests" element={
-                  <ProtectedRoute>
-                    <CognitiveTests />
                   </ProtectedRoute>
                 } />
 

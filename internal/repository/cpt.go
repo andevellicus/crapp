@@ -37,22 +37,6 @@ func (r *CognitiveTestRepository) Create(results *models.CPTResult) error {
 	return nil
 }
 
-// GetCPTResults retrieves CPT results for a user
-func (r *CognitiveTestRepository) GetCPTResults(userEmail string, limit int) (*[]models.CPTResult, error) {
-	var results []models.CPTResult
-
-	query := r.db.Where("user_email = ?", userEmail).
-		Order("test_start_time DESC").
-		Limit(limit)
-
-	if err := query.Find(&results).Error; err != nil {
-		r.log.Errorw("Error retrieving CPT results", "error", err, "userEmail", userEmail)
-		return nil, fmt.Errorf("failed to retrieve CPT results: %w", err)
-	}
-
-	return &results, nil
-}
-
 // GetCPTResultsByAssessment retrieves CPT results linked to an assessment
 func (r *CognitiveTestRepository) GetCPTResultsByAssessment(assessmentID uint) (*models.CPTResult, error) {
 	var result models.CPTResult

@@ -107,8 +107,8 @@ func (h *GinAPIHandler) GetChartTimelineData(c *gin.Context) {
 	c.JSON(http.StatusOK, chartData)
 }
 
-// GetCPTResults retrieves CPT results for a user
-func (h *GinAPIHandler) GetCPTResults(c *gin.Context) {
+// GetCPTMetrics retrieves CPT results for a user
+func (h *GinAPIHandler) GetCPTMetrics(c *gin.Context) {
 	// Get user email from context
 	userEmail, exists := c.Get("userEmail")
 	if !exists {
@@ -131,16 +131,16 @@ func (h *GinAPIHandler) GetCPTResults(c *gin.Context) {
 		userID = userEmail.(string)
 	}
 
-	// Get limit parameter (default to 10)
-	limit := 10
-	if limitParam := c.Query("limit"); limitParam != "" {
-		if val, err := strconv.Atoi(limitParam); err == nil && val > 0 {
-			limit = val
+	// Get days parameter (default to 0 for all time)
+	lastDays := 0
+	if daysParam := c.Query("days"); daysParam != "" {
+		if val, err := strconv.Atoi(daysParam); err == nil && val > 0 {
+			lastDays = val
 		}
 	}
 
-	// Get CPT results for user
-	results, err := h.repo.CPTResults.GetCPTResults(userID, limit)
+	// Get CPT metrics for user
+	results, err := h.repo.CPTResults.GetCPTMetrics(userID, lastDays)
 	if err != nil {
 		h.log.Errorw("Error retrieving CPT results", "error", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to retrieve test results"})
