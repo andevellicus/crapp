@@ -18,9 +18,12 @@ import Register from './components/auth/Register';
 import ForgotPassword from './components/auth/ForgotPassword';
 import ResetPassword from './components/auth/ResetPassword';
 import ProtectedRoute from './components/auth/ProtectedRoute';
+import AdminRoute from './components/admin/AdminRoute';
 import Profile from './components/pages/Profile';
 import Devices from './components/pages/Devices';
 import CognitiveTests from './components/pages/CognitiveTests';
+import AdminUsers from './components/admin/AdminUsers';
+import AdminUserCharts from './components/admin/AdminUserCharts';
 import NotFound from './components/pages/NotFound';
 
 const App = () => {
@@ -59,6 +62,18 @@ const App = () => {
                   <ProtectedRoute>
                     <CognitiveTests />
                   </ProtectedRoute>
+                } />
+
+                {/* Admin routes */}
+                <Route path="/admin/users" element={
+                  <AdminRoute>
+                    <AdminUsers />
+                  </AdminRoute>
+                } />
+                <Route path="/admin/charts" element={
+                  <AdminRoute>
+                    <AdminUserCharts />
+                  </AdminRoute>
                 } />
                 
                 {/* Catch-all route */}

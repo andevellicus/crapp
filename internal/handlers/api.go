@@ -2,7 +2,6 @@ package handlers
 
 import (
 	"net/http"
-	"strconv"
 
 	"github.com/andevellicus/crapp/internal/repository"
 	"github.com/andevellicus/crapp/internal/utils"
@@ -36,37 +35,4 @@ func (h *GinAPIHandler) GetQuestions(c *gin.Context) {
 func (h *GinAPIHandler) GetSymptomQuestions(c *gin.Context) {
 	questions := h.questionLoader.GetRadioQuestions()
 	c.JSON(http.StatusOK, questions)
-}
-
-// SearchUsers handles admin search for users
-func (h *GinAPIHandler) SearchUsers(c *gin.Context) {
-	query := c.Query("q")
-	skip := 0
-	limit := 20
-
-	if skipParam := c.Query("skip"); skipParam != "" {
-		if val, err := strconv.Atoi(skipParam); err == nil && val >= 0 {
-			skip = val
-		}
-	}
-
-	if limitParam := c.Query("limit"); limitParam != "" {
-		if val, err := strconv.Atoi(limitParam); err == nil && val > 0 {
-			limit = val
-		}
-	}
-
-	users, total, err := h.repo.Users.SearchUsers(query, skip, limit)
-	if err != nil {
-		h.log.Errorw("Error searching users", "error", err, "query", query)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error searching users"})
-		return
-	}
-
-	c.JSON(http.StatusOK, gin.H{
-		"users": users,
-		"total": total,
-		"skip":  skip,
-		"limit": limit,
-	})
 }

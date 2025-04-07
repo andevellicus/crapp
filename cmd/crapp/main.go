@@ -107,8 +107,10 @@ func main() {
 	authHandler := handlers.NewAuthHandler(repo, log, authService)
 	// Create form handler
 	formHandler := handlers.NewFormHandler(repo, log, questionLoader)
-	// Initialize cognitive test handler
-	cognitiveTestHandler := handlers.NewCognitiveTestHandler(repo, log)
+	// Create cognitive test handler //TODO: DEPRECATED??
+	//cognitiveTestHandler := handlers.NewCognitiveTestHandler(repo, log)
+	// Create admin handler
+	adminHandler := handlers.NewAdminHandler(repo, log, pushService, emailService)
 
 	// Initialize Push handler
 	pushHandler := handlers.NewPushHandler(repo, log, pushService, reminderScheduler)
@@ -190,12 +192,14 @@ func main() {
 		api.GET("/metrics/chart/timeline", apiHandler.GetChartTimelineData)
 	}
 
+	/* TODO : DEPRECATEDS
 	// Add cognitive test routes to the API group
 	cognitiveTests := api.Group("/cognitive-tests")
 	{
 		cognitiveTests.GET("/cpt/results", cognitiveTestHandler.GetCPTResults)
 		//cognitiveTests.GET("/cpt/metrics", cognitiveTestHandler.GetCPTMetrics) //TODO: This will do for chart rendering
 	}
+	*/
 
 	form := router.Group("/api/form")
 	form.Use(middleware.AuthMiddleware(authService))
@@ -223,7 +227,11 @@ func main() {
 		// Admin endpoints can be added here
 		admin.GET("/charts", viewHandler.ServeReactApp)
 		admin.GET("/users", viewHandler.ServeReactApp)
-		admin.GET("/api/users/search", apiHandler.SearchUsers)
+		admin.GET("/api/users/search", adminHandler.SearchUsers)
+		admin.POST("/api/send-reminder",
+			middleware.ValidateJSON(),
+			middleware.ValidateRequest(validation.AdminReminderRequest{}),
+			adminHandler.SendReminder)
 	}
 
 	// Handle all other routes to serve the React app for client-side routing

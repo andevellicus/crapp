@@ -36,13 +36,13 @@ func (s *PushService) GetVAPIDPublicKey() string {
 
 // SaveSubscription saves a user's push subscription
 func (s *PushService) SaveSubscription(userEmail string, subscription string) error {
-	return s.repo.SavePushSubscription(userEmail, subscription)
+	return s.repo.Users.SavePushSubscription(userEmail, subscription)
 }
 
 // SendNotification sends a push notification to a user
 func (s *PushService) SendNotification(userEmail string, title, body string) error {
 	// Get user's subscription
-	sub, err := s.repo.GetPushSubscription(userEmail)
+	sub, err := s.repo.Users.GetPushSubscription(userEmail)
 	if err != nil {
 		return err
 	}

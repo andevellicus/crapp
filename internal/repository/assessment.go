@@ -133,7 +133,7 @@ func (r *AssessmentRepository) GetMetricsTimeline(userID, symptomKey, metricKey 
 	// Use a different JOIN approach and debugging
 	query := `
         SELECT 
-            a.date,
+            a.submitted_at as date,
             qr.numeric_value as symptom_value,
             am.metric_value
         FROM 
@@ -145,7 +145,7 @@ func (r *AssessmentRepository) GetMetricsTimeline(userID, symptomKey, metricKey 
             AND qr.question_id = ?
             AND am.metric_key = ?
             AND am.question_id = ?
-        ORDER BY a.date ASC
+        ORDER BY a.submitted_at ASC
     `
 
 	err := r.db.Raw(query, userID, symptomKey, metricKey, symptomKey).Scan(&result).Error
