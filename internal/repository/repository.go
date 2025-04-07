@@ -24,6 +24,7 @@ type Repository struct {
 	PasswordResetTokens *PasswordTokenRepository
 	RevokedTokens       *RevokedTokenRepository
 	CPTResults          *CognitiveTestRepository
+	QuestionResponses   *QuestionResponseRepository
 }
 
 // NewRepository creates a new repository with the given database connection
@@ -43,11 +44,12 @@ func NewRepository(cfg *config.Config, log *zap.SugaredLogger, questionLoader *u
 	repo.Users = NewUserRepository(db, log)
 	repo.Devices = NewDeviceRepository(db, log)
 	repo.Assessments = NewAssessmentRepository(db, log, repo.Users)
+	repo.QuestionResponses = NewQuestionResponseRepository(db, log)
+	repo.CPTResults = NewCognitiveTestRepository(db, log)
 	repo.FormStates = NewFormStateRepository(db, log)
 	repo.RefreshTokens = NewRefreshTokenRepository(db, log)
 	repo.PasswordResetTokens = NewPasswordTokenRepository(db, log, repo.Users)
 	repo.RevokedTokens = NewRevokedTokenRepository(db, log)
-	repo.CPTResults = NewCognitiveTestRepository(db, log)
 
 	return repo
 }
