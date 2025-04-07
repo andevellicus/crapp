@@ -1,434 +1,352 @@
-//static/js/src/components/cpt/CPTTest.jsx
+// Updated CPTTest.jsx component focused on data collection only
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useAuth } from '../../context/AuthContext';
 
-export default function CPTTest({ onTestEnd, settings }) {
-    // Default settings will be overridden by props when available
-    const DEFAULT_SETTINGS = {
-      testDuration: 120000, // 2 minutes in milliseconds
-      stimulusDuration: 250, // Time stimulus is displayed (ms)
-      interStimulusInterval: 2000, // Time between stimuli (ms)
-      targetProbability: 0.7, // Probability of target stimulus
-      targets: ['X'], // Target stimuli that require response
-      nonTargets: ['A', 'B', 'C', 'E', 'F', 'H', 'K', 'L'], // Non-target stimuli to ignore
-    };
+export default function CPTTest({ onTestEnd, settings, questionId }) {
+  // Default settings will be overridden by props
+  const DEFAULT_SETTINGS = {
+    testDuration: 120000, // 2 minutes in milliseconds
+    stimulusDuration: 250, // Time stimulus is displayed (ms)
+    interStimulusInterval: 2000, // Time between stimuli (ms)
+    targetProbability: 0.7, // Probability of target stimulus
+    targets: ['X'], // Target stimuli that require response
+    nonTargets: ['A', 'B', 'C', 'E', 'F', 'H', 'K', 'L'], // Non-target stimuli to ignore
+  };
+  
+  // Merge settings
+  const testSettings = settings ? { ...DEFAULT_SETTINGS, ...settings } : DEFAULT_SETTINGS;
+  
+  // State
+  const [isRunning, setIsRunning] = useState(false);
+  const [isComplete, setIsComplete] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [currentStimulus, setCurrentStimulus] = useState(null);
+  const [remainingTime, setRemainingTime] = useState(testSettings.testDuration);
+  const [errorMessage, setErrorMessage] = useState('');
+  const [rawData, setRawData] = useState(null);
+  
+  // Refs
+  const timerIntervalRef = useRef(null);
+  const stimulusTimeoutRef = useRef(null);
+  const stimulusStartTimeRef = useRef(0);
+  const isRunningRef = useRef(false);
+  const currentStimulusRef = useRef(null);
+  
+  // Raw data collection refs
+  const testDataRef = useRef({
+    testStartTime: 0,
+    testEndTime: 0,
+    stimuliPresented: [],
+    responses: [],
+    settings: testSettings
+  });
+  
+  // Auth context for user data and device ID
+  const { user, deviceId } = useAuth();
+  const isAdmin = user?.is_admin;
+
+  // Update refs when state changes
+  useEffect(() => {
+    isRunningRef.current = isRunning;
+  }, [isRunning]);
+  
+  useEffect(() => {
+    currentStimulusRef.current = currentStimulus;
+  }, [currentStimulus]);
+  
+  // Keyboard event listener
+  useEffect(() => {
+    if (isRunning) {
+      document.addEventListener('keydown', handleKeyPress);
+      return () => {
+        document.removeEventListener('keydown', handleKeyPress);
+      };
+    }
+  }, [isRunning]);
+  
+  // Format time as MM:SS
+  const formatTime = (milliseconds) => {
+    const totalSeconds = Math.ceil(milliseconds / 1000);
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = totalSeconds % 60;
+    return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+  };
+  
+  // Start the test
+  const startTest = () => {
+    // Set running state
+    setIsRunning(true);
+    setRemainingTime(testSettings.testDuration);
     
-    // Merge default settings with provided settings
-    const testSettings = settings ? { ...DEFAULT_SETTINGS, ...settings } : DEFAULT_SETTINGS;
+    // Record start time
+    const startTime = performance.now();
     
-    const [isRunning, setIsRunning] = React.useState(false);
-    const [isComplete, setIsComplete] = React.useState(false);
-    const [currentStimulus, setCurrentStimulus] = React.useState(null);
-    const [stimulusStartTime, setStimulusStartTime] = React.useState(0);
-    const [remainingTime, setRemainingTime] = React.useState(testSettings.testDuration);
-    const [testState, setTestState] = React.useState({
-      testStartTime: 0,
+    // Initialize test data
+    testDataRef.current = {
+      testStartTime: startTime,
       testEndTime: 0,
       stimuliPresented: [],
       responses: [],
-      correctDetections: 0,
-      commissionErrors: 0,
-      omissionErrors: 0,
-      reactionTimes: []
+      settings: testSettings
+    };
+    
+    // Start timer
+    timerIntervalRef.current = setInterval(updateTimerDisplay, 1000);
+    
+    // Start presenting stimuli
+    stimulusTimeoutRef.current = setTimeout(presentStimulus, 1000);
+  };
+  
+  // Update timer display
+  const updateTimerDisplay = () => {
+    setRemainingTime(prev => {
+      const newRemainingTime = prev - 1000;
+      
+      if (newRemainingTime <= 0) {
+        endTest();
+        return 0;
+      }
+      
+      return newRemainingTime;
     });
-    const [results, setResults] = React.useState(null);
+  };
+  
+  // Present a stimulus
+  const presentStimulus = useCallback(() => {
+    if (!isRunningRef.current) return;
     
-    // References for timeouts and intervals
-    const timerIntervalRef = React.useRef(null);
-    const stimulusTimeoutRef = React.useRef(null);
-
-    const stimulusStartTimeRef = React.useRef(0);
+    // Determine stimulus type and value
+    const isTarget = Math.random() < testSettings.targetProbability;
+    let stimulus;
+    if (isTarget) {
+      const randomIndex = Math.floor(Math.random() * testSettings.targets.length);
+      stimulus = testSettings.targets[randomIndex];
+    } else {
+      const randomIndex = Math.floor(Math.random() * testSettings.nonTargets.length);
+      stimulus = testSettings.nonTargets[randomIndex];
+    }
     
-    // Check if user is admin
-    const { user } = useAuth();
-    const isAdmin = user?.is_admin;
-
-    const testStateRef = React.useRef({
-      testStartTime: 0,
-      stimuliPresented: [],
-      responses: [],
-      correctDetections: 0,
-      commissionErrors: 0,
-      omissionErrors: 0,
-      reactionTimes: []
+    // Record presentation time
+    const currentTime = performance.now();
+    stimulusStartTimeRef.current = currentTime;
+    
+    // Create new stimulus object
+    const newStimulus = {
+      value: stimulus,
+      isTarget: isTarget,
+      responded: false
+    };
+    
+    // Update state and ref
+    currentStimulusRef.current = newStimulus;
+    setCurrentStimulus(newStimulus);
+    
+    // Record stimulus presentation in test data
+    testDataRef.current.stimuliPresented.push({
+      value: stimulus,
+      isTarget: isTarget,
+      presentedAt: currentTime - testDataRef.current.testStartTime
     });
-
-    const currentStimulusRef = React.useRef(currentStimulus);
-    React.useEffect(() => {
-      currentStimulusRef.current = currentStimulus;
-    }, [currentStimulus]);
-
-    const isRunningRef = React.useRef(isRunning);
-    React.useEffect(() => {
-      isRunningRef.current = isRunning;
-    }, [isRunning]);
     
-    // Effect to handle keyboard events
-    React.useEffect(() => {
-      // Only attach when running
-      if (isRunning) {
-        document.addEventListener('keydown', handleKeyPress);        
-        // Return cleanup function
-        return () => {
-          document.removeEventListener('keydown', handleKeyPress);
-        };
-      }
-    }, [isRunning]);
+    // Set timeout to hide stimulus and schedule next one
+    stimulusTimeoutRef.current = setTimeout(() => {
+      // Clear current stimulus
+      currentStimulusRef.current = null;
+      setCurrentStimulus(null);
+      
+      // Schedule next stimulus
+      stimulusTimeoutRef.current = setTimeout(
+        presentStimulus,
+        testSettings.interStimulusInterval - testSettings.stimulusDuration
+      );
+    }, testSettings.stimulusDuration);
+  }, [testSettings]);
+  
+  // Handle key press events
+  const handleKeyPress = useCallback((event) => {
+    // Only respond to spacebar
+    if (event.code !== 'Space' || !isRunningRef.current || !currentStimulusRef.current) return;
     
-    // Format time as MM:SS
-    const formatTime = (milliseconds) => {
-      const totalSeconds = Math.ceil(milliseconds / 1000);
-      const minutes = Math.floor(totalSeconds / 60);
-      const seconds = totalSeconds % 60;
-      
-      return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
-    };
+    // Prevent page scrolling
+    event.preventDefault();
     
-    // Start the test
-    const startTest = () => {
-      setIsRunning(true);
-      setRemainingTime(testSettings.testDuration);
-      const startTime = performance.now();
-      
-      // Immediately initialize the test state ref
-      testStateRef.current = {
-        testStartTime: startTime,
-        stimuliPresented: [],
-        responses: [],
-        correctDetections: 0,
-        commissionErrors: 0,
-        omissionErrors: 0,
-        reactionTimes: []
-      };
-      
-      // Start the timer to update the display
-      timerIntervalRef.current = setInterval(updateTimerDisplay, 1000);
-      
-      // Present the first stimulus after a short delay
-      stimulusTimeoutRef.current = setTimeout(presentStimulus, 1000);
-    };
+    // Calculate response time
+    const currentTime = performance.now();
+    const responseTime = currentTime - stimulusStartTimeRef.current;
     
-    // Update timer display
-    const updateTimerDisplay = () => {
-      setRemainingTime(prev => {
-        const newRemainingTime = prev - 1000;
-        
-        // Check if test should end
-        if (newRemainingTime <= 0) {
-          endTest();
-          return 0;
-        }
-        
-        return newRemainingTime;
-      });
-    };
+    // Mark stimulus as responded
+    const stimulus = currentStimulusRef.current;
+    stimulus.responded = true;
     
-    // Present a stimulus
-    const presentStimulus = React.useCallback(() => {
-      if (!isRunningRef.current) return;
+    // Record response
+    testDataRef.current.responses.push({
+      stimulus: stimulus.value,
+      isTarget: stimulus.isTarget,
+      responseTime: responseTime,
+      stimulusIndex: testDataRef.current.stimuliPresented.length - 1
+    });
+  }, []);
+  
+  // End the test
+  const endTest = () => {
+    // Stop test
+    setIsRunning(false);
+    setIsComplete(true);
+    
+    // Record end time
+    const testEndTime = performance.now();
+    testDataRef.current.testEndTime = testEndTime;
+    
+    // Clear intervals and timeouts
+    if (timerIntervalRef.current) {
+      clearInterval(timerIntervalRef.current);
+      timerIntervalRef.current = null;
+    }
+    
+    if (stimulusTimeoutRef.current) {
+      clearTimeout(stimulusTimeoutRef.current);
+      stimulusTimeoutRef.current = null;
+    }
+    
+    // Set raw data for submission
+    setRawData(testDataRef.current);
+    
+    // Submit test data
+    submitTestData(testDataRef.current);
+  };
+  
+  // Submit test data to backend
+  const submitTestData = async (testData) => {
+    if (!testData) return;
+    
+    setIsSubmitting(true);
+    setErrorMessage('');
+    
+    try {
+      // Format data as expected by backend
+      const rawDataJson = JSON.stringify(testData);
       
-      // Determine stimulus type and value
-      const isTarget = Math.random() < testSettings.targetProbability;
-      let stimulus;
-      if (isTarget) {
-        const randomIndex = Math.floor(Math.random() * testSettings.targets.length);
-        stimulus = testSettings.targets[randomIndex];
-      } else {
-        const randomIndex = Math.floor(Math.random() * testSettings.nonTargets.length);
-        stimulus = testSettings.nonTargets[randomIndex];
-      }
-      
-      const currentTime = performance.now();
-      stimulusStartTimeRef.current = currentTime; // Update ref for timing calculations
-      setStimulusStartTime(currentTime); // Update state (for UI rendering)
-      
-      // Create new stimulus object
-      const newStimulus = {
-        value: stimulus,
-        isTarget: isTarget,
-        responseTime: null,
-        responded: false,
-        correct: null
-      };
-      
-      // Important: Set both the ref and state
-      currentStimulusRef.current = newStimulus;
-      setCurrentStimulus(newStimulus);
-      
-      // Record stimulus presentation
-      testStateRef.current.stimuliPresented.push({
-        value: stimulus,
-        isTarget: isTarget,
-        presentedAt: currentTime - testStateRef.current.testStartTime,
+      // Submit to backend
+      const response = await fetch('/api/cognitive-tests/cpt/submit', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('auth_token')}`,
+          'X-Device-ID': deviceId || ''
+        },
+        body: JSON.stringify({
+          user_email: user?.email,
+          device_id: deviceId || 'unknown',
+          question_id: questionId,
+          test_start_time: new Date(testData.testStartTime).toISOString(),
+          test_end_time: new Date(testData.testEndTime).toISOString(),
+          raw_data: rawDataJson
+        })
       });
       
-      // Set timeout to hide stimulus and check for omission
-      stimulusTimeoutRef.current = setTimeout(() => {
-        // Check if no response was recorded for a target stimulus
-        if (isTarget && !currentStimulusRef.current.responded) {
-          testStateRef.current.omissionErrors++;
-        }
-        
-        // Clear the stimulus - update both ref and state
-        currentStimulusRef.current = null;
-        setCurrentStimulus(null);
-        
-        // Schedule the next stimulus
-        stimulusTimeoutRef.current = setTimeout(
-          presentStimulus,
-          testSettings.interStimulusInterval - testSettings.stimulusDuration
-        );
-      }, testSettings.stimulusDuration);
-    }, [testSettings]);
-       
-    // Handle key press events
-    const handleKeyPress = React.useCallback((event) => {
-      // Check if test is running
-      if (!isRunningRef.current) return;
-      
-      // Only respond to spacebar
-      if (event.code !== 'Space') return;
-           
-      // Need reference to the stimulus, not the state variable
-      if (!currentStimulusRef.current) return;
-      
-      // Prevent default (page scrolling)
-      event.preventDefault();
-      
-      const currentTime = performance.now();
-      const responseTime = currentTime - stimulusStartTimeRef.current;
-      
-      // Update the stimulus reference
-      const updatedStimulus = {
-        ...currentStimulusRef.current,
-        responded: true,
-        responseTime: responseTime
-      };
-      
-      // Update both the ref and the state
-      currentStimulusRef.current = updatedStimulus;
-      setCurrentStimulus(updatedStimulus);
-            
-      // Update test state ref
-      testStateRef.current.responses.push({
-        stimulus: updatedStimulus.value,
-        isTarget: updatedStimulus.isTarget,
-        responseTime: responseTime,
-        stimulusIndex: testStateRef.current.stimuliPresented.length - 1,
-      });
-      
-      if (updatedStimulus.isTarget) {
-        testStateRef.current.correctDetections++;
-        testStateRef.current.reactionTimes.push(responseTime);
-      } else {
-        testStateRef.current.commissionErrors++;
-      }
-    }, []);
-    
-    // End the test
-    const endTest = () => {
-      // Set test as not running
-      setIsRunning(false);
-      setIsComplete(true);
-      // Update test end time
-      setTestState(prev => ({
-        ...prev,
-        testEndTime: performance.now()
-      }));
-      
-      // Clear intervals and timeouts
-      if (timerIntervalRef.current) {
-        clearInterval(timerIntervalRef.current);
-        timerIntervalRef.current = null;
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to submit test results');
       }
       
-      if (stimulusTimeoutRef.current) {
-        clearTimeout(stimulusTimeoutRef.current);
-        stimulusTimeoutRef.current = null;
-      }
-      
-      // Calculate final results
-      const finalResults = calculateResults();
-
-      // Call onTestEnd callback if provided
+      // Call onTestEnd with the test data
       if (onTestEnd) {
-        setTimeout(() => {
-          onTestEnd(finalResults);
-        }, 0);
-      }      
-    };
-    
-    // Calculate final test results
-    const calculateResults = React.useCallback(() => {
-      // Get the final state from the ref
-      const { 
-        testStartTime, stimuliPresented, 
-        responses, correctDetections, commissionErrors, 
-        omissionErrors, reactionTimes 
-      } = testStateRef.current;
-      
-      const testEndTime = performance.now();
-      
-      // Count total targets presented
-      const totalTargets = stimuliPresented.filter(stim => stim.isTarget).length;
-      
-      // Calculate average reaction time
-      let averageReactionTime = 0;
-      if (reactionTimes.length > 0) {
-        averageReactionTime = reactionTimes.reduce((sum, time) => sum + time, 0) / reactionTimes.length;
+        onTestEnd(testData);
       }
       
-      // Calculate standard deviation of reaction times
-      let reactionTimeSD = 0;
-      if (reactionTimes.length > 1) {
-        const mean = averageReactionTime;
-        const squaredDiffs = reactionTimes.map(time => Math.pow(time - mean, 2));
-        const variance = squaredDiffs.reduce((sum, diff) => sum + diff, 0) / reactionTimes.length;
-        reactionTimeSD = Math.sqrt(variance);
-      }
-      
-      // Calculate rates
-      const detectionRate = totalTargets > 0 ? correctDetections / totalTargets : 0;
-      const omissionErrorRate = totalTargets > 0 ? omissionErrors / totalTargets : 0;
-      const commissionErrorRate = stimuliPresented.length - totalTargets > 0 ? 
-        commissionErrors / (stimuliPresented.length - totalTargets) : 0;
-      
-      // Create final results object
-      const finalResults = {
-        testStartTime,
-        testEndTime,
-        correctDetections,
-        commissionErrors,
-        omissionErrors,
-        averageReactionTime,
-        reactionTimeSD,
-        detectionRate,
-        omissionErrorRate,
-        commissionErrorRate,
-        stimuliPresented,
-        responses,
-        settings: testSettings
-      };
-      
-      // Set results state
-      setResults(finalResults);
-      
-      return finalResults;
-    }, [testSettings]);
-    
-    // Render intro screen
-    const renderIntroScreen = () => (
-      <div className="cpt-intro">
-        <h3>Continuous Performance Test</h3>
-        <div className="cpt-instructions">
-          <p>This test measures your attention and response control.</p>
-          <p><strong>Instructions:</strong></p>
-          <ul>
-            <li>You will see letters appear on the screen one at a time</li>
-            <li>Press the spacebar when you see the letter '{testSettings.targets[0]}'</li>
-            <li>Do NOT press any key for other letters</li>
-            <li>Try to respond as quickly and accurately as possible</li>
-            <li>The test will take {testSettings.testDuration / 1000 / 60} minutes to complete</li>
-          </ul>
-          <p>Click 'Start Test' when you're ready to begin.</p>
-        </div>
-        <button id="cpt-start-button" className="submit-button" onClick={startTest}>
-          Start Test
-        </button>
+    } catch (error) {
+      console.error('Error submitting test data:', error);
+      setErrorMessage('Failed to save results: ' + error.message);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+  
+  // Render intro screen
+  const renderIntroScreen = () => (
+    <div className="cpt-intro">
+      <h3>Continuous Performance Test</h3>
+      <div className="cpt-instructions">
+        <p>This test measures your attention and response control.</p>
+        <p><strong>Instructions:</strong></p>
+        <ul>
+          <li>You will see letters appear on the screen one at a time</li>
+          <li>Press the spacebar when you see the letter '{testSettings.targets[0]}'</li>
+          <li>Do NOT press any key for other letters</li>
+          <li>Try to respond as quickly and accurately as possible</li>
+          <li>The test will take {testSettings.testDuration / 1000 / 60} minutes to complete</li>
+        </ul>
+        <p>Click 'Start Test' when you're ready to begin.</p>
       </div>
-    );
-    
-    // Render test screen
-    const renderTestScreen = () => (
-      <div className="cpt-test-container">
-        <div className="cpt-timer">
-          Time Remaining: <span id="cpt-time-remaining">
-            {formatTime(remainingTime)}
-          </span>
-        </div>
-        <div className="cpt-stimulus-container">
-          <div id="cpt-stimulus">
-            {currentStimulus ? currentStimulus.value : ''}
-          </div>
-        </div>
-        <div className="cpt-instructions-small">
-          <p>Press spacebar for '{testSettings.targets[0]}' only</p>
+      <button id="cpt-start-button" className="submit-button" onClick={startTest}>
+        Start Test
+      </button>
+    </div>
+  );
+  
+  // Render test screen
+  const renderTestScreen = () => (
+    <div className="cpt-test-container">
+      <div className="cpt-timer">
+        Time Remaining: <span id="cpt-time-remaining">
+          {formatTime(remainingTime)}
+        </span>
+      </div>
+      <div className="cpt-stimulus-container">
+        <div id="cpt-stimulus">
+          {currentStimulus ? currentStimulus.value : ''}
         </div>
       </div>
-    );
-    
-    // Render results screen
-    const renderResultsScreen = () => {
-      if (!results) return null;
-      
-      // For non-admin users, show simple completion message
-      if (!isAdmin) {
-        return (
-          <div className="cpt-completion-message">
-            <p>Test completed! You can now proceed to the next question.</p>
-          </div>
-        );
-      }
-      
-      // For admin users, show detailed results
+      <div className="cpt-instructions-small">
+        <p>Press spacebar for '{testSettings.targets[0]}' only</p>
+      </div>
+    </div>
+  );
+  
+  // Render results screen
+  const renderResultsScreen = () => {
+    // Show submitting state
+    if (isSubmitting) {
       return (
-        <div className="cpt-results">
-          <h3>Continuous Performance Test Results</h3>
-          <div className="cpt-results-summary">
-            <div className="result-item">
-              <div className="result-label">Correct Detections:</div>
-              <div className="result-value">{results.correctDetections}</div>
-            </div>
-            <div className="result-item">
-              <div className="result-label">Detection Rate:</div>
-              <div className="result-value">
-                {Math.round(results.detectionRate * 100)}%
-              </div>
-            </div>
-            <div className="result-item">
-              <div className="result-label">Omission Errors:</div>
-              <div className="result-value">{results.omissionErrors}</div>
-            </div>
-            <div className="result-item">
-              <div className="result-label">Commission Errors:</div>
-              <div className="result-value">{results.commissionErrors}</div>
-            </div>
-            <div className="result-item">
-              <div className="result-label">Average Reaction Time:</div>
-              <div className="result-value">
-                {Math.round(results.averageReactionTime)} ms
-              </div>
-            </div>
-            <div className="result-item">
-              <div className="result-label">Reaction Time Variability:</div>
-              <div className="result-value">
-                {Math.round(results.reactionTimeSD)} ms
-              </div>
-            </div>
-          </div>
-          <div className="cpt-results-interpretation">
-            <p><strong>Interpretation:</strong></p>
-            <ul>
-              <li><strong>Correct Detections:</strong> Number of targets correctly identified</li>
-              <li><strong>Detection Rate:</strong> Percentage of targets correctly identified</li>
-              <li><strong>Omission Errors:</strong> Missed targets (may indicate inattention)</li>
-              <li><strong>Commission Errors:</strong> Responses to non-targets (may indicate impulsivity)</li>
-              <li><strong>Reaction Time:</strong> Speed of response to targets</li>
-              <li><strong>Reaction Time Variability:</strong> Consistency of response timing</li>
-            </ul>
-          </div>
-          <div className="cpt-completion-message">
-            <p>Test completed! You can now proceed to the next question.</p>
-          </div>
+        <div className="cpt-completion-message">
+          <div className="spinner" style={{ margin: '0 auto 15px' }}></div>
+          <p>Saving test results...</p>
         </div>
       );
-    };
-    
-    // Main render method
-    if (isComplete) {
-      return renderResultsScreen();
-    } else if (isRunning) {
-      return renderTestScreen();
-    } else {
-      return renderIntroScreen();
     }
+    
+    // Show error message if submission failed
+    if (errorMessage) {
+      return (
+        <div className="cpt-completion-message" style={{ backgroundColor: '#fee2e2', borderLeftColor: '#e53e3e' }}>
+          <p>{errorMessage}</p>
+          <button 
+            className="submit-button" 
+            onClick={() => submitTestData(rawData)}
+            style={{ marginTop: '15px' }}
+          >
+            Try Again
+          </button>
+        </div>
+      );
+    }
+    
+    // For all users, show simple completion message
+    // Admin details would be shown on a separate page if needed
+    return (
+      <div className="cpt-completion-message">
+        <p>Test completed! Your results have been saved.</p>
+        <p>You can now proceed to the next question.</p>
+      </div>
+    );
+  };
+  
+  // Main render
+  if (isComplete) {
+    return renderResultsScreen();
+  } else if (isRunning) {
+    return renderTestScreen();
+  } else {
+    return renderIntroScreen();
+  }
 }

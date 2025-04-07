@@ -50,7 +50,6 @@ type CPTResult struct {
 	CommissionErrorRate float64         `json:"commission_error_rate"`
 	RawData             json.RawMessage `json:"raw_data" gorm:"type:json"` // Store full test data
 	CreatedAt           time.Time       `json:"created_at"`
-	TestType            TestType        `json:"-"`
 
 	// Relationships
 	User       User       `json:"-" gorm:"foreignKey:UserEmail"`

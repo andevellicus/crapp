@@ -41,23 +41,23 @@ type InteractionData struct {
 }
 
 // Calculate per-question metrics
-func (mc *MetricCalculator) calculatePerQuestionMetrics() map[string]map[string]MetricResult {
+func calculatePerQuestionMetrics(interactions *InteractionData) map[string]map[string]MetricResult {
 	// Get unique question IDs
 	questionIDs := make(map[string]bool)
 
-	for _, interaction := range mc.InteractionData.MouseInteractions {
+	for _, interaction := range interactions.MouseInteractions {
 		if interaction.QuestionID != "" {
 			questionIDs[interaction.QuestionID] = true
 		}
 	}
 
-	for _, movement := range mc.InteractionData.MouseMovements {
+	for _, movement := range interactions.MouseMovements {
 		if movement.QuestionID != "" {
 			questionIDs[movement.QuestionID] = true
 		}
 	}
 
-	for _, event := range mc.InteractionData.KeyboardEvents {
+	for _, event := range interactions.KeyboardEvents {
 		if event.QuestionID != "" {
 			questionIDs[event.QuestionID] = true
 		}
@@ -71,14 +71,14 @@ func (mc *MetricCalculator) calculatePerQuestionMetrics() map[string]map[string]
 		qID := questionID // Create a copy for pointer safety
 
 		// Mouse metrics
-		qMetrics["click_precision"] = mc.calculateClickPrecision(&qID)
-		qMetrics["path_efficiency"] = mc.calculatePathEfficiency(&qID)
-		qMetrics["overshoot_rate"] = mc.calculateOvershootRate(&qID)
-		qMetrics["average_velocity"] = mc.calculateAverageVelocity(&qID)
-		qMetrics["velocity_variability"] = mc.calculateVelocityVariability(&qID)
+		qMetrics["click_precision"] = calculateClickPrecision(&qID, interactions)
+		qMetrics["path_efficiency"] = calculatePathEfficiency(&qID, interactions)
+		qMetrics["overshoot_rate"] = calculateOvershootRate(&qID, interactions)
+		qMetrics["average_velocity"] = calculateAverageVelocity(&qID, interactions)
+		qMetrics["velocity_variability"] = calculateVelocityVariability(&qID, interactions)
 
 		// Keyboard metrics
-		keyboardMetrics := mc.calculateKeyboardMetrics(&qID)
+		keyboardMetrics := calculateKeyboardMetrics(&qID, interactions)
 		for k, v := range keyboardMetrics {
 			qMetrics[k] = v
 		}
@@ -90,12 +90,12 @@ func (mc *MetricCalculator) calculatePerQuestionMetrics() map[string]map[string]
 }
 
 // calculateClickPrecision calculates average normalized click precision with minimal threshold
-func (mc *MetricCalculator) calculateClickPrecision(questionID *string) MetricResult {
+func calculateClickPrecision(questionID *string, interactions *InteractionData) MetricResult {
 	// Filter interactions by question if needed
-	interactions := mc.filterInteractionsByQuestion(questionID)
+	inter := filterInteractionsByQuestion(questionID, interactions)
 
 	// Check if we have enough data - need at least 1 interaction
-	if len(interactions) < 1 {
+	if len(inter) < 1 {
 		return MetricResult{
 			Value:      0.0,
 			Calculated: false,
@@ -105,7 +105,7 @@ func (mc *MetricCalculator) calculateClickPrecision(questionID *string) MetricRe
 
 	// Calculate normalized distances
 	sum := 0.0
-	for _, interaction := range interactions {
+	for _, interaction := range inter {
 		// Calculate distance from center
 		distX := interaction.ClickX - interaction.TargetX
 		distY := interaction.ClickY - interaction.TargetY
@@ -128,20 +128,20 @@ func (mc *MetricCalculator) calculateClickPrecision(questionID *string) MetricRe
 	}
 
 	// Calculate precision (higher is better)
-	avgNormalizedDistance := sum / float64(len(interactions))
+	avgNormalizedDistance := sum / float64(len(inter))
 	precision := 1 - avgNormalizedDistance
 
 	return MetricResult{
 		Value:      precision,
 		Calculated: true,
-		SampleSize: len(interactions),
+		SampleSize: len(inter),
 	}
 }
 
 // calculatePathEfficiency calculates mouse path efficiency with minimal threshold
-func (mc *MetricCalculator) calculatePathEfficiency(questionID *string) MetricResult {
-	movements := mc.filterMovementsByQuestion(questionID)
-	interactions := mc.filterInteractionsByQuestion(questionID)
+func calculatePathEfficiency(questionID *string, interactions *InteractionData) MetricResult {
+	movements := filterMovementsByQuestion(questionID, interactions)
+	inter := filterInteractionsByQuestion(questionID, interactions)
 
 	// Need at least some movements to calculate path
 	if len(movements) < 1 {
@@ -165,7 +165,7 @@ func (mc *MetricCalculator) calculatePathEfficiency(questionID *string) MetricRe
 	totalEfficiency := 0.0
 	count := 0
 
-	for _, interaction := range interactions {
+	for _, interaction := range inter {
 		targetID := interaction.TargetID
 		relevantMovements := targetMovements[targetID]
 
@@ -227,11 +227,11 @@ func (mc *MetricCalculator) calculatePathEfficiency(questionID *string) MetricRe
 }
 
 // calculateOvershootRate calculates the rate of target overshooting with minimal threshold
-func (mc *MetricCalculator) calculateOvershootRate(questionID *string) MetricResult {
-	movements := mc.filterMovementsByQuestion(questionID)
-	interactions := mc.filterInteractionsByQuestion(questionID)
+func calculateOvershootRate(questionID *string, interactions *InteractionData) MetricResult {
+	movements := filterMovementsByQuestion(questionID, interactions)
+	inter := filterInteractionsByQuestion(questionID, interactions)
 
-	if len(movements) < 1 || len(interactions) < 1 {
+	if len(movements) < 1 || len(inter) < 1 {
 		return MetricResult{
 			Value:      0.0,
 			Calculated: false,
@@ -251,7 +251,7 @@ func (mc *MetricCalculator) calculateOvershootRate(questionID *string) MetricRes
 	overshootCount := 0
 	totalTargets := 0
 
-	for _, interaction := range interactions {
+	for _, interaction := range inter {
 		targetID := interaction.TargetID
 		relevantMovements := targetMovements[targetID]
 
@@ -311,8 +311,8 @@ func (mc *MetricCalculator) calculateOvershootRate(questionID *string) MetricRes
 }
 
 // calculateAverageVelocity calculates average mouse movement velocity with minimal threshold
-func (mc *MetricCalculator) calculateAverageVelocity(questionID *string) MetricResult {
-	movements := mc.filterMovementsByQuestion(questionID)
+func calculateAverageVelocity(questionID *string, interactions *InteractionData) MetricResult {
+	movements := filterMovementsByQuestion(questionID, interactions)
 
 	// Need at least 2 movements to calculate velocity (movement between points)
 	if len(movements) < 2 {
@@ -361,8 +361,8 @@ func (mc *MetricCalculator) calculateAverageVelocity(questionID *string) MetricR
 }
 
 // calculateVelocityVariability calculates consistency of mouse velocity with minimal threshold
-func (mc *MetricCalculator) calculateVelocityVariability(questionID *string) MetricResult {
-	movements := mc.filterMovementsByQuestion(questionID)
+func calculateVelocityVariability(questionID *string, interactions *InteractionData) MetricResult {
+	movements := filterMovementsByQuestion(questionID, interactions)
 
 	// Need at least 2 movements to calculate velocity
 	if len(movements) < 2 {
@@ -425,8 +425,8 @@ func (mc *MetricCalculator) calculateVelocityVariability(questionID *string) Met
 }
 
 // calculateKeyboardMetrics calculates all keyboard-related metrics with minimal thresholds
-func (mc *MetricCalculator) calculateKeyboardMetrics(questionID *string) map[string]MetricResult {
-	events := mc.filterKeyboardEventsByQuestion(questionID)
+func calculateKeyboardMetrics(questionID *string, interactions *InteractionData) map[string]MetricResult {
+	events := filterKeyboardEventsByQuestion(questionID, interactions)
 	metrics := make(map[string]MetricResult)
 
 	// Initialize with uncalculated values
@@ -639,14 +639,14 @@ func (mc *MetricCalculator) calculateKeyboardMetrics(questionID *string) map[str
 }
 
 // Helper methods
-func (mc *MetricCalculator) filterInteractionsByQuestion(questionID *string) []MouseInteraction {
+func filterInteractionsByQuestion(questionID *string, interactions *InteractionData) []MouseInteraction {
 	if questionID == nil {
 		// Only return mouse movements (for navigation, etc)
-		return mc.InteractionData.MouseInteractions
+		return interactions.MouseInteractions
 	}
 
 	filtered := make([]MouseInteraction, 0)
-	for _, interaction := range mc.InteractionData.MouseInteractions {
+	for _, interaction := range interactions.MouseInteractions {
 		if interaction.QuestionID == *questionID {
 			filtered = append(filtered, interaction)
 		}
@@ -655,13 +655,13 @@ func (mc *MetricCalculator) filterInteractionsByQuestion(questionID *string) []M
 	return filtered
 }
 
-func (mc *MetricCalculator) filterMovementsByQuestion(questionID *string) []MouseMovement {
+func filterMovementsByQuestion(questionID *string, interactions *InteractionData) []MouseMovement {
 	if questionID == nil {
-		return mc.InteractionData.MouseMovements
+		return interactions.MouseMovements
 	}
 
 	filtered := make([]MouseMovement, 0)
-	for _, movement := range mc.InteractionData.MouseMovements {
+	for _, movement := range interactions.MouseMovements {
 		if movement.QuestionID == *questionID {
 			filtered = append(filtered, movement)
 		}
@@ -670,13 +670,13 @@ func (mc *MetricCalculator) filterMovementsByQuestion(questionID *string) []Mous
 	return filtered
 }
 
-func (mc *MetricCalculator) filterKeyboardEventsByQuestion(questionID *string) []KeyboardEvent {
+func filterKeyboardEventsByQuestion(questionID *string, interactions *InteractionData) []KeyboardEvent {
 	if questionID == nil {
-		return mc.InteractionData.KeyboardEvents
+		return interactions.KeyboardEvents
 	}
 
 	filtered := make([]KeyboardEvent, 0)
-	for _, event := range mc.InteractionData.KeyboardEvents {
+	for _, event := range interactions.KeyboardEvents {
 		if event.QuestionID == *questionID {
 			filtered = append(filtered, event)
 		}

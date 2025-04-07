@@ -56,7 +56,6 @@ type SaveAnswerRequest struct {
 
 type SubmitMetricsRequest struct {
 	InteractionData *metrics.InteractionData `json:"interaction_data"`
-	CPTData         *metrics.CPTData         `json:"cpt,omitempty"`
 }
 
 // Push validation models
@@ -93,18 +92,11 @@ type DeleteAccountRequest struct {
 
 // CPTResultsRequest represents a validation model for CPT results
 type CPTResultsRequest struct {
-	UserEmail           string          `json:"user_email" validate:"required,email"`
-	DeviceID            string          `json:"device_id" validate:"required"`
-	AssessmentID        uint            `json:"assessment_id,omitempty"`
-	TestStartTime       time.Time       `json:"test_start_time" validate:"required"`
-	TestEndTime         time.Time       `json:"test_end_time" validate:"required,gtfield=TestStartTime"`
-	CorrectDetections   int             `json:"correct_detections" validate:"required,gte=0"`
-	CommissionErrors    int             `json:"commission_errors" validate:"required,gte=0"`
-	OmissionErrors      int             `json:"omission_errors" validate:"required,gte=0"`
-	AverageReactionTime float64         `json:"average_reaction_time" validate:"required,gte=0"`
-	ReactionTimeSD      float64         `json:"reaction_time_sd" validate:"required,gte=0"`
-	DetectionRate       float64         `json:"detection_rate" validate:"required,gte=0,lte=1"`
-	OmissionErrorRate   float64         `json:"omission_error_rate" validate:"required,gte=0,lte=1"`
-	CommissionErrorRate float64         `json:"commission_error_rate" validate:"required,gte=0,lte=1"`
-	RawData             json.RawMessage `json:"raw_data" validate:"required"`
+	AssessmentID  uint            `json:"assessment_id" validate:"required"`
+	UserEmail     string          `json:"user_email" validate:"required,email"`
+	DeviceID      string          `json:"device_id" validate:"required"`
+	QuestionID    string          `json:"question_id" validate:"required"`
+	TestStartTime time.Time       `json:"test_start_time" validate:"required"`
+	TestEndTime   time.Time       `json:"test_end_time" validate:"required,gtfield=TestStartTime"`
+	RawData       json.RawMessage `json:"raw_data" validate:"required"`
 }
