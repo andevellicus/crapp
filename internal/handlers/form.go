@@ -360,6 +360,13 @@ func (h *FormHandler) SubmitForm(c *gin.Context) {
 	formState.Completed = true
 	h.repo.FormStates.Update(formState)
 
+	// Set last assessment completed time to now:
+	if err := h.repo.Users.LastAssessmentNow(userEmail.(string)); err != nil {
+		h.log.Errorw("Error updating last assessment completed time", "error", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error updating user"})
+		return
+	}
+
 	c.JSON(http.StatusOK, gin.H{
 		"success":       true,
 		"assessment_id": assessmentID,

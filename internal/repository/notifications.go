@@ -1,95 +1,10 @@
 package repository
 
 import (
-	"encoding/json"
 	"time"
 
 	"github.com/andevellicus/crapp/internal/models"
 )
-
-// UserNotificationPreferences represents a user's complete notification preferences
-type UserNotificationPreferences struct {
-	// Push notification preferences
-	PushEnabled bool `json:"push_enabled"`
-	// Email notification preferences
-	EmailEnabled bool `json:"email_enabled"`
-	// Shared reminder time settings
-	ReminderTimes []string `json:"reminder_times"`
-	// Time when user can still complete yesterday's assessment
-	CutoffTime string `json:"cutoff_time,omitempty"`
-}
-
-// SavePushSubscription saves a push subscription for a user
-func (r *Repository) SavePushSubscription(userEmail string, subscription string) error {
-	// Update user record with push subscription
-	var user models.User
-	if err := r.db.Where("email = ?", userEmail).First(&user).Error; err != nil {
-		return err
-	}
-
-	// Update user model to include push_subscription field
-	if err := r.db.Model(&user).Update("push_subscription", subscription).Error; err != nil {
-		return err
-	}
-
-	return nil
-}
-
-// SaveNotificationPreferences saves a user's complete notification preferences
-func (r *Repository) SaveNotificationPreferences(userEmail string, preferences *UserNotificationPreferences) error {
-	var user models.User
-	if err := r.db.Where("email = ?", userEmail).First(&user).Error; err != nil {
-		return err
-	}
-
-	// Convert preferences to JSON
-	preferencesJSON, err := json.Marshal(preferences)
-	if err != nil {
-		return err
-	}
-
-	// Update user model
-	if err := r.db.Model(&user).Update("push_preferences", preferencesJSON).Error; err != nil {
-		return err
-	}
-
-	return nil
-}
-
-// GetPushSubscription gets a user's push subscription
-func (r *Repository) GetPushSubscription(userEmail string) (string, error) {
-	var user models.User
-	if err := r.db.Where("email = ?", userEmail).First(&user).Error; err != nil {
-		return "", err
-	}
-
-	return user.PushSubscription, nil
-}
-
-// GetPushPreferences gets a user's push notification preferences
-func (r *Repository) GetNotificationPreferences(userEmail string) (*UserNotificationPreferences, error) {
-	var user models.User
-	if err := r.db.Where("email = ?", userEmail).First(&user).Error; err != nil {
-		return nil, err
-	}
-
-	// Default preferences if none are set
-	if user.PushPreferences == "" {
-		return &UserNotificationPreferences{
-			PushEnabled:   false,
-			EmailEnabled:  false,
-			ReminderTimes: []string{"20:00"},
-			CutoffTime:    "10:00",
-		}, nil
-	}
-
-	var preferences UserNotificationPreferences
-	if err := json.Unmarshal([]byte(user.PushPreferences), &preferences); err != nil {
-		return nil, err
-	}
-
-	return &preferences, nil
-}
 
 // GetUsersForReminder gets all users who should receive a reminder at the given index
 func (r *Repository) GetUsersForReminder(reminderTime string) ([]models.User, error) {
@@ -103,7 +18,7 @@ func (r *Repository) GetUsersForReminder(reminderTime string) ([]models.User, er
 	// Filter users by their preferences
 	var eligibleUsers []models.User
 	for _, user := range users {
-		preferences, err := r.GetNotificationPreferences(user.Email)
+		preferences, err := r.Users.GetNotificationPreferences(user.Email)
 		if err != nil {
 			r.log.Warnw("Failed to get push preferences", "user", user.Email, "error", err)
 			continue
@@ -139,7 +54,7 @@ func (r *Repository) GetAllUniqueReminderTimes() ([]string, error) {
 	timeMap := make(map[string]bool)
 
 	for _, user := range users {
-		preferences, err := r.GetNotificationPreferences(user.Email)
+		preferences, err := r.Users.GetNotificationPreferences(user.Email)
 		if err != nil {
 			continue
 		}
@@ -174,7 +89,7 @@ func (r *Repository) GetUsersForEmailReminder(reminderTime string) ([]*models.Us
 	// Filter users based on their email preferences
 	var eligibleUsers []*models.User
 	for _, user := range users {
-		preferences, err := r.GetNotificationPreferences(user.Email)
+		preferences, err := r.Users.GetNotificationPreferences(user.Email)
 		if err != nil {
 			r.log.Warnw("Failed to get preferences", "user", user.Email, "error", err)
 			continue

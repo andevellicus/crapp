@@ -320,7 +320,7 @@ func (h *AuthHandler) UpdateUser(c *gin.Context) {
 		// Verify current password
 		err = bcrypt.CompareHashAndPassword(user.Password, []byte(req.CurrentPassword))
 		if err != nil {
-			// This needs to bne a bad request
+			// This needs to be a bad request
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Current password is incorrect"})
 			return
 		}
@@ -343,15 +343,21 @@ func (h *AuthHandler) UpdateUser(c *gin.Context) {
 		}
 	}
 
-	// Save updated user
-	if err := h.repo.Users.Update(user); err != nil {
-		h.log.Errorw("Error updating user", "error", err)
+	// Save updated user name
+	if err := h.repo.Users.UpdateUserName(user); err != nil {
+		h.log.Errorw("Error updating user name", "error", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error updating user"})
 		return
 	}
 
 	// Don't return password hash in response
 	user.Password = nil
+
+	if err := h.repo.Users.LastLoginNow(user.Email); err != nil {
+		h.log.Errorw("Error updating user login time", "error", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error updating user"})
+		return
+	}
 
 	c.JSON(http.StatusOK, user)
 }

@@ -82,8 +82,7 @@ func (s *AuthService) Authenticate(email, password string, deviceInfo map[string
 	}
 
 	// Update last login time
-	user.LastLogin = time.Now()
-	if err := s.repo.Users.Update(user); err != nil {
+	if err := s.repo.Users.LastLoginNow(email); err != nil {
 		return nil, nil, nil, err
 	}
 

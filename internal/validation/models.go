@@ -95,3 +95,9 @@ type CPTResultsRequest struct {
 	TestEndTime   time.Time       `json:"test_end_time" validate:"required,gtfield=TestStartTime"`
 	RawData       json.RawMessage `json:"raw_data" validate:"required"`
 }
+
+// AdminReminderRequest represents a request to send a reminder to a user
+type AdminReminderRequest struct {
+	Email  string `json:"email" binding:"required,email"`
+	Method string `json:"method" binding:"required,oneof=email push"` // "email" or "push"
+}

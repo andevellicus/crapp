@@ -86,7 +86,7 @@ func (h *PushHandler) UpdatePreferences(c *gin.Context) {
 	}
 
 	// Save preferences
-	if err := h.repo.SaveNotificationPreferences(userEmail.(string), &preferences); err != nil {
+	if err := h.repo.Users.SaveNotificationPreferences(userEmail.(string), &preferences); err != nil {
 		h.log.Errorw("Failed to save preferences", "error", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save preferences"})
 		return
@@ -111,7 +111,7 @@ func (h *PushHandler) GetPreferences(c *gin.Context) {
 	}
 
 	// Get preferences using the new method
-	preferences, err := h.repo.GetNotificationPreferences(userEmail.(string))
+	preferences, err := h.repo.Users.GetNotificationPreferences(userEmail.(string))
 	if err != nil {
 		h.log.Errorw("Failed to get preferences", "error", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get preferences"})

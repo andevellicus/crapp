@@ -53,6 +53,9 @@ export default function Header() {
               <div className={`user-dropdown ${dropdownOpen ? 'show' : ''}`}>
                 <a href="/profile">Profile</a>
                 <a href="/devices">My Devices</a>
+                {user.is_admin && (
+                  <a href="/admin/users">Admin Dashboard</a>
+                )}
                 <a href="#" onClick={(e) => {
                   e.preventDefault();
                   logout();
