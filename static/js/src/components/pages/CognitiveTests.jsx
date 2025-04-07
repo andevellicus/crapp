@@ -17,6 +17,7 @@ export default function CognitiveTests() {
         return;
       }
       
+      // TODO: DEPRECATED?
       await submitTestResults(results);
     };
     

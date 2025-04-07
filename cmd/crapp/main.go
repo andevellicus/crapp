@@ -150,7 +150,7 @@ func main() {
 	router.GET("/register", viewHandler.ServeReactApp)
 	router.GET("/profile", viewHandler.ServeReactApp)
 	router.GET("/devices", viewHandler.ServeReactApp)
-	router.GET("/cognitive-tests", viewHandler.ServeReactApp)
+	router.GET("/cognitive-tests", viewHandler.ServeReactApp) //DEPRECATED??
 	router.GET("/forgot-password", viewHandler.ServeReactApp)
 	router.GET("/reset-password", viewHandler.ServeReactApp)
 
@@ -190,16 +190,8 @@ func main() {
 		// Metric routes
 		api.GET("/metrics/chart/correlation", apiHandler.GetChartCorrelationData)
 		api.GET("/metrics/chart/timeline", apiHandler.GetChartTimelineData)
+		api.GET("/metrics/cpt/results", apiHandler.GetCPTResults)
 	}
-
-	/* TODO : DEPRECATEDS
-	// Add cognitive test routes to the API group
-	cognitiveTests := api.Group("/cognitive-tests")
-	{
-		cognitiveTests.GET("/cpt/results", cognitiveTestHandler.GetCPTResults)
-		//cognitiveTests.GET("/cpt/metrics", cognitiveTestHandler.GetCPTMetrics) //TODO: This will do for chart rendering
-	}
-	*/
 
 	form := router.Group("/api/form")
 	form.Use(middleware.AuthMiddleware(authService))
