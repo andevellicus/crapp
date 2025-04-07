@@ -217,6 +217,16 @@ func (h *FormHandler) SaveAnswer(c *gin.Context) {
 	// Save the answer to the form state
 	formState.Answers[questionId] = answer
 
+	// If interaction data is provided, save it as raw data
+	if len(req.InteractionData) > 0 {
+		formState.InteractionData = req.InteractionData
+	}
+
+	// If CPT data is provided, save it as raw data
+	if len(req.CPTData) > 0 {
+		formState.CPTData = req.CPTData
+	}
+
 	// Update step based on direction
 	if direction == "next" {
 		formState.CurrentStep++
@@ -239,10 +249,10 @@ func (h *FormHandler) SaveAnswer(c *gin.Context) {
 
 // SubmitForm handles form submission with validated data
 func (h *FormHandler) SubmitForm(c *gin.Context) {
-	stateID := c.Param("stateId")
+	stateId := c.Param("stateId")
 
 	// Get form state
-	formState, err := h.repo.FormStates.GetByID(stateID)
+	formState, err := h.repo.FormStates.GetByID(stateId)
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Form state not found"})
 		return
@@ -255,33 +265,65 @@ func (h *FormHandler) SubmitForm(c *gin.Context) {
 		return
 	}
 
-	// Parse question order
-	var questionOrder []int
-	if err := json.Unmarshal([]byte(formState.QuestionOrder), &questionOrder); err != nil {
-		h.log.Errorw("Error parsing question order", "error", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Invalid form state"})
-		return
-	}
-
-	// Validate all answers
-	validationResult := h.validator.ValidateForm(formState.Answers)
-	if !validationResult.Valid {
-		c.JSON(http.StatusBadRequest, validationResult)
-		return
-	}
-
-	// Get validated interaction data
-	req := c.MustGet("validatedRequest").(*validation.SubmitMetricsRequest)
-
-	// Process metrics data
-	calculatedMetrics := metrics.CalculateInteractionMetrics(req.InteractionData)
-
-	// Create assessment -- have to do this first to get the assessment ID
+	// Create assessment
 	assessmentID, err := h.repo.Assessments.Create(userEmail.(string), c.GetHeader("X-Device-ID"))
 	if err != nil {
 		h.log.Errorw("Error creating assessment", "error", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error saving assessment"})
 		return
+	}
+
+	// Process interaction data if available
+	if len(formState.InteractionData) > 0 {
+		var interactionData metrics.InteractionData
+		if err := json.Unmarshal(formState.InteractionData, &interactionData); err != nil {
+			h.log.Warnw("Error parsing interaction data", "error", err)
+		} else {
+			// Calculate metrics from the raw data
+			calculatedMetrics := metrics.CalculateInteractionMetrics(&interactionData)
+
+			// Set assessment ID for all metrics
+			for i := range calculatedMetrics.GlobalMetrics {
+				calculatedMetrics.GlobalMetrics[i].AssessmentID = assessmentID
+			}
+			for i := range calculatedMetrics.QuestionMetrics {
+				calculatedMetrics.QuestionMetrics[i].AssessmentID = assessmentID
+			}
+
+			// Combine all metrics for efficient batch insert
+			allMetrics := append(calculatedMetrics.GlobalMetrics, calculatedMetrics.QuestionMetrics...)
+			// Save metrics in a single batch operation
+			if len(allMetrics) > 0 {
+				if err := h.repo.CreateInBatches(allMetrics, 100); err != nil {
+					h.log.Warnw("Error saving metrics", "error", err)
+				} else {
+					h.log.Infow("Saved metrics successfully", "count", len(allMetrics))
+				}
+			}
+		}
+	}
+
+	// Process CPT data if available
+	if len(formState.CPTData) > 0 {
+		var cptData metrics.CPTData
+		if err := json.Unmarshal(formState.CPTData, &cptData); err != nil {
+			h.log.Warnw("Error parsing CPT data", "error", err)
+		} else {
+			// Calculate CPT metrics from the raw data
+			cptResults := metrics.CalculateCPTMetrics(&cptData)
+
+			// Set assessment ID and user info
+			cptResults.UserEmail = userEmail.(string)
+			cptResults.DeviceID = c.GetHeader("X-Device-ID")
+			cptResults.AssessmentID = assessmentID
+
+			// Save CPT results
+			if err := h.repo.CPTResults.Create(cptResults); err != nil {
+				h.log.Warnw("Error saving CPT results", "error", err)
+			} else {
+				h.log.Infow("Saved CPT results successfully", "assessment_id", assessmentID)
+			}
+		}
 	}
 
 	// Process form answers and save as question responses
@@ -292,28 +334,9 @@ func (h *FormHandler) SubmitForm(c *gin.Context) {
 	} else if len(questionResponses) > 0 {
 		// Save question responses
 		if err := h.repo.QuestionResponses.SaveBatch(questionResponses); err != nil {
-			h.log.Errorw("Error saving question responses", "error", err, "count", len(questionResponses))
+			h.log.Errorw("Error saving question responses", "error", err)
 		} else {
 			h.log.Infow("Saved question responses successfully", "count", len(questionResponses))
-		}
-	}
-
-	// Set assessment ID for all metrics
-	for i := range calculatedMetrics.GlobalMetrics {
-		calculatedMetrics.GlobalMetrics[i].AssessmentID = assessmentID
-	}
-	for i := range calculatedMetrics.QuestionMetrics {
-		calculatedMetrics.QuestionMetrics[i].AssessmentID = assessmentID
-	}
-
-	// Combine all metrics for efficient batch insert
-	allMetrics := append(calculatedMetrics.GlobalMetrics, calculatedMetrics.QuestionMetrics...)
-	// Save metrics in a single batch operation
-	if len(allMetrics) > 0 {
-		if err := h.repo.CreateInBatches(allMetrics, 100); err != nil {
-			h.log.Warnw("Error saving metrics", "error", err)
-		} else {
-			h.log.Infow("Saved metrics successfully", "count", len(allMetrics))
 		}
 	}
 

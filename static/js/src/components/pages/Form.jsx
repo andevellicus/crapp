@@ -1,19 +1,26 @@
+import { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import CPTTest from '../cpt/CPTTest';
 
-export default function Form() {
-    const [stateId, setStateId] = React.useState(null);
-    const [currentStep, setCurrentStep] = React.useState(0);
-    const [totalSteps, setTotalSteps] = React.useState(0);
-    const [currentQuestion, setCurrentQuestion] = React.useState(null);
-    const [previousAnswer, setPreviousAnswer] = React.useState(null);
-    const [formAnswers, setFormAnswers] = React.useState({});
-    const [isComplete, setIsComplete] = React.useState(false);
-    const [validationError, setValidationError] = React.useState(null);
-    const [isSubmitting, setIsSubmitting] = React.useState(false);
-    const {isAuthenticated, loading } = useAuth();
 
-    const [isDoingCognitiveTest, setIsDoingCognitiveTest] = useState(false);
+export default function Form() {
+  const [stateId, setStateId] = useState(null);
+  const [currentStep, setCurrentStep] = useState(0);
+  const [totalSteps, setTotalSteps] = useState(0);
+  const [currentQuestion, setCurrentQuestion] = useState(null);
+  const [previousAnswer, setPreviousAnswer] = useState(null);
+  const [formAnswers, setFormAnswers] = useState({});
+  const [formData, setFormData] = useState({
+      answers: {},
+      interactionData: null,
+      cptResults: null
+  });
+  const [isComplete, setIsComplete] = useState(false);
+  const [validationError, setValidationError] = useState(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isDoingCognitiveTest, setIsDoingCognitiveTest] = useState(false);
+  
+  const { isAuthenticated, loading } = useAuth();
     
     // Initialize form on component mount
     React.useEffect(() => {
@@ -29,11 +36,29 @@ export default function Form() {
       // Initialize form
       initForm();
       
-      // Initialize interaction tracking if available
+      // Initialize and setup interaction tracking
       if (window.interactionTracker) {
+        // Reset tracker to start fresh
         window.interactionTracker.reset();
+        
+        // Set up interval to periodically capture interaction data
+        const trackingInterval = setInterval(() => {
+            if (window.interactionTracker) {
+                // Get current interaction data
+                const currentData = window.interactionTracker.getData();
+                
+                // Update form data with latest interaction tracking
+                setFormData(prevData => ({
+                    ...prevData,
+                    interactionData: currentData
+                }));
+            }
+        }, 10000); // Update every 10 seconds
+        
+        // Cleanup interval on unmount
+        return () => clearInterval(trackingInterval);
       }
-    }, []);
+   }, [isAuthenticated, loading]);
     
     // Initialize form state
     const initForm = async (forceNew = false) => {
@@ -53,6 +78,13 @@ export default function Form() {
         
         const data = await response.json();
         setStateId(data.id);
+
+        // Reset form data for new form
+        setFormData({
+          answers: {},
+          interactionData: null,
+          cptResults: null
+        });
         
         // Load first question
         loadCurrentQuestion(data.id);
@@ -79,7 +111,10 @@ export default function Form() {
         // Check if we're at the submission screen
         if (data.state === 'complete') {
           setIsComplete(true);
-          setFormAnswers(data.answers || {});
+          setFormData(prev => ({
+              ...prev,
+              answers: data.answers || {}
+          }));
         } else {
           setCurrentQuestion(data.question);
           setCurrentStep(data.current_step);
@@ -88,9 +123,12 @@ export default function Form() {
           
           // Store previous answer in formAnswers
           if (data.previous_answer && data.question) {
-            setFormAnswers(prev => ({
+            setFormData(prev => ({
               ...prev,
-              [data.question.id]: data.previous_answer
+              answers: {
+                  ...prev.answers,
+                  [data.question.id]: data.previous_answer
+              }
             }));
           }
         }
@@ -115,6 +153,12 @@ export default function Form() {
       setValidationError(null);
       
       try {
+        // Get latest interaction data
+        let currentInteractionData = null;
+        if (window.interactionTracker) {
+          currentInteractionData = window.interactionTracker.getData();
+        }
+        
         const response = await fetch(`/api/form/state/${stateId}/answer`, {
           method: 'POST',
           headers: {
@@ -124,34 +168,40 @@ export default function Form() {
           body: JSON.stringify({
             question_id: currentQuestion.id,
             answer: answer,
-            direction: direction
+            direction: direction,
+            // Include latest data with each navigation
+            interaction_data: currentInteractionData,
+            cpt_data: formData.cptResults
           })
         });
         
         if (!response.ok) {
-          const errorData = await response.json();
-          setValidationError(errorData.error || 'Failed to save answer');
-          return;
+            const errorData = await response.json();
+            setValidationError(errorData.error || 'Failed to save answer');
+            return;
         }
         
         // Load next question
         loadCurrentQuestion();
       } catch (error) {
-        console.error('Error navigating:', error);
-        setValidationError('An error occurred. Please try again.');
+          console.error('Error navigating:', error);
+          setValidationError('An error occurred. Please try again.');
       }
     };
     
     // Get answer for a question
     const getQuestionAnswer = (questionId) => {
-      return formAnswers[questionId];
+        return formData.answers[questionId];
     };
     
     // Handle answer change
     const handleAnswerChange = (questionId, answer) => {
-      setFormAnswers(prev => ({
+      setFormData(prev => ({
         ...prev,
-        [questionId]: answer
+        answers: {
+            ...prev.answers,
+            [questionId]: answer
+        }
       }));
     };
     
@@ -160,38 +210,34 @@ export default function Form() {
       setIsSubmitting(true);
       
       try {
-        // Get interaction data if available
-        let interactionData = {};
+        // Get final interaction data snapshot
+        let finalInteractionData = formData.interactionData;
         if (window.interactionTracker) {
-          interactionData = window.interactionTracker.getData();
+            finalInteractionData = window.interactionTracker.getData();
         }
         
-        // Extract CPT test results - get the first one found
-        let cptData = null;
-        for (const [questionId, answer] of Object.entries(formAnswers)) {
-          if (typeof answer === 'object' && answer !== null && 
-              answer.stimuliPresented && answer.responses) {
-            cptData = answer;
-            break; // Just use the first CPT test found
-          }
-        }
+        // Final form data with latest interaction tracking
+        const finalFormData = {
+            ...formData,
+            interactionData: finalInteractionData
+        };
         
-        // Submit form
+        // Submit all data together
         const response = await fetch(`/api/form/state/${stateId}/submit`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${localStorage.getItem('auth_token')}`,
-            'X-Device-ID': localStorage.getItem('device_id') || ''
-          },
-          body: JSON.stringify({
-            interaction_data: interactionData,
-            cpt: cptData // Send the direct CPTData object, not an array
-          })
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${localStorage.getItem('auth_token')}`,
+                'X-Device-ID': localStorage.getItem('device_id') || ''
+            },
+            body: JSON.stringify({
+                interaction_data: finalFormData.interactionData,
+                cpt_data: finalFormData.cptResults
+            })
         });
         
         if (!response.ok) {
-          throw new Error('Failed to submit form');
+            throw new Error('Failed to submit form');
         }
         
         // Show success message
@@ -200,7 +246,6 @@ export default function Form() {
         // Reset form after delay
         setTimeout(() => {
           initForm(true);
-          // Redirect to index
           window.location.href = '/';
         }, 500);
       } catch (error) {
@@ -251,64 +296,67 @@ export default function Form() {
       };
       
       if (question && question.options && Array.isArray(question.options)) {
-        // Process each option and convert to appropriate settings object
         question.options.forEach(option => {
-          if (option.label && option.value !== undefined) {
-            let value = option.value;
-            
-            // Convert string values to appropriate types
-            if (typeof value === 'string') {
-              // Parse numeric values
-              if (!isNaN(value) && !isNaN(parseFloat(value))) {
-                value = parseFloat(value);
-              } 
-              // Parse arrays (comma-separated values)
-              else if (value.includes(',')) {
-                value = value.split(',').map(item => item.trim());
-              }
-              // Parse single value array for targets
-              else if (option.label === 'targets') {
-                value = [value];
-              }
+            if (option.label && option.value !== undefined) {
+                let value = option.value;
+                
+                if (typeof value === 'string') {
+                    if (!isNaN(value) && !isNaN(parseFloat(value))) {
+                        value = parseFloat(value);
+                    } else if (value.includes(',')) {
+                        value = value.split(',').map(item => item.trim());
+                    } else if (option.label === 'targets') {
+                        value = [value];
+                    }
+                }
+                
+                testSettings[option.label] = value;
             }
-            
-            // Add to settings
-            testSettings[option.label] = value;
-          }
         });
-      }
-      
-      return (
-        <CPTTest
-          settings={testSettings}
-          onTestEnd={(results) => {
-            handleAnswerChange(question.id, results);
-          }}
-        />
-      );
-    };
-    
-    // Render radio question
-    const renderRadioQuestion = (question) => {
-      const answer = getQuestionAnswer(question.id);
+    }
       
       return (
         <CPTTest
         settings={testSettings}
         questionId={question.id}
         onTestEnd={(results) => {
-          // Store raw results in form answers
-          handleAnswerChange(question.id, results);
-          // Allow navigation again
-          setIsDoingCognitiveTest(false);
+            // Store CPT results both in answers and in dedicated state
+            handleAnswerChange(question.id, results);
+            setCptResults(results);
+            setIsDoingCognitiveTest(false);
         }}
         onTestStart={() => {
-          // Hide navigation when test starts
-          setIsDoingCognitiveTest(true);
+            setIsDoingCognitiveTest(true);
         }}
-      />
-    );
-  };
+    />
+);
+};
+    
+    // Render radio question
+    const renderRadioQuestion = (question) => {
+      const answer = getQuestionAnswer(question.id);
+      
+      return (
+        <div className="symptom-scale">
+          {question.options.map(option => (
+            <label key={option.value} className="option-label">
+              <input
+                type="radio"
+                name={question.id}
+                value={option.value}
+                checked={answer === option.value}
+                onChange={() => handleAnswerChange(question.id, option.value)}
+                required={question.required}
+              />
+              <div className="option-text">
+                <strong>{option.label}</strong>
+                {option.description && <div>{option.description}</div>}
+              </div>
+            </label>
+          ))}
+        </div>
+      );
+    };
     
     // Render dropdown question
     const renderDropdownQuestion = (question) => {
@@ -417,43 +465,45 @@ export default function Form() {
     
     return (
       <form id="symptom-form">
-        <div className="progress-indicator">
+      <div className="progress-indicator">
           Question {currentStep} of {totalSteps}
-        </div>
-        
-        <div className="form-group" data-question-id={currentQuestion.id}>
-          <h3>{currentQuestion.title}</h3>
+      </div>
+      
+      <div className="form-group" data-question-id={currentQuestion?.id}>
+          <h3>{currentQuestion?.title}</h3>
           
-          {currentQuestion.description && (
-            <p>{currentQuestion.description}</p>
+          {currentQuestion?.description && (
+              <p>{currentQuestion.description}</p>
           )}
           
-          {renderQuestion(currentQuestion)}
+          {currentQuestion && renderQuestion(currentQuestion)}
           
           {validationError && (
-            <div className="validation-message">{validationError}</div>
+              <div className="validation-message">{validationError}</div>
           )}
-        </div>
+      </div>
         
-        <div className="navigation-buttons" id="nav-buttons">
-          {currentStep > 1 && (
-            <button
-              type="button"
-              className="nav-button prev-button"
-              onClick={() => navigate('prev')}
-            >
-              Previous
-            </button>
-          )}
-          
-          <button
-            type="button"
-            className="nav-button next-button"
-            onClick={() => navigate('next')}
-          >
-            Next
-          </button>
-        </div>
-      </form>
+      {!isDoingCognitiveTest && (
+                <div className="navigation-buttons" id="nav-buttons">
+                    {currentStep > 1 && (
+                        <button
+                            type="button"
+                            className="nav-button prev-button"
+                            onClick={() => navigate('prev')}
+                        >
+                            Previous
+                        </button>
+                    )}
+                    
+                    <button
+                        type="button"
+                        className="nav-button next-button"
+                        onClick={() => navigate('next')}
+                    >
+                        Next
+                    </button>
+                </div>
+            )}
+        </form>
     );
-  }
+}

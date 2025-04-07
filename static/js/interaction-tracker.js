@@ -1,3 +1,4 @@
+// Updated interaction-tracker.js with proper initialization and cleanup
 class InteractionTracker {
     constructor() {
         // Basic data storage
@@ -12,32 +13,56 @@ class InteractionTracker {
         this.lastRecordedTime = 0;
         this.throttleInterval = 50; // Record at most every 50ms
         
+        // Store event listener references for proper cleanup
+        this.mouseMoveListener = this.handleMouseMove.bind(this);
+        this.keyDownListener = this.handleKeyDown.bind(this);
+        this.keyUpListener = this.handleKeyUp.bind(this);
+        
         // Initialize tracking
         this.setupListeners();
     }
     
     setupListeners() {
         // Track mouse movements (throttled)
-        document.addEventListener('mousemove', this.handleMouseMove.bind(this));
+        document.addEventListener('mousemove', this.mouseMoveListener);
         
         // Track keyboard events
-        document.addEventListener('keydown', this.handleKeyDown.bind(this));
-        document.addEventListener('keyup', this.handleKeyUp.bind(this));
+        document.addEventListener('keydown', this.keyDownListener);
+        document.addEventListener('keyup', this.keyUpListener);
         
         // Track questions
-        const observer = new MutationObserver(() => {
+        this.mutationObserver = new MutationObserver(() => {
             this.findInteractiveElements();
             this.detectCurrentQuestion();
         });
         
-        observer.observe(document.body, { childList: true, subtree: true });
+        this.mutationObserver.observe(document.body, { childList: true, subtree: true });
         
         // Initial setup
         this.findInteractiveElements();
         this.detectCurrentQuestion();
     }
     
+    cleanup() {
+        // Remove event listeners to prevent memory leaks
+        document.removeEventListener('mousemove', this.mouseMoveListener);
+        document.removeEventListener('keydown', this.keyDownListener);
+        document.removeEventListener('keyup', this.keyUpListener);
+        
+        // Disconnect mutation observer
+        if (this.mutationObserver) {
+            this.mutationObserver.disconnect();
+        }
+        
+        // Clear intersection observers
+        if (this.intersectionObservers) {
+            this.intersectionObservers.forEach(observer => observer.disconnect());
+        }
+    }
+    
     detectCurrentQuestion() {
+        this.intersectionObservers = [];
+        
         document.querySelectorAll('.form-group').forEach(section => {
             let questionId = section.dataset.questionId;
             
@@ -59,6 +84,7 @@ class InteractionTracker {
             }, { threshold: 0.5 });
             
             observer.observe(section);
+            this.intersectionObservers.push(observer);
         });
     }
     
@@ -173,11 +199,26 @@ class InteractionTracker {
     }
     
     reset() {
+        // Clear data
         this.movements = [];
         this.interactions = [];
         this.keyboardEvents = [];
         this.startTime = performance.now();
+        
+        // No need to reset listeners - they'll continue to track events
     }
 }
 
-window.interactionTracker = new InteractionTracker();
+// Create a singleton instance
+if (!window.interactionTracker) {
+    window.interactionTracker = new InteractionTracker();
+}
+
+// Add cleanup on page unload
+window.addEventListener('beforeunload', () => {
+    if (window.interactionTracker) {
+        window.interactionTracker.cleanup();
+    }
+});
+
+export default window.interactionTracker;

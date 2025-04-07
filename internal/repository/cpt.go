@@ -27,11 +27,13 @@ func NewCognitiveTestRepository(db *gorm.DB, log *zap.SugaredLogger) *CognitiveT
 // SaveCPTResults saves CPT test results to database
 func (r *CognitiveTestRepository) Create(results *models.CPTResult) error {
 	// Save to database
-	if err := r.db.Create(&results).Error; err != nil {
+
+	if err := r.db.Create(results).Error; err != nil {
 		r.log.Errorw("Error saving CPT result", "error", err)
 		return fmt.Errorf("failed to save CPT result: %w", err)
 	}
 
+	// Return the ID of the newly created result
 	return nil
 }
 
