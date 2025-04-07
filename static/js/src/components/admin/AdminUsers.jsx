@@ -180,7 +180,7 @@ const AdminUsers = () => {
                   <td>{`${user.first_name || ''} ${user.last_name || ''}`.trim() || '-'}</td>
                   <td>{formatDate(user.created_at)}</td>
                   <td>{formatDate(user.last_login)}</td>
-                  <td>{formatDate(user.last_assessment)}</td>
+                  <td>{formatDate(user.last_assessment_date)}</td>
                   <td>
                     <Link 
                       to={`/admin/charts?user_id=${encodeURIComponent(user.email)}`} 
