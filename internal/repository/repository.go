@@ -20,11 +20,11 @@ type Repository struct {
 	Devices             *DeviceRepository
 	Assessments         *AssessmentRepository
 	FormStates          *FormStateRepository
+	CPTResults          *CognitiveTestRepository
+	QuestionResponses   *QuestionResponseRepository
 	RefreshTokens       *RefreshTokenRepository
 	PasswordResetTokens *PasswordTokenRepository
 	RevokedTokens       *RevokedTokenRepository
-	CPTResults          *CognitiveTestRepository
-	QuestionResponses   *QuestionResponseRepository
 }
 
 // NewRepository creates a new repository with the given database connection

@@ -4,8 +4,6 @@ package validation
 import (
 	"encoding/json"
 	"time"
-
-	"github.com/andevellicus/crapp/internal/metrics"
 )
 
 // Auth validation models
@@ -49,13 +47,11 @@ type RenameDeviceRequest struct {
 
 // Form validation models
 type SaveAnswerRequest struct {
-	QuestionID string `json:"question_id" validate:"required"`
-	Answer     any    `json:"answer"`
-	Direction  string `json:"direction" validate:"required,oneof=next prev"`
-}
-
-type SubmitMetricsRequest struct {
-	InteractionData *metrics.InteractionData `json:"interaction_data"`
+	QuestionID      string          `json:"question_id" validate:"required"`
+	Answer          any             `json:"answer"`
+	Direction       string          `json:"direction" validate:"required,oneof=next prev"`
+	InteractionData json.RawMessage `json:"interaction_data,omitempty"`
+	CPTData         json.RawMessage `json:"cpt_data,omitempty"`
 }
 
 // Push validation models
@@ -92,7 +88,6 @@ type DeleteAccountRequest struct {
 
 // CPTResultsRequest represents a validation model for CPT results
 type CPTResultsRequest struct {
-	AssessmentID  uint            `json:"assessment_id" validate:"required"`
 	UserEmail     string          `json:"user_email" validate:"required,email"`
 	DeviceID      string          `json:"device_id" validate:"required"`
 	QuestionID    string          `json:"question_id" validate:"required"`

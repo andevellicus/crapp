@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useAuth } from '../../context/AuthContext';
 
-export default function CPTTest({ onTestEnd, settings, questionId }) {
+export default function CPTTest({ onTestEnd, onTestStart, settings, questionId  }) {
   // Default settings will be overridden by props
   const DEFAULT_SETTINGS = {
     testDuration: 120000, // 2 minutes in milliseconds
@@ -19,11 +19,8 @@ export default function CPTTest({ onTestEnd, settings, questionId }) {
   // State
   const [isRunning, setIsRunning] = useState(false);
   const [isComplete, setIsComplete] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
   const [currentStimulus, setCurrentStimulus] = useState(null);
   const [remainingTime, setRemainingTime] = useState(testSettings.testDuration);
-  const [errorMessage, setErrorMessage] = useState('');
-  const [rawData, setRawData] = useState(null);
   
   // Refs
   const timerIntervalRef = useRef(null);
@@ -31,7 +28,7 @@ export default function CPTTest({ onTestEnd, settings, questionId }) {
   const stimulusStartTimeRef = useRef(0);
   const isRunningRef = useRef(false);
   const currentStimulusRef = useRef(null);
-  
+
   // Raw data collection refs
   const testDataRef = useRef({
     testStartTime: 0,
@@ -43,7 +40,6 @@ export default function CPTTest({ onTestEnd, settings, questionId }) {
   
   // Auth context for user data and device ID
   const { user, deviceId } = useAuth();
-  const isAdmin = user?.is_admin;
 
   // Update refs when state changes
   useEffect(() => {
@@ -77,7 +73,12 @@ export default function CPTTest({ onTestEnd, settings, questionId }) {
     // Set running state
     setIsRunning(true);
     setRemainingTime(testSettings.testDuration);
-    
+
+    // Call onTestStart callback if provided
+    if (onTestStart) {
+      onTestStart();
+    }
+
     // Record start time
     const startTime = performance.now();
     
@@ -208,139 +209,61 @@ export default function CPTTest({ onTestEnd, settings, questionId }) {
       stimulusTimeoutRef.current = null;
     }
     
-    // Set raw data for submission
-    setRawData(testDataRef.current);
-    
-    // Submit test data
-    submitTestData(testDataRef.current);
-  };
-  
-  // Submit test data to backend
-  const submitTestData = async (testData) => {
-    if (!testData) return;
-    
-    setIsSubmitting(true);
-    setErrorMessage('');
-    
-    try {
-      // Format data as expected by backend
-      const rawDataJson = JSON.stringify(testData);
-      
-      // Submit to backend
-      const response = await fetch('/api/cognitive-tests/cpt/submit', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('auth_token')}`,
-          'X-Device-ID': deviceId || ''
-        },
-        body: JSON.stringify({
-          user_email: user?.email,
-          device_id: deviceId || 'unknown',
-          question_id: questionId,
-          test_start_time: new Date(testData.testStartTime).toISOString(),
-          test_end_time: new Date(testData.testEndTime).toISOString(),
-          raw_data: rawDataJson
-        })
-      });
-      
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to submit test results');
-      }
-      
-      // Call onTestEnd with the test data
-      if (onTestEnd) {
-        onTestEnd(testData);
-      }
-      
-    } catch (error) {
-      console.error('Error submitting test data:', error);
-      setErrorMessage('Failed to save results: ' + error.message);
-    } finally {
-      setIsSubmitting(false);
+    // Call onTestEnd with the raw data
+    if (onTestEnd) {
+      onTestEnd(testDataRef.current);
     }
   };
   
   // Render intro screen
   const renderIntroScreen = () => (
     <div className="cpt-intro">
-      <h3>Continuous Performance Test</h3>
-      <div className="cpt-instructions">
-        <p>This test measures your attention and response control.</p>
-        <p><strong>Instructions:</strong></p>
-        <ul>
-          <li>You will see letters appear on the screen one at a time</li>
-          <li>Press the spacebar when you see the letter '{testSettings.targets[0]}'</li>
-          <li>Do NOT press any key for other letters</li>
-          <li>Try to respond as quickly and accurately as possible</li>
-          <li>The test will take {testSettings.testDuration / 1000 / 60} minutes to complete</li>
-        </ul>
-        <p>Click 'Start Test' when you're ready to begin.</p>
-      </div>
-      <button id="cpt-start-button" className="submit-button" onClick={startTest}>
-        Start Test
-      </button>
+        <h3>Continuous Performance Test</h3>
+        <div className="cpt-instructions">
+            <p>This test measures your attention and response control.</p>
+            <p><strong>Instructions:</strong></p>
+            <ul>
+                <li>You will see letters appear on the screen one at a time</li>
+                <li>Press the spacebar when you see the letter '{testSettings.targets[0]}'</li>
+                <li>Do NOT press any key for other letters</li>
+                <li>Try to respond as quickly and accurately as possible</li>
+                <li>The test will take {testSettings.testDuration / 1000 / 60} minutes to complete</li>
+            </ul>
+            <p>Click 'Start Test' when you're ready to begin.</p>
+        </div>
+        <button id="cpt-start-button" className="submit-button" onClick={startTest}>
+            Start Test
+        </button>
     </div>
-  );
+);
   
   // Render test screen
   const renderTestScreen = () => (
     <div className="cpt-test-container">
-      <div className="cpt-timer">
-        Time Remaining: <span id="cpt-time-remaining">
-          {formatTime(remainingTime)}
-        </span>
-      </div>
-      <div className="cpt-stimulus-container">
-        <div id="cpt-stimulus">
-          {currentStimulus ? currentStimulus.value : ''}
+        <div className="cpt-timer">
+            Time Remaining: <span id="cpt-time-remaining">
+                {formatTime(remainingTime)}
+            </span>
         </div>
-      </div>
-      <div className="cpt-instructions-small">
-        <p>Press spacebar for '{testSettings.targets[0]}' only</p>
-      </div>
+        <div className="cpt-stimulus-container">
+            <div id="cpt-stimulus">
+                {currentStimulus ? currentStimulus.value : ''}
+            </div>
+        </div>
+        <div className="cpt-instructions-small">
+            <p>Press spacebar for '{testSettings.targets[0]}' only</p>
+        </div>
     </div>
-  );
+);
   
   // Render results screen
-  const renderResultsScreen = () => {
-    // Show submitting state
-    if (isSubmitting) {
-      return (
-        <div className="cpt-completion-message">
-          <div className="spinner" style={{ margin: '0 auto 15px' }}></div>
-          <p>Saving test results...</p>
-        </div>
-      );
-    }
-    
-    // Show error message if submission failed
-    if (errorMessage) {
-      return (
-        <div className="cpt-completion-message" style={{ backgroundColor: '#fee2e2', borderLeftColor: '#e53e3e' }}>
-          <p>{errorMessage}</p>
-          <button 
-            className="submit-button" 
-            onClick={() => submitTestData(rawData)}
-            style={{ marginTop: '15px' }}
-          >
-            Try Again
-          </button>
-        </div>
-      );
-    }
-    
-    // For all users, show simple completion message
-    // Admin details would be shown on a separate page if needed
-    return (
-      <div className="cpt-completion-message">
+  const renderResultsScreen = () => (
+    <div className="cpt-completion-message">
         <p>Test completed! Your results have been saved.</p>
         <p>You can now proceed to the next question.</p>
-      </div>
-    );
-  };
-  
+    </div>
+);
+     
   // Main render
   if (isComplete) {
     return renderResultsScreen();

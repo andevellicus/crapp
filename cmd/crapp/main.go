@@ -193,9 +193,8 @@ func main() {
 	// Add cognitive test routes to the API group
 	cognitiveTests := api.Group("/cognitive-tests")
 	{
-		cognitiveTests.POST("/cpt/submit", middleware.ValidateRequest(validation.CPTResultsRequest{}), cognitiveTestHandler.SaveCPTResults) //DEPRECATED??
 		cognitiveTests.GET("/cpt/results", cognitiveTestHandler.GetCPTResults)
-		//cognitiveTests.GET("/cpt/metrics", cognitiveTestHandler.GetCPTMetrics) TODO
+		//cognitiveTests.GET("/cpt/metrics", cognitiveTestHandler.GetCPTMetrics) //TODO: This will do for chart rendering
 	}
 
 	form := router.Group("/api/form")
@@ -204,7 +203,7 @@ func main() {
 		form.POST("/init", formHandler.InitForm)
 		form.GET("/state/:stateId", formHandler.GetCurrentQuestion)
 		form.POST("/state/:stateId/answer", middleware.ValidateRequest(validation.SaveAnswerRequest{}), formHandler.SaveAnswer)
-		form.POST("/state/:stateId/submit", middleware.ValidateRequest(validation.SubmitMetricsRequest{}), formHandler.SubmitForm)
+		form.POST("/state/:stateId/submit", formHandler.SubmitForm)
 	}
 
 	// Add push notification routes
