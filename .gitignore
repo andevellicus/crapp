@@ -20,6 +20,9 @@ logs/
 # Keys directory
 certs/
 
+# Util directory
+utils/
+
 # Dependency directories (remove these if vendoring dependencies)
 /vendor/
 
@@ -36,9 +39,7 @@ Thumbs.db
 # Config file with secrets
 config.yaml
 
-
-
 # React
-node_modules
 static/dist
+node_modules
 package-lock.json

@@ -1,5 +1,3 @@
-// static/js/src/services/api.js
-
 // Base API configurations
 const API_BASE = '';  // Empty for same-origin API
 

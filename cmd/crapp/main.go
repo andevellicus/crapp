@@ -107,8 +107,6 @@ func main() {
 	authHandler := handlers.NewAuthHandler(repo, log, authService)
 	// Create form handler
 	formHandler := handlers.NewFormHandler(repo, log, questionLoader)
-	// Create cognitive test handler //TODO: DEPRECATED??
-	//cognitiveTestHandler := handlers.NewCognitiveTestHandler(repo, log)
 	// Create admin handler
 	adminHandler := handlers.NewAdminHandler(repo, log, pushService, emailService)
 
@@ -150,7 +148,6 @@ func main() {
 	router.GET("/register", viewHandler.ServeReactApp)
 	router.GET("/profile", viewHandler.ServeReactApp)
 	router.GET("/devices", viewHandler.ServeReactApp)
-	// router.GET("/cognitive-tests", viewHandler.ServeReactApp) //DEPRECATED??
 	router.GET("/forgot-password", viewHandler.ServeReactApp)
 	router.GET("/reset-password", viewHandler.ServeReactApp)
 
