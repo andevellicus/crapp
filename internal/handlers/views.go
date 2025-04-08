@@ -29,22 +29,6 @@ func (h *GinViewHandler) ServeReactApp(c *gin.Context) {
 	})
 }
 
-// ServeAdminUsers serves the admin users page
-func (h *GinViewHandler) ServeAdminUsers(c *gin.Context) {
-	c.HTML(http.StatusOK, "admin_users.html", gin.H{
-		"title":       "Manage Users - CRAPP Admin",
-		"isAdminPage": true,
-	})
-}
-
-// ServeCharts serves the charts.html file
-func (h *GinViewHandler) ServeCharts(c *gin.Context) {
-	c.HTML(http.StatusOK, "charts.html", gin.H{
-		"title":       "Charts - CRAPP",
-		"isAdminPage": true,
-	})
-}
-
 // setupTemplates initializes templates with custom functions
 func SetupTemplates() (*template.Template, error) {
 	// Define custom template functions

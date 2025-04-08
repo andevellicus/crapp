@@ -3,7 +3,6 @@ package validation
 
 import (
 	"encoding/json"
-	"time"
 )
 
 // Auth validation models
@@ -84,16 +83,6 @@ type ResetPasswordRequest struct {
 
 type DeleteAccountRequest struct {
 	Password string `json:"password" validate:"required"`
-}
-
-// CPTResultsRequest represents a validation model for CPT results
-type CPTResultsRequest struct {
-	UserEmail     string          `json:"user_email" validate:"required,email"`
-	DeviceID      string          `json:"device_id" validate:"required"`
-	QuestionID    string          `json:"question_id" validate:"required"`
-	TestStartTime time.Time       `json:"test_start_time" validate:"required"`
-	TestEndTime   time.Time       `json:"test_end_time" validate:"required,gtfield=TestStartTime"`
-	RawData       json.RawMessage `json:"raw_data" validate:"required"`
 }
 
 // AdminReminderRequest represents a request to send a reminder to a user

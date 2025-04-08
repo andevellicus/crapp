@@ -187,7 +187,6 @@ func main() {
 		// Metric routes
 		api.GET("/metrics/chart/correlation", apiHandler.GetChartCorrelationData)
 		api.GET("/metrics/chart/timeline", apiHandler.GetChartTimelineData)
-		api.GET("/metrics/cpt/results", apiHandler.GetCPTMetrics)
 	}
 
 	form := router.Group("/api/form")
