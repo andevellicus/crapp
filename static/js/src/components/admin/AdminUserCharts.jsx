@@ -1,30 +1,14 @@
+// src/components/admin/AdminUserCharts.jsx
 import React, { useState, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
-import { 
-  Chart as ChartJS, 
-  CategoryScale,
-  LinearScale,
-  PointElement,
-  LineElement,
-  Title,
-  Tooltip,
-  Legend,
-  ScatterController
-} from 'chart.js';
-import { Line, Scatter } from 'react-chartjs-2';
 import api from '../../services/api';
-
-// Register Chart.js components
-ChartJS.register(
-  CategoryScale,
-  LinearScale,
-  PointElement,
-  LineElement,
-  Title,
-  Tooltip,
-  Legend,
-  ScatterController
-);
+import ChartControls from './charts/ChartControls';
+import CorrelationChart from './charts/CorrelationChart';
+import TimelineChart from './charts/TimelineChart';
+import CPTMetricsDisplay from './charts/CPTMetricsDisplay';
+import MetricsExplanation from './charts/MetricsExplanation';
+import LoadingSpinner from '../common/LoadingSpinner';
+import NoDataMessage from '../common/NoDataMessage';
 
 const AdminUserCharts = () => {
   const location = useLocation();
@@ -66,7 +50,7 @@ const AdminUserCharts = () => {
       { value: 'correction_rate', label: 'Correction Rate' },
       { value: 'pause_rate', label: 'Pause Rate' }
     ],
-    cpt: [] // CPT metrics are handled separately
+    cpt: []
   };
   
   // 1. Load questions and check for CPT availability
@@ -118,7 +102,7 @@ const AdminUserCharts = () => {
     
     loadQuestions();
   }, [userId]);
-  
+
   // Helper to determine question metrics type
   const getQuestionMetricsType = (question) => {
     // If metrics_type is explicitly defined, use it
@@ -218,7 +202,7 @@ const AdminUserCharts = () => {
   };
   
   // Toggle between interaction metrics and CPT metrics
-  const toggleCptMetrics = () => {
+  const handleToggleCptMetrics = () => {
     setShowCptMetrics(!showCptMetrics);
   };
   
@@ -304,29 +288,6 @@ const AdminUserCharts = () => {
       setIsLoading(false);
     }
   };
-  
-  // Render CPT metrics card
-  const renderCptMetricCard = (label, value, unit = '', format = 'decimal') => {
-    let displayValue = value;
-    
-    if (format === 'decimal' && typeof value === 'number') {
-      displayValue = value.toFixed(2);
-    } else if (format === 'percent' && typeof value === 'number') {
-      displayValue = (value * 100).toFixed(1) + '%';
-    } else if (format === 'integer' && typeof value === 'number') {
-      displayValue = Math.round(value);
-    }
-    
-    return (
-      <div className="cpt-metric-card">
-        <h4>{label}</h4>
-        <div className="cpt-metric-value">
-          {displayValue}
-          {unit && <span className="cpt-metric-unit">{unit}</span>}
-        </div>
-      </div>
-    );
-  };
 
   // Group questions by metrics type
   const groupQuestionsByMetricsType = () => {
@@ -352,6 +313,15 @@ const AdminUserCharts = () => {
 
   // Get grouped questions for selection dropdown
   const questionGroups = groupQuestionsByMetricsType();
+
+  const getMetricsTypeForSelectedSymptom = () => {
+    if (!selectedSymptom) return 'mouse';
+    
+    const question = allQuestions.find(q => q.id === selectedSymptom);
+    if (!question) return 'mouse';
+    
+    return getQuestionMetricsType(question);
+  };
   
   return (
     <div>
@@ -361,85 +331,17 @@ const AdminUserCharts = () => {
       </div>
       
       <div id="data-content" style={{ display: 'block' }}>
-        <div className="controls">
-          <div className="control-group">
-            <label htmlFor="symptom-select">Symptom Question:</label>
-            <select 
-              id="symptom-select"
-              value={selectedSymptom}
-              onChange={handleSymptomChange}
-            >
-              {/* Mouse input questions */}
-              {questionGroups.mouse.length > 0 && (
-                <optgroup label="Mouse Input Questions">
-                  {questionGroups.mouse.map(question => (
-                    <option key={question.id} value={question.id}>
-                      {question.title}
-                    </option>
-                  ))}
-                </optgroup>
-              )}
-              
-              {/* Keyboard input questions */}
-              {questionGroups.keyboard.length > 0 && (
-                <optgroup label="Keyboard Input Questions">
-                  {questionGroups.keyboard.map(question => (
-                    <option key={question.id} value={question.id}>
-                      {question.title}
-                    </option>
-                  ))}
-                </optgroup>
-              )}
-              
-              {/* CPT questions */}
-              {questionGroups.cpt.length > 0 && (
-                <optgroup label="Cognitive Test Questions">
-                  {questionGroups.cpt.map(question => (
-                    <option key={question.id} value={question.id}>
-                      {question.title}
-                    </option>
-                  ))}
-                </optgroup>
-              )}
-            </select>
-          </div>
-          
-          <div className="control-group">
-            <label htmlFor="metric-select">Interaction Metric:</label>
-            <select 
-              id="metric-select"
-              value={selectedMetric}
-              onChange={handleMetricChange}
-              disabled={showCptMetrics || availableMetrics.length === 0}
-            >
-              {availableMetrics.map(metric => (
-                <option key={metric.value} value={metric.value}>
-                  {metric.label}
-                </option>
-              ))}
-            </select>
-          </div>
-          
-          {/* CPT Metrics Toggle */}
-          {cptMetricsAvailable && (
-            <div className="control-group" style={{ marginLeft: '20px' }}>
-              <button 
-                className="toggle-cpt-button"
-                onClick={toggleCptMetrics}
-                style={{
-                  backgroundColor: showCptMetrics ? '#4a6fa5' : '#f5f5f5',
-                  color: showCptMetrics ? 'white' : '#333',
-                  border: '1px solid #ddd',
-                  padding: '8px 15px',
-                  borderRadius: '4px',
-                  cursor: 'pointer'
-                }}
-              >
-                {showCptMetrics ? 'Show Interaction Metrics' : 'Show CPT Metrics'}
-              </button>
-            </div>
-          )}
-        </div>
+        <ChartControls
+          selectedSymptom={selectedSymptom}
+          selectedMetric={selectedMetric}
+          availableMetrics={availableMetrics}
+          questionGroups={questionGroups}
+          cptMetricsAvailable={cptMetricsAvailable}
+          showCptMetrics={showCptMetrics}
+          onSymptomChange={handleSymptomChange}
+          onMetricChange={handleMetricChange}
+          onToggleCptMetrics={handleToggleCptMetrics}
+        />
         
         <div className="context-display">
           {showCptMetrics ? (
@@ -466,166 +368,27 @@ const AdminUserCharts = () => {
         </div>
         
         {isLoading ? (
-          <div className="loading">
-            <div className="spinner"></div>
-            <p>Loading chart data...</p>
-          </div>
+          <LoadingSpinner message="Loading chart data..." />
         ) : noData ? (
-          <div id="no-data" className="no-data">
-            <h3>No Data Available</h3>
-            <p>{errorMessage || "There isn't enough data available for this selection."}</p>
-          </div>
+          <NoDataMessage message={errorMessage || "There isn't enough data available for this selection."} />
         ) : (
           <>
             {showCptMetrics && cptMetricsAvailable && cptMetrics ? (
-              <div className="cpt-metrics-container">
-                <h3>CPT Performance Metrics</h3>
-                <p>Based on {cptMetrics.test_count} test(s)</p>
-                
-                <div className="cpt-metrics-grid">
-                  {renderCptMetricCard('Average Reaction Time', cptMetrics.avg_reaction_time, 'ms')}
-                  {renderCptMetricCard('Detection Rate', cptMetrics.avg_detection_rate, '', 'percent')}
-                  {renderCptMetricCard('Omission Error Rate', cptMetrics.avg_omission_rate, '', 'percent')}
-                  {renderCptMetricCard('Commission Error Rate', cptMetrics.avg_commission_rate, '', 'percent')}
-                </div>
-                
-                <div className="cpt-metrics-explanation">
-                  <h4>What These Metrics Mean</h4>
-                  <ul>
-                    <li><strong>Reaction Time:</strong> Average time to respond to target stimuli (lower is better)</li>
-                    <li><strong>Detection Rate:</strong> Percentage of correct responses to targets (higher is better)</li>
-                    <li><strong>Omission Error Rate:</strong> Rate of missing targets (lower is better)</li>
-                    <li><strong>Commission Error Rate:</strong> Rate of responding to non-targets (lower is better)</li>
-                  </ul>
-                </div>
-              </div>
+              <CPTMetricsDisplay metrics={cptMetrics} />
             ) : (
               <>
-                {correlationData && (
-                  <div className="chart-container">
-                    <Scatter 
-                      data={correlationData.data}
-                      options={{
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        plugins: {
-                          title: {
-                            display: true,
-                            text: correlationData.title
-                          }
-                        },
-                        scales: {
-                          x: {
-                            title: {
-                              display: true,
-                              text: correlationData.xLabel
-                            }
-                          },
-                          y: {
-                            title: {
-                              display: true,
-                              text: correlationData.yLabel
-                            }
-                          }
-                        }
-                      }}
-                    />
-                  </div>
-                )}
-                
-                {timelineData && (
-                  <div className="chart-container">
-                    <Line 
-                      data={timelineData.data}
-                      options={{
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        plugins: {
-                          title: {
-                            display: true,
-                            text: timelineData.title
-                          }
-                        },
-                        scales: {
-                          y: {
-                            type: 'linear',
-                            display: true,
-                            position: 'left',
-                            title: {
-                              display: true,
-                              text: timelineData.yLabel
-                            }
-                          },
-                          y1: {
-                            type: 'linear',
-                            display: true,
-                            position: 'right',
-                            title: {
-                              display: true,
-                              text: timelineData.y2Label
-                            },
-                            grid: {
-                              drawOnChartArea: false
-                            }
-                          }
-                        }
-                      }}
-                    />
-                  </div>
-                )}
+                {correlationData && <CorrelationChart data={correlationData} />}
+                {timelineData && <TimelineChart data={timelineData} />}
               </>
             )}
           </>
         )}
         
-        <div className="metrics-help">
-          {showCptMetrics ? (
-            <>
-              <h3>Understanding CPT Metrics</h3>
-              <p>The Continuous Performance Test (CPT) is a neuropsychological test that measures sustained attention and impulsivity.</p>
-              <ul>
-                <li><strong>Reaction Time:</strong> Measures processing speed and attention.</li>
-                <li><strong>Detection Rate:</strong> Measures ability to correctly identify targets.</li>
-                <li><strong>Omission Errors:</strong> Missing targets suggests inattention or distractibility.</li>
-                <li><strong>Commission Errors:</strong> Responding to non-targets suggests impulsivity or poor inhibitory control.</li>
-              </ul>
-            </>
-          ) : (
-            <>
-              <h3>Understanding Interaction Metrics</h3>
-              
-              {availableMetrics.length > 0 && 
-               availableMetrics[0].value === metricsByType.mouse[0].value && (
-                <div id="mouse-metrics-help">
-                  <h4>Mouse Metrics</h4>
-                  <ul>
-                    <li><strong>Click Precision:</strong> How accurately the user clicks on targets (higher is better)</li>
-                    <li><strong>Path Efficiency:</strong> How directly the mouse moves to targets (higher is better)</li>
-                    <li><strong>Overshoot Rate:</strong> How often the user overshoots targets (lower is better)</li>
-                    <li><strong>Average Velocity:</strong> How quickly the mouse moves (can indicate focus or cognitive load)</li>
-                    <li><strong>Velocity Variability:</strong> How consistent the mouse movement speed is (lower can indicate better motor control)</li>
-                  </ul>
-                </div>
-              )}
-              
-              {availableMetrics.length > 0 && 
-               availableMetrics[0].value === metricsByType.keyboard[0].value && (
-                <div id="keyboard-metrics-help">
-                  <h4>Keyboard Metrics</h4>
-                  <ul>
-                    <li><strong>Typing Speed:</strong> Characters per second typed (higher indicates faster typing)</li>
-                    <li><strong>Inter-Key Interval:</strong> Average time between keypresses in milliseconds (lower indicates faster typing)</li>
-                    <li><strong>Typing Rhythm Variability:</strong> Consistency of typing rhythm (lower indicates more consistent typing)</li>
-                    <li><strong>Key Hold Time:</strong> Average time each key is held down (can indicate motor control)</li>
-                    <li><strong>Key Press Variability:</strong> Consistency of key press durations (lower is more consistent)</li>
-                    <li><strong>Correction Rate:</strong> Frequency of backspace/delete usage (indicates error correction)</li>
-                    <li><strong>Pause Rate:</strong> Frequency of pauses while typing (can indicate cognitive processing)</li>
-                  </ul>
-                </div>
-              )}
-            </>
-          )}
-        </div>
+        <MetricsExplanation 
+          showCptMetrics={showCptMetrics} 
+          metricsType={getMetricsTypeForSelectedSymptom()}
+          availableMetrics={availableMetrics}
+        />
       </div>
     </div>
   );
