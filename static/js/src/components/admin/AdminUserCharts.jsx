@@ -187,34 +187,41 @@ const AdminUserCharts = () => {
       
       const metricsType = getQuestionMetricsType(question);
       
-      // For CPT metrics, we only show timeline (no correlation)
-      if (metricsType === 'cpt') {
-        // Use the same timeline endpoint but with special CPT metrics
-        const timelineResponse = await api.get(
-          `/api/metrics/chart/timeline?user_id=${userIdToUse}&symptom=${selectedSymptom}&metric=${selectedMetric}`
-        );
-        
-        // Store the data in state
-        setTimelineData(timelineResponse);
-        
-        // No correlation data for CPT metrics
-        setCorrelationData(null);
-        
-        // Check if we have data
-        const hasTimelineData = timelineResponse && 
-                          timelineResponse.data && 
-                          timelineResponse.data.datasets && 
-                          timelineResponse.data.datasets.length > 0 &&
-                          timelineResponse.data.labels?.length > 0;
-        
-        setNoData(!hasTimelineData);
-        
-        if (!hasTimelineData) {
-          setErrorMessage('No CPT metrics data available for timeline visualization');
+      // Get timeline data for all metrics types
+      const timelineResponse = await api.get(
+        `/api/metrics/chart/timeline?user_id=${userIdToUse}&symptom=${selectedSymptom}&metric=${selectedMetric}`
+      );
+      
+      // Store the timeline data in state
+      setTimelineData(timelineResponse);
+      
+      // Only get correlation data for mouse metrics
+      if (metricsType === 'mouse') {
+        try {
+          const correlationResponse = await api.get(
+            `/api/metrics/chart/correlation?user_id=${userIdToUse}&symptom=${selectedSymptom}&metric=${selectedMetric}`
+          );
+          setCorrelationData(correlationResponse);
+        } catch (error) {
+          console.error('Error loading correlation data:', error);
+          setCorrelationData(null);
         }
       } else {
-        // For non-CPT metrics, fetch both correlation and timeline data
-        await loadInteractionMetricsData(userIdToUse, selectedSymptom, selectedMetric);
+        // For non-mouse metrics (keyboard, cpt), don't show correlation
+        setCorrelationData(null);
+      }
+      
+      // Check if we have data
+      const hasTimelineData = timelineResponse && 
+                        timelineResponse.data && 
+                        timelineResponse.data.datasets && 
+                        timelineResponse.data.datasets.length > 0 &&
+                        timelineResponse.data.labels?.length > 0;
+      
+      setNoData(!hasTimelineData);
+      
+      if (!hasTimelineData) {
+        setErrorMessage('No data available for visualization');
       }
     } catch (error) {
       console.error('Error updating charts:', error);
@@ -222,40 +229,6 @@ const AdminUserCharts = () => {
       setNoData(true);
     } finally {
       setIsLoading(false);
-    }
-  };
- 
-  // Load interaction metrics data
-  const loadInteractionMetricsData = async (userIdToUse, symptomKey, metricKey) => {
-    try {
-      // Fetch pre-formatted data from API endpoints for interaction metrics
-      const [correlationResponse, timelineResponse] = await Promise.all([
-        api.get(`/api/metrics/chart/correlation?user_id=${userIdToUse}&symptom=${symptomKey}&metric=${metricKey}`),
-        api.get(`/api/metrics/chart/timeline?user_id=${userIdToUse}&symptom=${symptomKey}&metric=${metricKey}`)
-      ]);
-      
-      // Store the data in state
-      setCorrelationData(correlationResponse);
-      setTimelineData(timelineResponse);
-      
-      // Check if we have data
-      const hasCorrelationData = correlationResponse && 
-                              correlationResponse.data && 
-                              correlationResponse.data.datasets && 
-                              correlationResponse.data.datasets.length > 0 &&
-                              correlationResponse.data.datasets[0].data?.length > 0;
-                              
-      const hasTimelineData = timelineResponse && 
-                           timelineResponse.data && 
-                           timelineResponse.data.datasets && 
-                           timelineResponse.data.datasets.length > 0 &&
-                           timelineResponse.data.labels?.length > 0;
-      
-      setNoData(!hasCorrelationData && !hasTimelineData);
-    } catch (error) {
-      console.error('Error loading interaction metrics data:', error);
-      setNoData(true);
-      throw error;
     }
   };
 
@@ -296,10 +269,8 @@ const AdminUserCharts = () => {
   // Determine if we should show the correlation chart
   const shouldShowCorrelationChart = () => {
     const metricsType = getMetricsTypeForSelectedSymptom();
-    // Only show correlation chart for mouse and keyboard metrics, not for CPT or keyboard
-    return metricsType !== 'cpt' && 
-    metricsType !== 'keyboard' && 
-    correlationData !== null;
+    // Only show correlation chart for mouse metrics
+    return metricsType === 'mouse' && correlationData !== null;
   };
   
   return (
@@ -326,7 +297,7 @@ const AdminUserCharts = () => {
             
             const questionType = question.type;
             if (questionType === 'text') {
-              return <p>Chart visualization is not available for free text inputs. These metrics are best viewed directly in the assessment responses.</p>;
+              return <p>Viewing keyboard metrics over time. These metrics track how you interact with text input fields.</p>;
             } else if (questionType === 'cpt') {
               return <p>Viewing cognitive test metrics over time. Select different metrics to see various aspects of test performance.</p>;
             } else {
@@ -354,7 +325,7 @@ const AdminUserCharts = () => {
         
         <MetricsExplanation 
           metricsType={getMetricsTypeForSelectedSymptom()}
-          availableMetrics={availableMetrics}
+          selectedMetric={selectedMetric}
         />
       </div>
     </div>
