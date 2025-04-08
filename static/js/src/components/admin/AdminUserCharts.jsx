@@ -1,11 +1,10 @@
-// src/components/admin/AdminUserCharts.jsx
+// src/components/admin/charts/AdminUserCharts.jsx
 import React, { useState, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import api from '../../services/api';
 import ChartControls from './charts/ChartControls';
 import CorrelationChart from './charts/CorrelationChart';
 import TimelineChart from './charts/TimelineChart';
-import CPTMetricsDisplay from './charts/CPTMetricsDisplay';
 import MetricsExplanation from './charts/MetricsExplanation';
 import LoadingSpinner from '../common/LoadingSpinner';
 import NoDataMessage from '../common/NoDataMessage';
@@ -27,11 +26,6 @@ const AdminUserCharts = () => {
   const [correlationData, setCorrelationData] = useState(null);
   const [timelineData, setTimelineData] = useState(null);
   
-  // CPT metrics data
-  const [cptMetricsAvailable, setCptMetricsAvailable] = useState(false);
-  const [cptMetrics, setCptMetrics] = useState(null);
-  const [showCptMetrics, setShowCptMetrics] = useState(false);
-
   // Define common metrics by metrics_type
   const metricsByType = {
     mouse: [
@@ -50,7 +44,12 @@ const AdminUserCharts = () => {
       { value: 'correction_rate', label: 'Correction Rate' },
       { value: 'pause_rate', label: 'Pause Rate' }
     ],
-    cpt: []
+    cpt: [
+      { value: 'reaction_time', label: 'Reaction Time' },
+      { value: 'detection_rate', label: 'Detection Rate' },
+      { value: 'omission_error_rate', label: 'Omission Error Rate' },
+      { value: 'commission_error_rate', label: 'Commission Error Rate' }
+    ]
   };
   
   // 1. Load questions and check for CPT availability
@@ -87,11 +86,6 @@ const AdminUserCharts = () => {
           }
         }
         
-        // Check for CPT availability if userId is provided
-        if (userId) {
-          checkForCptMetrics(userId);
-        }
-        
         setIsLoading(false);
       } catch (error) {
         console.error('Failed to load question definitions:', error);
@@ -121,43 +115,12 @@ const AdminUserCharts = () => {
     }
   };
   
-  // Check for CPT metrics availability
-  const checkForCptMetrics = async (userIdToCheck) => {
-    try {
-      const userIdToUse = userIdToCheck || userId || '';
-      
-      // Try to fetch CPT metrics
-      const cptMetricsResponse = await api.get(`/api/metrics/cpt/results?user_id=${userIdToUse}`);
-      
-      if (cptMetricsResponse && 
-          typeof cptMetricsResponse === 'object' && 
-          cptMetricsResponse.test_count && 
-          cptMetricsResponse.test_count > 0) {
-        
-        setCptMetrics({
-          test_count: cptMetricsResponse.test_count || 0,
-          avg_reaction_time: cptMetricsResponse.avg_reaction_time || 0,
-          avg_detection_rate: cptMetricsResponse.avg_detection_rate || 0, 
-          avg_omission_rate: cptMetricsResponse.avg_omission_rate || 0,
-          avg_commission_rate: cptMetricsResponse.avg_commission_rate || 0
-        });
-        
-        setCptMetricsAvailable(true);
-      } else {
-        setCptMetricsAvailable(false);
-      }
-    } catch (error) {
-      console.error('Error checking for CPT metrics:', error);
-      setCptMetricsAvailable(false);
-    }
-  };
-  
   // Update charts when selections change
   useEffect(() => {
     if (selectedSymptom && selectedMetric) {
       updateCharts();
     }
-  }, [selectedSymptom, selectedMetric, userId, showCptMetrics]);
+  }, [selectedSymptom, selectedMetric, userId]);
   
   // Handle symptom selection change
   const handleSymptomChange = (e) => {
@@ -183,7 +146,8 @@ const AdminUserCharts = () => {
       // Skip certain question types for charts (e.g., free text)
       const isSuitableForChart = question.type === 'radio' || 
                                 question.type === 'dropdown' || 
-                                question.type === 'scale';
+                                question.type === 'scale' ||
+                                question.type === 'cognitive_test';
                                 
       setNoData(!isSuitableForChart);
       
@@ -191,19 +155,11 @@ const AdminUserCharts = () => {
         setErrorMessage('This question type does not support chart visualization.');
       }
     }
-    
-    // Reset CPT view mode when changing symptom
-    setShowCptMetrics(false);
   };
   
   // Handle metric selection change
   const handleMetricChange = (e) => {
     setSelectedMetric(e.target.value);
-  };
-  
-  // Toggle between interaction metrics and CPT metrics
-  const handleToggleCptMetrics = () => {
-    setShowCptMetrics(!showCptMetrics);
   };
   
   // Update charts with selected data
@@ -220,65 +176,23 @@ const AdminUserCharts = () => {
       
       const userIdToUse = userId || '';
       
-      if (showCptMetrics && cptMetricsAvailable) {
-        // If showing CPT metrics, fetch them
-        try {
-          const response = await api.get(`/api/metrics/cpt/results?user_id=${userIdToUse}`);
-          
-          if (response && response.test_count && response.test_count > 0) {
-            // Ensure we have valid data with all the properties we need
-            const validCptMetrics = {
-              test_count: response.test_count || 0,
-              avg_reaction_time: response.avg_reaction_time || 0,
-              avg_detection_rate: response.avg_detection_rate || 0,
-              avg_omission_rate: response.avg_omission_rate || 0,
-              avg_commission_rate: response.avg_commission_rate || 0
-            };
-            setCptMetrics(validCptMetrics);
-            setNoData(false);
-          } else {
-            setNoData(true);
-          }
-        } catch (error) {
-          console.error('Error fetching CPT metrics:', error);
-          setErrorMessage('Failed to load CPT metrics');
-          setNoData(true);
-        }
+      // Find the question
+      const question = allQuestions.find(q => q.id === selectedSymptom);
+      if (!question) {
+        setNoData(true);
+        setErrorMessage('Question not found');
+        setIsLoading(false);
+        return;
+      }
+      
+      const metricsType = getQuestionMetricsType(question);
+      
+      // Handle CPT metrics specially
+      if (metricsType === 'cpt') {
+        await loadCptTimelineData(userIdToUse, selectedMetric);
       } else {
-        // Find the question
-        const question = allQuestions.find(q => q.id === selectedSymptom);
-        
-        // Check if this question type is suitable for charts
-        if (question && (question.type === 'text' || question.type === 'cognitive_test')) {
-          setNoData(true);
-          setErrorMessage(`Chart visualization not available for ${question.type} questions.`);
-          return;
-        }
-        
-        // Fetch pre-formatted data from API endpoints for interaction metrics
-        const [correlationResponse, timelineResponse] = await Promise.all([
-          api.get(`/api/metrics/chart/correlation?user_id=${userIdToUse}&symptom=${selectedSymptom}&metric=${selectedMetric}`),
-          api.get(`/api/metrics/chart/timeline?user_id=${userIdToUse}&symptom=${selectedSymptom}&metric=${selectedMetric}`)
-        ]);
-        
-        // Store the data in state
-        setCorrelationData(correlationResponse);
-        setTimelineData(timelineResponse);
-        
-        // Check if we have data
-        const hasCorrelationData = correlationResponse && 
-                                correlationResponse.data && 
-                                correlationResponse.data.datasets && 
-                                correlationResponse.data.datasets.length > 0 &&
-                                correlationResponse.data.datasets[0].data?.length > 0;
-                                
-        const hasTimelineData = timelineResponse && 
-                             timelineResponse.data && 
-                             timelineResponse.data.datasets && 
-                             timelineResponse.data.datasets.length > 0 &&
-                             timelineResponse.data.labels?.length > 0;
-        
-        setNoData(!hasCorrelationData && !hasTimelineData);
+        // For interaction metrics, fetch correlation and timeline data
+        await loadInteractionMetricsData(userIdToUse, selectedSymptom, selectedMetric);
       }
     } catch (error) {
       console.error('Error updating charts:', error);
@@ -286,6 +200,72 @@ const AdminUserCharts = () => {
       setNoData(true);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  // Load CPT timeline data
+  const loadCptTimelineData = async (userIdToUse, metricKey) => {
+    try {
+      // We need to call a new endpoint that returns CPT data over time
+      const response = await api.get(`/api/metrics/chart/cpt-timeline?user_id=${userIdToUse}&metric=${metricKey}`);
+      
+      // Check if we have valid data
+      const hasTimelineData = response && 
+                          response.data && 
+                          response.data.datasets && 
+                          response.data.datasets.length > 0 &&
+                          response.data.labels?.length > 0;
+      
+      if (hasTimelineData) {
+        setTimelineData(response);
+        setNoData(false);
+      } else {
+        setNoData(true);
+        setErrorMessage('No CPT metrics data available for timeline visualization');
+      }
+      
+      // Clear correlation data since it's not applicable for CPT metrics
+      setCorrelationData(null);
+      
+    } catch (error) {
+      console.error('Error loading CPT timeline data:', error);
+      setNoData(true);
+      setErrorMessage('Failed to load CPT metrics timeline data');
+      throw error;
+    }
+  };
+  
+  // Load interaction metrics data
+  const loadInteractionMetricsData = async (userIdToUse, symptomKey, metricKey) => {
+    try {
+      // Fetch pre-formatted data from API endpoints for interaction metrics
+      const [correlationResponse, timelineResponse] = await Promise.all([
+        api.get(`/api/metrics/chart/correlation?user_id=${userIdToUse}&symptom=${symptomKey}&metric=${metricKey}`),
+        api.get(`/api/metrics/chart/timeline?user_id=${userIdToUse}&symptom=${symptomKey}&metric=${metricKey}`)
+      ]);
+      
+      // Store the data in state
+      setCorrelationData(correlationResponse);
+      setTimelineData(timelineResponse);
+      
+      // Check if we have data
+      const hasCorrelationData = correlationResponse && 
+                              correlationResponse.data && 
+                              correlationResponse.data.datasets && 
+                              correlationResponse.data.datasets.length > 0 &&
+                              correlationResponse.data.datasets[0].data?.length > 0;
+                              
+      const hasTimelineData = timelineResponse && 
+                           timelineResponse.data && 
+                           timelineResponse.data.datasets && 
+                           timelineResponse.data.datasets.length > 0 &&
+                           timelineResponse.data.labels?.length > 0;
+      
+      setNoData(!hasCorrelationData && !hasTimelineData);
+    } catch (error) {
+      console.error('Error loading interaction metrics data:', error);
+      setNoData(true);
+      throw error;
     }
   };
 
@@ -323,6 +303,13 @@ const AdminUserCharts = () => {
     return getQuestionMetricsType(question);
   };
   
+  // Determine if we should show the correlation chart
+  const shouldShowCorrelationChart = () => {
+    const metricsType = getMetricsTypeForSelectedSymptom();
+    // Only show correlation chart for mouse and keyboard metrics, not for CPT
+    return metricsType !== 'cpt' && correlationData !== null;
+  };
+  
   return (
     <div>
       <div className="admin-header">
@@ -336,17 +323,12 @@ const AdminUserCharts = () => {
           selectedMetric={selectedMetric}
           availableMetrics={availableMetrics}
           questionGroups={questionGroups}
-          cptMetricsAvailable={cptMetricsAvailable}
-          showCptMetrics={showCptMetrics}
           onSymptomChange={handleSymptomChange}
           onMetricChange={handleMetricChange}
-          onToggleCptMetrics={handleToggleCptMetrics}
         />
         
         <div className="context-display">
-          {showCptMetrics ? (
-            <p>Viewing Continuous Performance Test (CPT) metrics that measure attention and response control.</p>
-          ) : selectedSymptom && allQuestions.length > 0 && (() => {
+          {selectedSymptom && allQuestions.length > 0 && (() => {
             const question = allQuestions.find(q => q.id === selectedSymptom);
             if (!question) return null;
             
@@ -354,7 +336,7 @@ const AdminUserCharts = () => {
             if (questionType === 'text') {
               return <p>Chart visualization is not available for free text inputs. These metrics are best viewed directly in the assessment responses.</p>;
             } else if (questionType === 'cognitive_test') {
-              return <p>This is a cognitive test question. Please use the CPT metrics view to see results.</p>;
+              return <p>Viewing cognitive test metrics over time. Select different metrics to see various aspects of test performance.</p>;
             } else {
               const metricsType = getQuestionMetricsType(question);
               return (
@@ -373,19 +355,12 @@ const AdminUserCharts = () => {
           <NoDataMessage message={errorMessage || "There isn't enough data available for this selection."} />
         ) : (
           <>
-            {showCptMetrics && cptMetricsAvailable && cptMetrics ? (
-              <CPTMetricsDisplay metrics={cptMetrics} />
-            ) : (
-              <>
-                {correlationData && <CorrelationChart data={correlationData} />}
-                {timelineData && <TimelineChart data={timelineData} />}
-              </>
-            )}
+            {shouldShowCorrelationChart() && <CorrelationChart data={correlationData} />}
+            {timelineData && <TimelineChart data={timelineData} />}
           </>
         )}
         
         <MetricsExplanation 
-          showCptMetrics={showCptMetrics} 
           metricsType={getMetricsTypeForSelectedSymptom()}
           availableMetrics={availableMetrics}
         />
