@@ -35,3 +35,4 @@ Thumbs.db
 
 # Config file with secrets
 config.yaml
+node_modules
