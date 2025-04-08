@@ -36,6 +36,9 @@ func NewUserRepository(db *gorm.DB, log *zap.SugaredLogger) *UserRepository {
 }
 
 func (r *UserRepository) Create(user *models.User) error {
+	if err := r.validateUser(user); err != nil {
+		return fmt.Errorf("invalid user data: %w", err)
+	}
 	if err := r.db.Create(user).Error; err != nil {
 		r.log.Errorw("Database error creating user", "email", user.Email, "error", err)
 		return fmt.Errorf("failed to create user: %w", err)
@@ -109,6 +112,12 @@ func (r *UserRepository) Delete(email string) error {
 		return fmt.Errorf("error deleting refresh tokens: %w", err)
 	}
 
+	// Delete revoked tokens
+	if err := tx.Delete(&models.RevokedToken{}, "user_email = ?", email).Error; err != nil {
+		tx.Rollback()
+		return fmt.Errorf("error deleting revoked tokens: %w", err)
+	}
+
 	// Delete password reset tokens
 	if err := tx.Delete(&models.PasswordResetToken{}, "user_email = ?", email).Error; err != nil {
 		tx.Rollback()
@@ -125,6 +134,24 @@ func (r *UserRepository) Delete(email string) error {
 	if err := tx.Delete(&models.Assessment{}, "user_email = ?", email).Error; err != nil {
 		tx.Rollback()
 		return fmt.Errorf("error deleting assessments: %w", err)
+	}
+
+	// Delete assessment_metrics
+	if err := tx.Delete(&models.AssessmentMetric{}, "user_email = ?", email).Error; err != nil {
+		tx.Rollback()
+		return fmt.Errorf("error deleting assessments metrics: %w", err)
+	}
+
+	// Delete CPT results
+	if err := tx.Delete(&models.CPTResult{}, "user_email = ?", email).Error; err != nil {
+		tx.Rollback()
+		return fmt.Errorf("error deleting cpt results: %w", err)
+	}
+
+	// Delete question responses
+	if err := tx.Delete(&models.QuestionResponse{}, "user_email = ?", email).Error; err != nil {
+		tx.Rollback()
+		return fmt.Errorf("error deleting question responses: %w", err)
 	}
 
 	// Finally, delete the user

@@ -153,3 +153,34 @@ func (r *AssessmentRepository) GetMetricsTimeline(userID, symptomKey, metricKey 
 
 	return result, nil
 }
+
+func (r *AssessmentRepository) DeleteAssessment(assessmentID uint) error {
+	// Start a transaction
+	tx := r.db.Begin()
+
+	// Delete question responses
+	if err := tx.Delete(&models.QuestionResponse{}, "assessment_id = ?", assessmentID).Error; err != nil {
+		tx.Rollback()
+		return fmt.Errorf("error deleting question responses: %w", err)
+	}
+
+	// Delete assessment metrics
+	if err := tx.Delete(&models.AssessmentMetric{}, "assessment_id = ?", assessmentID).Error; err != nil {
+		tx.Rollback()
+		return fmt.Errorf("error deleting assessment metrics: %w", err)
+	}
+
+	// Delete cpt results
+	if err := tx.Delete(&models.CPTResult{}, "assessment_id = ?", assessmentID).Error; err != nil {
+		tx.Rollback()
+		return fmt.Errorf("error deleting assessment metrics: %w", err)
+	}
+
+	// Delete the assessment itself
+	if err := tx.Delete(&models.Assessment{}, "id = ?", assessmentID).Error; err != nil {
+		tx.Rollback()
+		return fmt.Errorf("error deleting assessment: %w", err)
+	}
+
+	return tx.Commit().Error
+}
