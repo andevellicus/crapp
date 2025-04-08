@@ -107,7 +107,7 @@ const AdminUserCharts = () => {
     // Otherwise infer from question type
     if (question.type === 'text') {
       return 'keyboard';
-    } else if (question.type === 'cognitive_test') {
+    } else if (question.type === 'cpt') {
       return 'cpt';
     } else {
       // Default to mouse interactions for radio, dropdown, etc.
@@ -147,7 +147,7 @@ const AdminUserCharts = () => {
       const isSuitableForChart = question.type === 'radio' || 
                                 question.type === 'dropdown' || 
                                 question.type === 'scale' ||
-                                question.type === 'cognitive_test';
+                                question.type === 'cpt';
                                 
       setNoData(!isSuitableForChart);
       
@@ -327,7 +327,7 @@ const AdminUserCharts = () => {
             const questionType = question.type;
             if (questionType === 'text') {
               return <p>Chart visualization is not available for free text inputs. These metrics are best viewed directly in the assessment responses.</p>;
-            } else if (questionType === 'cognitive_test') {
+            } else if (questionType === 'cpt') {
               return <p>Viewing cognitive test metrics over time. Select different metrics to see various aspects of test performance.</p>;
             } else {
               const metricsType = getQuestionMetricsType(question);

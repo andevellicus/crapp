@@ -171,7 +171,7 @@ questions:
   - id: cpt_test
     title: Continuous Performance Test
     description: This test measures your sustained attention and response control. You'll see letters appearing on screen and need to respond only to the target letter.
-    type: cognitive_test
+    type: cpt
     metrics_type: cpt
     required: false
     options:

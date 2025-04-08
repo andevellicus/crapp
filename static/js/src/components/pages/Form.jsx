@@ -419,7 +419,7 @@ export default function Form() {
           return renderDropdownQuestion(question);
         case 'text':
           return renderTextQuestion(question);
-        case 'cognitive_test':
+        case 'cpt':
           return renderCPTTest(question);
         default:
           return <p>Unsupported question type: {question.type}</p>;

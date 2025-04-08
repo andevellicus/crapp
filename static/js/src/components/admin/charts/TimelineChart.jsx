@@ -50,7 +50,7 @@ const TimelineChart = ({ data }) => {
             },
             y1: {
               type: 'linear',
-              display: true,
+              display: data.y2Label == "" ? true : false,
               position: 'right',
               title: {
                 display: true,

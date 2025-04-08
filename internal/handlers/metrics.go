@@ -83,16 +83,11 @@ func (h *GinAPIHandler) GetChartTimelineData(c *gin.Context) {
 		return
 	}
 
-	// Check if this is a CPT metric request
-	isCPTMetric := metricKey == "reaction_time" ||
-		metricKey == "detection_rate" ||
-		metricKey == "omission_error_rate" ||
-		metricKey == "commission_error_rate"
+	questionType := h.getQuestionsType(symptomKey)
 
 	var timelineData []repository.TimelineDataPoint
 	var err error
-
-	if isCPTMetric {
+	if questionType == "cpt" {
 		// Get CPT timeline data
 		timelineData, err = h.repo.CPTResults.GetCPTTimelineData(userID, metricKey)
 	} else {
@@ -113,7 +108,7 @@ func (h *GinAPIHandler) GetChartTimelineData(c *gin.Context) {
 
 	// Get question and metric labels
 	var questionLabel string
-	if isCPTMetric {
+	if questionType == "cpt" {
 		// For CPT metrics, use the metric name as the "question"
 		questionLabel = "Cognitive Test"
 	} else {
@@ -122,7 +117,7 @@ func (h *GinAPIHandler) GetChartTimelineData(c *gin.Context) {
 	metricLabel := getMetricLabel(metricKey)
 
 	// Format for Chart.js
-	chartData := formatTimelineDataForChart(timelineData, questionLabel, metricLabel)
+	chartData := formatTimelineDataForChart(timelineData, questionLabel, questionType, metricLabel)
 
 	c.JSON(http.StatusOK, chartData)
 }
@@ -134,6 +129,15 @@ func (h *GinAPIHandler) getQuestionLabel(questionID string) string {
 		return questionID
 	}
 	return question.Title
+}
+
+// Helper to get question type from ID
+func (h *GinAPIHandler) getQuestionsType(questionID string) string {
+	question := h.questionLoader.GetQuestionByID(questionID)
+	if question == nil {
+		return questionID
+	}
+	return question.Type
 }
 
 // Format correlation data for Chart.js scatter plot
@@ -182,7 +186,7 @@ func formatCorrelationDataForChart(data []repository.CorrelationDataPoint, quest
 }
 
 // Format timeline data for Chart.js line chart
-func formatTimelineDataForChart(data []repository.TimelineDataPoint, questionLabel, metricLabel string) ChartData {
+func formatTimelineDataForChart(data []repository.TimelineDataPoint, questionLabel, questionType, metricLabel string) ChartData {
 	// Extract and format dates for labels
 	labels := make([]string, len(data))
 	symptomData := make([]float64, len(data))
@@ -205,13 +209,31 @@ func formatTimelineDataForChart(data []repository.TimelineDataPoint, questionLab
 	}
 
 	chartData := ChartData{
-		Title:    fmt.Sprintf("Timeline: %s and %s", questionLabel, metricLabel),
-		XLabel:   "Date",
-		YLabel:   fmt.Sprintf("%s Severity", questionLabel),
-		Y2Label:  metricLabel,
-		Question: questionLabel,
+		Title:  fmt.Sprintf("Timeline: %s and %s", questionLabel, metricLabel),
+		XLabel: "Date",
+
 		Metric:   metricLabel,
-		Data: map[string]any{
+		Question: questionLabel,
+	}
+
+	if questionType == "cpt" || questionType == "text" {
+		dataset := map[string]any{
+			"labels": labels,
+			"datasets": []LineDataset{
+				{
+					Label:           metricLabel,
+					Data:            metricData,
+					BorderColor:     "rgba(90, 154, 104, 1)",
+					BackgroundColor: "rgba(90, 154, 104, 0.2)",
+					YAxisID:         "y",
+				},
+			},
+		}
+		chartData.Data = dataset
+		chartData.YLabel = metricLabel
+		chartData.Y2Label = ""
+	} else {
+		dataset := map[string]any{
 			"labels": labels,
 			"datasets": []LineDataset{
 				{
@@ -229,7 +251,10 @@ func formatTimelineDataForChart(data []repository.TimelineDataPoint, questionLab
 					YAxisID:         "y1",
 				},
 			},
-		},
+		}
+		chartData.Data = dataset
+		chartData.YLabel = fmt.Sprintf("%s Severity", questionLabel)
+		chartData.Y2Label = metricLabel
 	}
 
 	return chartData
@@ -238,11 +263,13 @@ func formatTimelineDataForChart(data []repository.TimelineDataPoint, questionLab
 // Helper to get metric label
 func getMetricLabel(metricKey string) string {
 	metricLabels := map[string]string{
-		"click_precision":            "Click Precision",
-		"path_efficiency":            "Path Efficiency",
-		"overshoot_rate":             "Overshoot Rate",
-		"average_velocity":           "Average Velocity",
-		"velocity_variability":       "Velocity Variability",
+		// Mouse metrics
+		"click_precision":      "Click Precision",
+		"path_efficiency":      "Path Efficiency",
+		"overshoot_rate":       "Overshoot Rate",
+		"average_velocity":     "Average Velocity",
+		"velocity_variability": "Velocity Variability",
+		// Keyboard metrics
 		"typing_speed":               "Typing Speed",
 		"average_inter_key_interval": "Inter-Key Interval",
 		"typing_rhythm_variability":  "Typing Rhythm Variability",
@@ -250,6 +277,11 @@ func getMetricLabel(metricKey string) string {
 		"key_press_variability":      "Key Press Variability",
 		"correction_rate":            "Correction Rate",
 		"pause_rate":                 "Pause Rate",
+		// Cognitive test metrics
+		"reaction_time":         "Reaction Time",
+		"detection_rate":        "Detection Rate",
+		"omission_error_rate":   "Omission Error Rate",
+		"commission_error_rate": "Commission Error Rate",
 	}
 
 	if label, ok := metricLabels[metricKey]; ok {
