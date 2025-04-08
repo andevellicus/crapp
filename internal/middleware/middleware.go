@@ -74,7 +74,6 @@ func SecurityHeadersMiddleware() gin.HandlerFunc {
 		c.Header("Referrer-Policy", "strict-origin-when-cross-origin")
 
 		// More permissive CSP that still provides protection
-		/* TODO -- Fix this; doesn't like React
 		csp := "default-src 'self'; " +
 			"script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com; " +
 			"style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com; " +
@@ -86,7 +85,6 @@ func SecurityHeadersMiddleware() gin.HandlerFunc {
 			"report-uri /csp-report"
 
 		c.Header("Content-Security-Policy", csp)
-		*/
 		c.Next()
 	}
 }
