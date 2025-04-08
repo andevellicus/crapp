@@ -1,19 +1,22 @@
 // src/components/admin/charts/MetricsExplanation.jsx
-const MetricsExplanation = ({ showCptMetrics, metricsType, availableMetrics }) => {
-    if (showCptMetrics) {
-      return (
+const MetricsExplanation = ({ metricsType, selectedMetric }) => {
+    // Check if the selected metric is a CPT metric
+    const isCPTMetric = ['reaction_time', 'detection_rate', 'omission_error_rate', 'commission_error_rate']
+        .includes(selectedMetric);
+    
+    if (metricsType === 'cpt' || isCPTMetric) {
+        return (
         <div className="metrics-help">
-          <h3>Understanding CPT Timeline Chart</h3>
-          <p>The Continuous Performance Test (CPT) timeline shows how cognitive performance changes over time. Each data point represents a completed test.</p>
-          <ul>
-            <li><strong>Reaction Time (ms):</strong> Average time to respond to target stimuli. Lower values indicate faster processing speed. Displayed on the left Y-axis.</li>
+            <h3>Understanding CPT Timeline Chart</h3>
+            <p>The Continuous Performance Test (CPT) timeline shows how cognitive performance changes over time. Each data point represents a completed test.</p>
+            <ul>
+            <li><strong>Reaction Time (ms):</strong> Average time to respond to target stimuli. Lower values indicate faster processing speed.</li>
             <li><strong>Detection Rate (%):</strong> Percentage of correct responses to targets. Higher values indicate better sustained attention.</li>
             <li><strong>Omission Error Rate (%):</strong> Percentage of missed targets. Higher values suggest inattention or distractibility.</li>
             <li><strong>Commission Error Rate (%):</strong> Percentage of responses to non-targets. Higher values suggest impulsivity or poor inhibitory control.</li>
-          </ul>
-          <p>All percentage metrics are displayed on the right Y-axis. Comparing these metrics across time can reveal patterns in cognitive function.</p>
+            </ul>
         </div>
-      );
+        );
     }
     
     return (

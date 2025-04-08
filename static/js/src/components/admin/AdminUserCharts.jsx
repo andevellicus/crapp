@@ -187,11 +187,33 @@ const AdminUserCharts = () => {
       
       const metricsType = getQuestionMetricsType(question);
       
-      // Handle CPT metrics specially
+      // For CPT metrics, we only show timeline (no correlation)
       if (metricsType === 'cpt') {
-        await loadCptTimelineData(userIdToUse, selectedMetric);
+        // Use the same timeline endpoint but with special CPT metrics
+        const timelineResponse = await api.get(
+          `/api/metrics/chart/timeline?user_id=${userIdToUse}&symptom=${selectedSymptom}&metric=${selectedMetric}`
+        );
+        
+        // Store the data in state
+        setTimelineData(timelineResponse);
+        
+        // No correlation data for CPT metrics
+        setCorrelationData(null);
+        
+        // Check if we have data
+        const hasTimelineData = timelineResponse && 
+                          timelineResponse.data && 
+                          timelineResponse.data.datasets && 
+                          timelineResponse.data.datasets.length > 0 &&
+                          timelineResponse.data.labels?.length > 0;
+        
+        setNoData(!hasTimelineData);
+        
+        if (!hasTimelineData) {
+          setErrorMessage('No CPT metrics data available for timeline visualization');
+        }
       } else {
-        // For interaction metrics, fetch correlation and timeline data
+        // For non-CPT metrics, fetch both correlation and timeline data
         await loadInteractionMetricsData(userIdToUse, selectedSymptom, selectedMetric);
       }
     } catch (error) {
@@ -202,39 +224,7 @@ const AdminUserCharts = () => {
       setIsLoading(false);
     }
   };
-
-  // Load CPT timeline data
-  const loadCptTimelineData = async (userIdToUse, metricKey) => {
-    try {
-      // We need to call a new endpoint that returns CPT data over time
-      const response = await api.get(`/api/metrics/chart/cpt-timeline?user_id=${userIdToUse}&metric=${metricKey}`);
-      
-      // Check if we have valid data
-      const hasTimelineData = response && 
-                          response.data && 
-                          response.data.datasets && 
-                          response.data.datasets.length > 0 &&
-                          response.data.labels?.length > 0;
-      
-      if (hasTimelineData) {
-        setTimelineData(response);
-        setNoData(false);
-      } else {
-        setNoData(true);
-        setErrorMessage('No CPT metrics data available for timeline visualization');
-      }
-      
-      // Clear correlation data since it's not applicable for CPT metrics
-      setCorrelationData(null);
-      
-    } catch (error) {
-      console.error('Error loading CPT timeline data:', error);
-      setNoData(true);
-      setErrorMessage('Failed to load CPT metrics timeline data');
-      throw error;
-    }
-  };
-  
+ 
   // Load interaction metrics data
   const loadInteractionMetricsData = async (userIdToUse, symptomKey, metricKey) => {
     try {
@@ -306,8 +296,10 @@ const AdminUserCharts = () => {
   // Determine if we should show the correlation chart
   const shouldShowCorrelationChart = () => {
     const metricsType = getMetricsTypeForSelectedSymptom();
-    // Only show correlation chart for mouse and keyboard metrics, not for CPT
-    return metricsType !== 'cpt' && correlationData !== null;
+    // Only show correlation chart for mouse and keyboard metrics, not for CPT or keyboard
+    return metricsType !== 'cpt' && 
+    metricsType !== 'keyboard' && 
+    correlationData !== null;
   };
   
   return (

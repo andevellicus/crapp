@@ -22,16 +22,6 @@ type CorrelationDataPoint struct {
 	MetricValue  float64 `json:"metric_value"`
 }
 
-// MetricsData contains pre-processed metrics data for charts
-type MetricsData struct {
-	SymptomName  string                 `json:"symptom_name"`
-	MetricName   string                 `json:"metric_name"`
-	Timeline     []TimelineDataPoint    `json:"timeline"`
-	Correlation  []CorrelationDataPoint `json:"correlation"`
-	SymptomScale map[string]any         `json:"symptom_scale"`
-	MetricMinMax map[string]float64     `json:"metric_min_max"`
-}
-
 // UserRepository extends the generic repository with user-specific methods
 type AssessmentRepository struct {
 	db       *gorm.DB
