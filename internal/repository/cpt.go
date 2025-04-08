@@ -67,7 +67,50 @@ func (r *CognitiveTestRepository) GetCPTResultByID(id uint) (*models.CPTResult, 
 	return &result, nil
 }
 
-// GetCPTMetrics gets aggregated metrics for a user
+// GetCPTTimelineData retrieves CPT metrics in timeline format
+func (r *CognitiveTestRepository) GetCPTTimelineData(userEmail, metricKey string) ([]TimelineDataPoint, error) {
+	var results []models.CPTResult
+
+	// Query the database for CPT results for the user, ordered by date
+	err := r.db.Where("user_email = ?", userEmail).
+		Order("test_start_time ASC").
+		Find(&results).Error
+
+	if err != nil {
+		r.log.Errorw("Error retrieving CPT timeline data", "error", err)
+		return nil, err
+	}
+
+	// Convert to timeline data points
+	timelinePoints := make([]TimelineDataPoint, len(results))
+	for i, result := range results {
+		// Initialize with common date
+		timelinePoints[i] = TimelineDataPoint{
+			Date: result.CreatedAt,
+		}
+
+		// Set the appropriate metric value based on the metric key
+		switch metricKey {
+		case "reaction_time":
+			timelinePoints[i].MetricValue = result.AverageReactionTime
+			// Use a constant value or 0 for the symptom since there's no direct symptom correlation
+			timelinePoints[i].SymptomValue = 0
+		case "detection_rate":
+			timelinePoints[i].MetricValue = result.DetectionRate
+			timelinePoints[i].SymptomValue = 0
+		case "omission_error_rate":
+			timelinePoints[i].MetricValue = result.OmissionErrorRate
+			timelinePoints[i].SymptomValue = 0
+		case "commission_error_rate":
+			timelinePoints[i].MetricValue = result.CommissionErrorRate
+			timelinePoints[i].SymptomValue = 0
+		}
+	}
+
+	return timelinePoints, nil
+}
+
+// GetCPTMetrics gets aggregated metrics for a user -- DEPRECATED
 func (r *CognitiveTestRepository) GetCPTMetrics(userEmail string, lastDays int) (map[string]float64, error) {
 	var results []models.CPTResult
 

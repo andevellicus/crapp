@@ -6,14 +6,6 @@ import (
 	"github.com/andevellicus/crapp/internal/models"
 )
 
-/*
-// MetricCalculator calculates interaction metrics from raw data
-type MetricCalculator struct {
-	InteractionData *InteractionData
-	CPTData         *CPTData
-}
-*/
-
 // MetricResult represents a calculated metric with status and metadata
 type MetricResult struct {
 	Value      float64 `json:"value"`
@@ -92,8 +84,8 @@ func CalculateCPTMetrics(results *CPTData) *models.CPTResult {
 		// UserEmail, DeviceID, AssessmentID
 
 		// Time fields
-		TestStartTime: time.Unix(0, int64(results.TestStartTime)*int64(time.Millisecond)),
-		TestEndTime:   time.Unix(0, int64(results.TestEndTime)*int64(time.Millisecond)),
+		TestStartTime: time.UnixMilli(int64(results.TestStartTime)),
+		TestEndTime:   time.UnixMilli(int64(results.TestEndTime)),
 
 		// Performance metrics
 		CorrectDetections:   countCorrectDetections(results),

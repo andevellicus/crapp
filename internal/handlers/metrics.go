@@ -84,8 +84,23 @@ func (h *GinAPIHandler) GetChartTimelineData(c *gin.Context) {
 		return
 	}
 
-	// Get raw data
-	data, err := h.repo.Assessments.GetMetricsTimeline(userID, symptomKey, metricKey)
+	// Check if this is a CPT metric request
+	isCPTMetric := metricKey == "reaction_time" ||
+		metricKey == "detection_rate" ||
+		metricKey == "omission_error_rate" ||
+		metricKey == "commission_error_rate"
+
+	var timelineData []repository.TimelineDataPoint
+	var err error
+
+	if isCPTMetric {
+		// Get CPT timeline data
+		timelineData, err = h.repo.CPTResults.GetCPTTimelineData(userID, metricKey)
+	} else {
+		// Get regular interaction metrics timeline data
+		timelineData, err = h.repo.Assessments.GetMetricsTimeline(userID, symptomKey, metricKey)
+	}
+
 	if err != nil {
 		h.log.Errorw("Error retrieving metrics timeline", "error", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error retrieving data"})
@@ -93,16 +108,22 @@ func (h *GinAPIHandler) GetChartTimelineData(c *gin.Context) {
 	}
 
 	// If no data, return empty structure
-	if data == nil {
-		data = []repository.TimelineDataPoint{}
+	if len(timelineData) == 0 {
+		timelineData = []repository.TimelineDataPoint{}
 	}
 
 	// Get question and metric labels
-	questionLabel := h.getQuestionLabel(symptomKey)
+	var questionLabel string
+	if isCPTMetric {
+		// For CPT metrics, use the metric name as the "question"
+		questionLabel = "Cognitive Test"
+	} else {
+		questionLabel = h.getQuestionLabel(symptomKey)
+	}
 	metricLabel := getMetricLabel(metricKey)
 
 	// Format for Chart.js
-	chartData := formatTimelineDataForChart(data, questionLabel, metricLabel)
+	chartData := formatTimelineDataForChart(timelineData, questionLabel, metricLabel)
 
 	c.JSON(http.StatusOK, chartData)
 }
