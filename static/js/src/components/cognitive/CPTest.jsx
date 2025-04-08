@@ -1,8 +1,8 @@
-// Updated CPTTest.jsx component focused on data collection only
+// Updated CPTest.jsx component focused on data collection only
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useAuth } from '../../context/AuthContext';
 
-export default function CPTTest({ onTestEnd, onTestStart, settings, questionId  }) {
+export default function CPTest({ onTestEnd, onTestStart, settings, questionId  }) {
   // Default settings will be overridden by props
   const DEFAULT_SETTINGS = {
     testDuration: 120000, // 2 minutes in milliseconds

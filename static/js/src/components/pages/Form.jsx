@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
-import CPTTest from '../cpt/CPTTest';
+import CPTest from '../cpt/CPTest';
 
 
 export default function Form() {
@@ -294,7 +294,7 @@ export default function Form() {
     };
     
     // Render CPT test
-    const renderCPTTest = (question) => {
+    const renderCPTest = (question) => {
       // Initialize settings with default values
       let testSettings = {
         testDuration: 120000,
@@ -326,7 +326,7 @@ export default function Form() {
       }
       
       return (
-        <CPTTest
+        <CPTest
           settings={testSettings}
           questionId={question.id}
           onTestEnd={(results) => {
@@ -420,7 +420,7 @@ export default function Form() {
         case 'text':
           return renderTextQuestion(question);
         case 'cpt':
-          return renderCPTTest(question);
+          return renderCPTest(question);
         default:
           return <p>Unsupported question type: {question.type}</p>;
       }
