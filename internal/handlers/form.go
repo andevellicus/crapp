@@ -380,7 +380,6 @@ func (h *FormHandler) SubmitForm(c *gin.Context) {
 	}
 
 	// Mark form state as completed
-	//formState.Completed = true //TODO Remove
 	formState.AssessmentID = assessmentID
 	h.repo.FormStates.Update(formState)
 

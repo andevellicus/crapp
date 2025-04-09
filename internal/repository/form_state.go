@@ -35,7 +35,6 @@ func (r *FormStateRepository) Create(userEmail string, questionOrder []int) (*mo
 		QuestionOrder: string(questionOrderBytes),
 		StartedAt:     time.Now(),
 		LastUpdatedAt: time.Now(),
-		Completed:     false,
 	}
 
 	err := r.db.Create(formState).Error
@@ -73,8 +72,8 @@ func (r *FormStateRepository) Update(formState *models.FormState) error {
 		r.log.Errorw("Failed to parse question order", "error", err, "id", formState.ID)
 		return err
 	}
-	// State transition validation
-	//if formState.Completed && formState.CurrentStep < len(questionOrder) { // TODO Remove
+	// State transition validation -- make sure that the form is not set as complete
+	// somehow unless it's on the last step
 	if formState.AssessmentID != 0 && formState.CurrentStep < len(questionOrder) {
 		return fmt.Errorf("cannot mark form as completed when questions remain")
 	}
@@ -90,8 +89,8 @@ func (r *FormStateRepository) Update(formState *models.FormState) error {
 			"answers":          formState.Answers,
 			"interaction_data": formState.InteractionData,
 			"cpt_data":         formState.CPTData,
+			"tmt_data":         formState.TMTData,
 			"last_updated_at":  formState.LastUpdatedAt,
-			"completed":        formState.Completed, //TODO Remove
 			"assessment_id":    formState.AssessmentID,
 		})
 

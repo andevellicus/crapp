@@ -219,7 +219,7 @@ func formatTimelineDataForChart(data []repository.TimelineDataPoint, questionLab
 		Question: questionLabel,
 	}
 
-	if questionType == "cpt" || questionType == "text" {
+	if questionType == "cpt" || questionType == "text" || questionType == "tmt" {
 		dataset := map[string]any{
 			"labels": labels,
 			"datasets": []LineDataset{
@@ -280,11 +280,17 @@ func getMetricLabel(metricKey string) string {
 		"key_press_variability":      "Key Press Variability",
 		"correction_rate":            "Correction Rate",
 		"pause_rate":                 "Pause Rate",
-		// Cognitive test metrics
+		// Cognitive performance test metrics
 		"reaction_time":         "Reaction Time",
 		"detection_rate":        "Detection Rate",
 		"omission_error_rate":   "Omission Error Rate",
 		"commission_error_rate": "Commission Error Rate",
+		// Trail making test metrics
+		"part_a_time":   "Part A Time",
+		"part_b_time":   "Part B Time",
+		"b_to_a_ratio":  "B/A Ratio",
+		"part_a_errors": "Part A Errors",
+		"part_b_errors": "Part B Errors",
 	}
 
 	if label, ok := metricLabels[metricKey]; ok {
