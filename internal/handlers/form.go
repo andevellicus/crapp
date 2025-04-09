@@ -141,11 +141,10 @@ func (h *FormHandler) GetCurrentQuestion(c *gin.Context) {
 	if formState.CurrentStep >= len(questionOrder) {
 		// If all questions are answered, return submission screen info
 		c.JSON(http.StatusOK, gin.H{
-			"state":        "complete",
-			"message":      "All questions answered",
-			"current_step": len(questionOrder) - 1,
-			"question":     questions[questionOrder[len(questionOrder)-1]], // Return last question
-			"answers":      formState.Answers,
+			"state":    "complete",
+			"message":  "All questions answered",
+			"question": questions[questionOrder[len(questionOrder)-1]],
+			"answers":  formState.Answers,
 		})
 		return
 	}
@@ -227,9 +226,18 @@ func (h *FormHandler) SaveAnswer(c *gin.Context) {
 		formState.TMTData = req.TMTData
 	}
 
+	// Parse the question order from JSON string
+	var questionOrder []int
+	if err := json.Unmarshal([]byte(formState.QuestionOrder), &questionOrder); err != nil {
+		h.log.Errorw("Error parsing question order", "error", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Invalid form state"})
+		return
+	}
+
 	// Update step based on direction
-	if direction == "next" {
+	if direction == "next" && formState.CurrentStep < len(questionOrder) {
 		formState.CurrentStep++
+
 	} else if direction == "prev" && formState.CurrentStep > 0 {
 		formState.CurrentStep--
 	}

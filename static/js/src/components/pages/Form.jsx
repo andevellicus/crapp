@@ -125,27 +125,13 @@ export default function Form() {
         // Check if we're at the submission screen
         if (data.state === 'complete') {
           setIsComplete(true);
-          setCurrentQuestion(data.question);
+          setCurrentQuestion(data.question)
           setFormData(prev => ({
               ...prev,
               answers: data.answers || {}
           }));
         } else {
-          setCurrentQuestion(data.question);
-          setCurrentStep(data.current_step);
-          setTotalSteps(data.total_steps);
-          setPreviousAnswer(data.previous_answer);
-          
-          // Store previous answer in formAnswers
-          if (data.previous_answer && data.question) {
-            setFormData(prev => ({
-              ...prev,
-              answers: {
-                  ...prev.answers,
-                  [data.question.id]: data.previous_answer
-              }
-            }));
-          }
+          updateQuestion(data)
         }
       } catch (error) {
         console.error('Error loading question:', error);
@@ -154,13 +140,6 @@ export default function Form() {
     
     // Navigate between questions
     const navigate = async (direction) => {
-      if (isComplete && direction === 'prev') {
-      // We've clicked back on the submit form: load the previous question
-      loadCurrentQuestion();
-      // Unset isComplete
-      setIsComplete(false); 
-      return
-      }
       // Get answer for current question
       const answer = currentQuestion && 
                     getQuestionAnswer(currentQuestion.id);
@@ -206,11 +185,32 @@ export default function Form() {
         
         // Load next question
         loadCurrentQuestion();
+        if (isComplete && direction === 'prev') {
+          setIsComplete(false)
+        }
       } catch (error) {
           console.error('Error navigating:', error);
           setValidationError('An error occurred. Please try again.');
       }
     };
+
+    const updateQuestion = (data) => {
+      setCurrentQuestion(data.question);
+      setCurrentStep(data.current_step);
+      setTotalSteps(data.total_steps);
+      setPreviousAnswer(data.previous_answer);
+      
+      // Store previous answer in formAnswers if available
+      if (data.previous_answer && data.question) {
+        setFormData(prev => ({
+          ...prev,
+          answers: {
+            ...prev.answers,
+            [data.question.id]: data.previous_answer
+          }
+        }));
+      }
+    };    
     
     // Get answer for a question
     const getQuestionAnswer = (questionId) => {
