@@ -60,8 +60,7 @@ const TMTest = ({ onTestEnd, onTestStart, settings, questionId }) => {
     
     return () => window.removeEventListener('resize', handleResize);
   }, []);
-  
-  // Generate test items when starting
+
   useEffect(() => {
     if (isRunning) {
       generateItems();
@@ -99,6 +98,8 @@ const TMTest = ({ onTestEnd, onTestStart, settings, questionId }) => {
     const newItems = [];
     const padding = 50; // Padding from edges
     const numItems = currentPart === 'Practice' ? 10 : testSettings.numItems;
+    const minDistance = 60; // Minimum distance between circles (2x radius + some extra space)
+    const maxAttempts = 100; // Maximum attempts to find a non-overlapping position
     
     for (let i = 1; i <= numItems; i++) {
       let label;
@@ -115,11 +116,71 @@ const TMTest = ({ onTestEnd, onTestStart, settings, questionId }) => {
         }
       }
       
+      // Find a position that doesn't overlap with existing items
+      let x, y;
+      let isOverlapping = true;
+      let attempts = 0;
+      
+      while (isOverlapping && attempts < maxAttempts) {
+        // Generate random position
+        x = padding + Math.random() * (canvasSize.width - 2 * padding);
+        y = padding + Math.random() * (canvasSize.height - 2 * padding);
+        
+        // Check if it overlaps with any existing item
+        isOverlapping = false;
+        for (const existingItem of newItems) {
+          const distance = Math.sqrt(
+            Math.pow(x - existingItem.x, 2) + 
+            Math.pow(y - existingItem.y, 2)
+          );
+          
+          if (distance < minDistance) {
+            isOverlapping = true;
+            break;
+          }
+        }
+        
+        attempts++;
+      }
+      
+      // If we couldn't find a non-overlapping position after max attempts,
+      // adjust the position to ensure minimum distance from closest circle
+      if (isOverlapping && newItems.length > 0) {
+        // Find closest circle
+        let closestItem = null;
+        let closestDistance = Infinity;
+        
+        for (const existingItem of newItems) {
+          const distance = Math.sqrt(
+            Math.pow(x - existingItem.x, 2) + 
+            Math.pow(y - existingItem.y, 2)
+          );
+          
+          if (distance < closestDistance) {
+            closestDistance = distance;
+            closestItem = existingItem;
+          }
+        }
+        
+        // If closest circle is too close, move this circle away from it
+        if (closestItem && closestDistance < minDistance) {
+          const angle = Math.atan2(y - closestItem.y, x - closestItem.x);
+          const newDistance = minDistance;
+          
+          x = closestItem.x + Math.cos(angle) * newDistance;
+          y = closestItem.y + Math.sin(angle) * newDistance;
+          
+          // Make sure it's still within bounds
+          x = Math.max(padding, Math.min(canvasSize.width - padding, x));
+          y = Math.max(padding, Math.min(canvasSize.height - padding, y));
+        }
+      }
+      
       newItems.push({
         id: i,
         label,
-        x: padding + Math.random() * (canvasSize.width - 2 * padding),
-        y: padding + Math.random() * (canvasSize.height - 2 * padding),
+        x,
+        y,
         radius: 20,
         connected: false
       });
@@ -161,10 +222,7 @@ const TMTest = ({ onTestEnd, onTestStart, settings, questionId }) => {
       ctx.beginPath();
       ctx.arc(item.x, item.y, item.radius, 0, 2 * Math.PI);
       
-      if (item.id === currentItem) {
-        // Highlight current target
-        ctx.fillStyle = 'rgba(74, 111, 165, 0.7)';
-      } else if (item.connected) {
+      if (item.connected) {
         // Connected items
         ctx.fillStyle = 'rgba(90, 154, 104, 0.5)';
       } else {

@@ -119,7 +119,7 @@ func (r *FormStateRepository) Delete(id string) error {
 func (r *FormStateRepository) GetUserActiveFormState(userEmail string) (*models.FormState, error) {
 	var formState models.FormState
 
-	err := r.db.Where("user_email = ? AND completed = ?", userEmail, false).
+	err := r.db.Where("user_email = ? AND assessment_id = ?", userEmail, 0).
 		Order("last_updated_at DESC").
 		First(&formState).Error
 
