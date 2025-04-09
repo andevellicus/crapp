@@ -187,3 +187,17 @@ questions:
         label: targets
       - value: A, B, C, E, F, H, K, L
         label: nonTargets
+
+  - id: trail_making_test
+    title: Trail Making Test
+    description: This test measures visual attention and task switching. You'll connect a series of numbers (Part A) or alternate between numbers and letters (Part B) in ascending order.
+    type: tmt
+    metrics_type: tmt
+    required: false
+    options:
+      - value: 60000 # Time limit in milliseconds
+        label: timeLimit
+      - value: 25
+        label: numItems
+      - value: true
+        label: includePartB        

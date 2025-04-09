@@ -21,6 +21,7 @@ type Repository struct {
 	Assessments         *AssessmentRepository
 	FormStates          *FormStateRepository
 	CPTResults          *CognitiveTestRepository
+	TMTResults          *TMTRepository
 	QuestionResponses   *QuestionResponseRepository
 	RefreshTokens       *RefreshTokenRepository
 	PasswordResetTokens *PasswordTokenRepository
@@ -46,9 +47,11 @@ func NewRepository(cfg *config.Config, log *zap.SugaredLogger, questionLoader *u
 	repo.Assessments = NewAssessmentRepository(db, log, repo.Users)
 	repo.QuestionResponses = NewQuestionResponseRepository(db, log)
 	repo.CPTResults = NewCognitiveTestRepository(db, log)
+	repo.TMTResults = NewTrailRepository(db, log)
 	repo.FormStates = NewFormStateRepository(db, log)
 	repo.RefreshTokens = NewRefreshTokenRepository(db, log)
 	repo.PasswordResetTokens = NewPasswordTokenRepository(db, log, repo.Users)
+	repo.RevokedTokens = NewRevokedTokenRepository(db, log)
 	repo.RevokedTokens = NewRevokedTokenRepository(db, log)
 
 	return repo
@@ -90,6 +93,7 @@ func setupDatabase(cfg *config.Config) (*gorm.DB, error) {
 		&models.RevokedToken{},
 		&models.PasswordResetToken{},
 		&models.CPTResult{},
+		&models.TMTResult{},
 	)
 	if err != nil {
 		return nil, err

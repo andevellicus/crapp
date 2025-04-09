@@ -1,6 +1,20 @@
 // src/components/admin/charts/MetricsExplanation.jsx
 const MetricsExplanation = ({ metricsType, selectedMetric }) => { 
-  if (metricsType === 'cpt') {
+  if (metricsType === 'tmt') {
+    return (
+    <div className="metrics-help">
+        <h3>Understanding Trail Making Test Timeline Chart</h3>
+        <p>The Trail Making Test timeline shows how performance changes over time. Each data point represents a completed test.</p>
+        <ul>
+        <li><strong>Part A Time (ms):</strong> Time to connect numbers in ascending order. Lower values indicate better processing speed.</li>
+        <li><strong>Part B Time (ms):</strong> Time to connect alternating numbers and letters. Lower values indicate better cognitive flexibility.</li>
+        <li><strong>B/A Ratio:</strong> Ratio of Part B to Part A time. Values closer to 1 indicate better executive function.</li>
+        <li><strong>Part A Errors:</strong> Number of incorrect connections in Part A. Lower values indicate better attention.</li>
+        <li><strong>Part B Errors:</strong> Number of incorrect connections in Part B. Lower values indicate better executive function.</li>
+        </ul>
+    </div>
+    );
+  } else if (metricsType === 'cpt') {
       return (
       <div className="metrics-help">
           <h3>Understanding CPT Timeline Chart</h3>

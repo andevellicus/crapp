@@ -87,7 +87,10 @@ func (h *GinAPIHandler) GetChartTimelineData(c *gin.Context) {
 
 	var timelineData []repository.TimelineDataPoint
 	var err error
-	if questionType == "cpt" {
+	if questionType == "tmt" {
+		// Get Trail Making Test timeline data
+		timelineData, err = h.repo.TMTResults.GetTrailTimelineData(userID, metricKey)
+	} else if questionType == "cpt" {
 		// Get CPT timeline data
 		timelineData, err = h.repo.CPTResults.GetCPTTimelineData(userID, metricKey)
 	} else {

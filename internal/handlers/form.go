@@ -42,25 +42,6 @@ func NewFormHandler(repo *repository.Repository, log *zap.SugaredLogger, questio
 	}
 }
 
-func (h *FormHandler) ServeForm(c *gin.Context) {
-	// Get all questions
-	questions := h.questionLoader.GetQuestions()
-
-	// Randomize question order
-	randomizedQuestions := make([]utils.Question, len(questions))
-	copy(randomizedQuestions, questions)
-	rand.Shuffle(len(randomizedQuestions), func(i, j int) {
-		randomizedQuestions[i], randomizedQuestions[j] = randomizedQuestions[j], randomizedQuestions[i]
-	})
-
-	// Render the template with the questions
-	c.HTML(http.StatusOK, "index.html", gin.H{
-		"title":         "Daily Symptom Report",
-		"questions":     randomizedQuestions,
-		"usePostMethod": true,
-	})
-}
-
 // InitForm initializes a new form session
 func (h *FormHandler) InitForm(c *gin.Context) {
 	// Get user from context
@@ -160,9 +141,11 @@ func (h *FormHandler) GetCurrentQuestion(c *gin.Context) {
 	if formState.CurrentStep >= len(questionOrder) {
 		// If all questions are answered, return submission screen info
 		c.JSON(http.StatusOK, gin.H{
-			"state":   "complete",
-			"message": "All questions answered",
-			"answers": formState.Answers,
+			"state":        "complete",
+			"message":      "All questions answered",
+			"current_step": len(questionOrder) - 1,
+			"question":     questions[questionOrder[len(questionOrder)-1]], // Return last question
+			"answers":      formState.Answers,
 		})
 		return
 	}
@@ -237,6 +220,11 @@ func (h *FormHandler) SaveAnswer(c *gin.Context) {
 	// If CPT data is provided, save it as raw data
 	if len(req.CPTData) > 0 {
 		formState.CPTData = req.CPTData
+	}
+
+	// If Trail Making Test data is provided, save it as raw data
+	if len(req.TMTData) > 0 {
+		formState.TMTData = req.TMTData
 	}
 
 	// Update step based on direction
@@ -342,6 +330,33 @@ func (h *FormHandler) SubmitForm(c *gin.Context) {
 		}
 	}
 
+	// Process Trail Making Test data if available
+	if len(formState.TMTData) > 0 {
+		var trailData metrics.TrailMakingData
+		if err := json.Unmarshal(formState.TMTData, &trailData); err != nil {
+			h.log.Warnw("Error parsing Trail Making Test data", "error", err)
+		} else {
+			// If these aren't set, then we haven't performed the test
+			if trailData.TestStartTime == 0.0 && trailData.TestEndTime == 0.0 {
+				h.log.Info("Trail Making Test data missing start or end time, skipping processing")
+			} else {
+				tmtResults := metrics.CalculateTrailMetrics(&trailData)
+
+				// Set assessment ID and user info
+				tmtResults.UserEmail = userEmail.(string)
+				tmtResults.DeviceID = c.GetHeader("X-Device-ID")
+				tmtResults.AssessmentID = assessmentID
+
+				// Save Trail Making Test results
+				if err := h.repo.TMTResults.Create(tmtResults); err != nil {
+					h.log.Warnw("Error saving Trail Making Test results", "error", err)
+				} else {
+					h.log.Infow("Saved Trail Making Test results successfully", "assessment_id", assessmentID)
+				}
+			}
+		}
+	}
+
 	// Process form answers and save as question responses
 	questionResponses, err := h.processFormAnswers(formState, assessmentID)
 	if err != nil {
@@ -357,7 +372,8 @@ func (h *FormHandler) SubmitForm(c *gin.Context) {
 	}
 
 	// Mark form state as completed
-	formState.Completed = true
+	//formState.Completed = true //TODO Remove
+	formState.AssessmentID = assessmentID
 	h.repo.FormStates.Update(formState)
 
 	// Set last assessment completed time to now:

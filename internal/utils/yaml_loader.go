@@ -73,6 +73,10 @@ func NewQuestionLoader(yamlPath string) (*QuestionLoader, error) {
 		if loader.Config.Questions[i].MetricsType == "" {
 			if loader.Config.Questions[i].Type == "text" {
 				loader.Config.Questions[i].MetricsType = "keyboard"
+			} else if loader.Config.Questions[i].Type == "cpt" {
+				loader.Config.Questions[i].MetricsType = "cpt"
+			} else if loader.Config.Questions[i].Type == "trail" {
+				loader.Config.Questions[i].MetricsType = "trail"
 			} else {
 				loader.Config.Questions[i].MetricsType = "mouse"
 			}

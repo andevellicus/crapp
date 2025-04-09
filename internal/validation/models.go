@@ -51,6 +51,7 @@ type SaveAnswerRequest struct {
 	Direction       string          `json:"direction" validate:"required,oneof=next prev"`
 	InteractionData json.RawMessage `json:"interaction_data,omitempty"`
 	CPTData         json.RawMessage `json:"cpt_data,omitempty"`
+	TMTData         json.RawMessage `json:"tmt_data,omitempty"`
 }
 
 // Push validation models

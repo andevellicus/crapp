@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
-import CPTest from '../cpt/CPTest';
+import CPTest from '../cognitive/CPTest';
+import TMTest from '../cognitive/TMTest';
 
 
 export default function Form() {
@@ -13,7 +14,8 @@ export default function Form() {
   const [formData, setFormData] = useState({
       answers: {},
       interactionData: null,
-      cptResults: null
+      cptResults: null,
+      tmtResults: null
   });
   const [cptResults, setCptResults] = useState(null);
   const [isComplete, setIsComplete] = useState(false);
@@ -94,7 +96,8 @@ export default function Form() {
         setFormData({
           answers: {},
           interactionData: null,
-          cptResults: null
+          cptResults: null,
+          tmtResults: null
         });
         
         // Load first question
@@ -122,6 +125,7 @@ export default function Form() {
         // Check if we're at the submission screen
         if (data.state === 'complete') {
           setIsComplete(true);
+          setCurrentQuestion(data.question);
           setFormData(prev => ({
               ...prev,
               answers: data.answers || {}
@@ -150,6 +154,13 @@ export default function Form() {
     
     // Navigate between questions
     const navigate = async (direction) => {
+      if (isComplete && direction === 'prev') {
+      // We've clicked back on the submit form: load the previous question
+      loadCurrentQuestion();
+      // Unset isComplete
+      setIsComplete(false); 
+      return
+      }
       // Get answer for current question
       const answer = currentQuestion && 
                     getQuestionAnswer(currentQuestion.id);
@@ -182,7 +193,8 @@ export default function Form() {
             direction: direction,
             // Include latest data with each navigation
             interaction_data: currentInteractionData,
-            cpt_data: formData.cptResults
+            cpt_data: formData.cptResults,
+            tmt_data: formData.tmtResults
           })
         });
         
@@ -242,7 +254,8 @@ export default function Form() {
           body: JSON.stringify({
             // Only include final interaction data and CPT results
             interaction_data: finalInteractionData,
-            cpt_data: cptResults
+            cpt_data: cptResults,
+            tmt_data: formData.tmtResults
           })
         });
         
@@ -347,6 +360,54 @@ export default function Form() {
         />
       );
     };
+
+    // Render Trail Making Test
+    const renderTrailTest = (question) => {
+      let testSettings = {
+        timeLimit: 60000,
+        numItems: 25,
+        includePartB: true
+      };
+      
+      if (question && question.options && Array.isArray(question.options)) {
+        question.options.forEach(option => {
+          if (option.label && option.value !== undefined) {
+            let value = option.value;
+            
+            if (typeof value === 'string') {
+              if (!isNaN(value) && !isNaN(parseFloat(value))) {
+                value = parseFloat(value);
+              } else if (value.toLowerCase() === 'true') {
+                value = true;
+              } else if (value.toLowerCase() === 'false') {
+                value = false;
+              }
+            }
+            
+            testSettings[option.label] = value;
+          }
+        });
+      }
+      
+      return (
+        <TMTest
+          settings={testSettings}
+          questionId={question.id}
+          onTestEnd={(results) => {
+            // Store Trail Making Test results
+            setFormData(prev => ({
+              ...prev,
+              tmtResults: results
+            }));
+            
+            setIsDoingCognitiveTest(false);
+          }}
+          onTestStart={() => {
+            setIsDoingCognitiveTest(true);
+          }}
+        />
+      );
+    };    
     
     // Render radio question
     const renderRadioQuestion = (question) => {
@@ -421,6 +482,8 @@ export default function Form() {
           return renderTextQuestion(question);
         case 'cpt':
           return renderCPTest(question);
+        case 'tmt':
+            return renderTrailTest(question);          
         default:
           return <p>Unsupported question type: {question.type}</p>;
       }

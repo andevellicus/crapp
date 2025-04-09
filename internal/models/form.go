@@ -14,7 +14,14 @@ type FormState struct {
 	QuestionOrder   string    `json:"question_order" gorm:"type:text"`
 	StartedAt       time.Time `json:"started_at"`
 	LastUpdatedAt   time.Time `json:"last_updated_at"`
-	Completed       bool      `json:"completed"`
+	Completed       bool      `json:"completed"` // TODO REMOVE THIS (DEPRECATED)
 	InteractionData []byte    `json:"interaction_data" gorm:"type:blob"`
 	CPTData         []byte    `json:"cpt_data" gorm:"type:blob"`
+	TMTData         []byte    `json:"tmt_data" gorm:"type:blob"`
+
+	// Will be 0 until assessment is "completed"
+	AssessmentID uint `json:"assessment_id" gorm:"index"`
+
+	// Relationships
+	Assessment Assessment `json:"-" gorm:"foreignKey:AssessmentID"`
 }

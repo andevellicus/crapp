@@ -252,3 +252,84 @@
   .toggle-cpt-button {
     transition: background-color 0.3s, color 0.3s;
   }
+
+  /* Trail Making Test styles */
+.trail-intro, .trail-results {
+    max-width: 600px;
+    margin: 0 auto;
+  }
+  
+  .trail-instructions, .trail-results-interpretation {
+    background-color: #f0f5ff;
+    padding: 15px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+    border-left: 4px solid #4a6fa5;
+  }
+  
+  .trail-instructions ul, .trail-results-interpretation ul {
+    margin-left: 20px;
+    margin-bottom: 10px;
+  }
+  
+  .trail-instructions li, .trail-results-interpretation li {
+    margin-bottom: 8px;
+  }
+  
+  .trail-test-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-height: 300px;
+    width: 100%;
+  }
+  
+  .trail-header {
+    width: 100%;
+    text-align: center;
+    margin-bottom: 10px;
+  }
+  
+  .trail-timer {
+    font-size: 1.2rem;
+    font-weight: bold;
+    background-color: #333;
+    color: white;
+    padding: 10px;
+    border-radius: 4px;
+    margin-bottom: 10px;
+  }
+  
+  .trail-part {
+    font-size: 1.2rem;
+    font-weight: bold;
+    color: #4a6fa5;
+    margin-bottom: 5px;
+  }
+  
+  .trail-instructions-small {
+    color: #666;
+    font-style: italic;
+    margin-bottom: 10px;
+  }
+  
+  .trail-footer {
+    margin-top: 10px;
+    font-size: 1.1rem;
+  }
+  
+  .trail-completion-message {
+    margin-top: 20px;
+    padding: 15px;
+    background-color: #e8f4e9;
+    border-radius: 8px;
+    border-left: 4px solid #27ae60;
+    color: #2c3e50;
+    text-align: center;
+    animation: fadeIn 0.5s ease-in;
+  }
+  
+  .trail-completion-message p {
+    font-weight: bold;
+    margin: 0;
+  }

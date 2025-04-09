@@ -74,7 +74,8 @@ func (r *FormStateRepository) Update(formState *models.FormState) error {
 		return err
 	}
 	// State transition validation
-	if formState.Completed && formState.CurrentStep < len(questionOrder) {
+	//if formState.Completed && formState.CurrentStep < len(questionOrder) { // TODO Remove
+	if formState.AssessmentID != 0 && formState.CurrentStep < len(questionOrder) {
 		return fmt.Errorf("cannot mark form as completed when questions remain")
 	}
 
@@ -90,7 +91,8 @@ func (r *FormStateRepository) Update(formState *models.FormState) error {
 			"interaction_data": formState.InteractionData,
 			"cpt_data":         formState.CPTData,
 			"last_updated_at":  formState.LastUpdatedAt,
-			"completed":        formState.Completed,
+			"completed":        formState.Completed, //TODO Remove
+			"assessment_id":    formState.AssessmentID,
 		})
 
 	if result.Error != nil {

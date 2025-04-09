@@ -49,6 +49,13 @@ const AdminUserCharts = () => {
       { value: 'detection_rate', label: 'Detection Rate' },
       { value: 'omission_error_rate', label: 'Omission Error Rate' },
       { value: 'commission_error_rate', label: 'Commission Error Rate' }
+    ],
+    tmt: [
+      { value: 'part_a_time', label: 'Part A Time' },
+      { value: 'part_b_time', label: 'Part B Time' },
+      { value: 'b_to_a_ratio', label: 'B/A Ratio' },
+      { value: 'part_a_errors', label: 'Part A Errors' },
+      { value: 'part_b_errors', label: 'Part B Errors' }
     ]
   };
   
@@ -109,6 +116,8 @@ const AdminUserCharts = () => {
       return 'keyboard';
     } else if (question.type === 'cpt') {
       return 'cpt';
+    } else if (question.type === 'tmt') {
+      return 'tmt';
     } else {
       // Default to mouse interactions for radio, dropdown, etc.
       return 'mouse';
@@ -237,7 +246,8 @@ const AdminUserCharts = () => {
     const groups = {
       mouse: [],
       keyboard: [],
-      cpt: []
+      cpt: [],
+      tmt: []
     };
 
     // Group questions based on their metrics_type

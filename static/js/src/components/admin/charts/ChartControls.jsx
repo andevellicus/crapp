@@ -48,6 +48,16 @@ const ChartControls = ({
                 ))}
               </optgroup>
             )}
+            {/* Trail Making Test questions */}
+            {questionGroups.tmt.length > 0 && (
+              <optgroup label="Trail Making Test">
+                {questionGroups.tmt.map(question => (
+                  <option key={question.id} value={question.id}>
+                    {question.title}
+                  </option>
+                ))}
+              </optgroup>
+            )}
           </select>
         </div>
         
