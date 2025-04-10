@@ -364,9 +364,12 @@ export default function Form() {
     // Render Trail Making Test
     const renderTrailTest = (question) => {
       let testSettings = {
-        timeLimit: 60000,
-        numItems: 25,
-        includePartB: true
+        partATimeLimit: 60000,
+        partBTimeLimit: 120000,
+        partAItems: 25,
+        partBItems: 25,
+        includePartB: true,
+        minDistance: 60
       };
       
       if (question && question.options && Array.isArray(question.options)) {

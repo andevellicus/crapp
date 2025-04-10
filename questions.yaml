@@ -195,9 +195,15 @@ questions:
     metrics_type: tmt
     required: false
     options:
-      - value: 60000 # Time limit in milliseconds
-        label: timeLimit
-      - value: 25
-        label: numItems
-      - value: true
-        label: includePartB        
+      - value: 30000 # Time limit for Part A
+        label: partATimeLimit
+      - value: 45000 # Time limit for Part B
+        label: partBTimeLimit
+      - value: 15 # Number of items in Part A
+        label: partAItems
+      - value: 15 # Number of items in Part B
+        label: partBItems
+      - value: true # Whether to include Part B
+        label: includePartB
+      - value: 60 # Minimum distance between circles
+        label: minDistance

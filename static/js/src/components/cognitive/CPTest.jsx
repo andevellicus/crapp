@@ -1,6 +1,7 @@
 // Updated CPTest.jsx component focused on data collection only
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useAuth } from '../../context/AuthContext';
+import { formatTime } from '../../utils/utils';
 
 export default function CPTest({ onTestEnd, onTestStart, settings, questionId  }) {
   // Default settings will be overridden by props
@@ -61,12 +62,14 @@ export default function CPTest({ onTestEnd, onTestStart, settings, questionId  }
   }, [isRunning]);
   
   // Format time as MM:SS
+  /*
   const formatTime = (milliseconds) => {
     const totalSeconds = Math.ceil(milliseconds / 1000);
     const minutes = Math.floor(totalSeconds / 60);
     const seconds = totalSeconds % 60;
     return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
-  };
+  }; // TODO
+  */
   
   // Start the test
   const startTest = () => {

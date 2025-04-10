@@ -26,9 +26,9 @@ export const urlBase64ToUint8Array = (base64String) => {
     }
   };
   
-  /**
+  /** //TODO
    * Check if push notifications are supported in this browser
-   */
+   
   export const isPushNotificationSupported = () => {
     return 'Notification' in window && 
            'serviceWorker' in navigator && 
@@ -38,7 +38,7 @@ export const urlBase64ToUint8Array = (base64String) => {
   /**
    * Request permission for push notifications
    * Returns a boolean indicating if permission was granted
-   */
+  
   export const requestNotificationPermission = async () => {
     if (!isPushNotificationSupported()) {
       return false;
@@ -51,4 +51,14 @@ export const urlBase64ToUint8Array = (base64String) => {
       console.error('Error requesting notification permission:', error);
       return false;
     }
+  };
+*/
+  /**
+   * Format time as MM:SS
+   */
+  export const formatTime = (milliseconds) => {
+    const totalSeconds = Math.ceil(milliseconds / 1000);
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = totalSeconds % 60;
+    return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
   };

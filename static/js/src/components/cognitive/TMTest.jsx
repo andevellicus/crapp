@@ -1,12 +1,16 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../../context/AuthContext';
+import { formatTime } from '../../utils/utils';
 
 const TMTest = ({ onTestEnd, onTestStart, settings, questionId }) => {
   // Default settings
   const DEFAULT_SETTINGS = {
-    timeLimit: 60000, // 1 minute in milliseconds
-    numItems: 25, // Total dots to connect
-    includePartB: true // Whether to include part B (alternating numbers and letters)
+    partAItems: 25, // Items for Part A (configurable)
+    partBItems: 25, // Items for Part B (configurable)
+    includePartB: true, // Whether to include part B (alternating numbers and letters)
+    partATimeLimit: 60000, // Time limit for Part A (configurable)
+    partBTimeLimit: 120000, // Time limit for Part B (configurable)
+    minDistance: 60 // Minimum distance between circles
   };
 
   // Merge settings
@@ -17,7 +21,7 @@ const TMTest = ({ onTestEnd, onTestStart, settings, questionId }) => {
   const [isComplete, setIsComplete] = useState(false);
   const [isPractice, setIsPractice] = useState(true);
   const [currentPart, setCurrentPart] = useState('A');
-  const [remainingTime, setRemainingTime] = useState(testSettings.timeLimit);
+  const [remainingTime, setRemainingTime] = useState(testSettings.partATimeLimit + testSettings.partBTimeLimit);
   const [items, setItems] = useState([]);
   const [currentItem, setCurrentItem] = useState(1);
   const [errors, setErrors] = useState(0);
@@ -67,6 +71,13 @@ const TMTest = ({ onTestEnd, onTestStart, settings, questionId }) => {
       drawCanvas();
     }
   }, [isRunning, currentPart, canvasSize]);
+
+  // Update canvas after items state changes to ensure immediate visual feedback
+  useEffect(() => {
+    if (isRunning && items.length > 0) {
+      drawCanvas();
+    }
+  }, [items, currentItem]);
   
   // Update timer
   useEffect(() => {
@@ -84,20 +95,44 @@ const TMTest = ({ onTestEnd, onTestStart, settings, questionId }) => {
       return () => clearInterval(timerRef.current);
     }
   }, [isRunning, isPractice]);
+
+  // Record interactions with the interaction tracker if available //TODO
+  useEffect(() => {
+    if (isRunning && window.interactionTracker) {
+      // The tracker is already initialized in the parent Form component
+      // No need to setup here, just ensure cleanup
+      return () => {
+        if (window.interactionTracker) {
+          // Make sure we don't leave any event listeners
+          // (though Form component handles most of this)
+        }
+      };
+    }
+  }, [isRunning]);
   
   // Format time as MM:SS
+  /* TODO
   const formatTime = (milliseconds) => {
     const totalSeconds = Math.ceil(milliseconds / 1000);
     const minutes = Math.floor(totalSeconds / 60);
     const seconds = totalSeconds % 60;
     return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
   };
+  */
   
   // Generate test items (circles with numbers/letters)
   const generateItems = () => {
     const newItems = [];
     const padding = 50; // Padding from edges
-    const numItems = currentPart === 'Practice' ? 10 : testSettings.numItems;
+    // Determine number of items based on part and settings
+    let numItems;
+    if (currentPart === 'Practice') {
+      numItems = 5; 
+    } else if (currentPart === 'A') {
+      numItems = testSettings.partAItems; // Use configurable setting
+    } else {
+      numItems = testSettings.partBItems; // Use configurable setting
+    }
     const minDistance = 60; // Minimum distance between circles (2x radius + some extra space)
     const maxAttempts = 100; // Maximum attempts to find a non-overlapping position
     
@@ -122,9 +157,15 @@ const TMTest = ({ onTestEnd, onTestStart, settings, questionId }) => {
       let attempts = 0;
       
       while (isOverlapping && attempts < maxAttempts) {
-        // Generate random position
-        x = padding + Math.random() * (canvasSize.width - 2 * padding);
-        y = padding + Math.random() * (canvasSize.height - 2 * padding);
+        // Generate random position, but ensure first item is more centered
+        if (i === 1) {
+          // Place first item in the top third for better visibility
+          x = padding + (canvasSize.width - 2 * padding) * (0.3 + Math.random() * 0.4);
+          y = padding + (canvasSize.height - 2 * padding) * (0.2 + Math.random() * 0.3);
+        } else {
+          x = padding + Math.random() * (canvasSize.width - 2 * padding);
+          y = padding + Math.random() * (canvasSize.height - 2 * padding);
+        }
         
         // Check if it overlaps with any existing item
         isOverlapping = false;
@@ -143,8 +184,7 @@ const TMTest = ({ onTestEnd, onTestStart, settings, questionId }) => {
         attempts++;
       }
       
-      // If we couldn't find a non-overlapping position after max attempts,
-      // adjust the position to ensure minimum distance from closest circle
+      // Adjust if no non-overlapping position after max attempts,
       if (isOverlapping && newItems.length > 0) {
         // Find closest circle
         let closestItem = null;
@@ -261,6 +301,31 @@ const TMTest = ({ onTestEnd, onTestStart, settings, questionId }) => {
       targetItem: currentItem,
       currentPart
     });
+
+    // Track interaction with global tracker if available
+    if (window.interactionTracker) {
+      try {
+        // Record this as a targeted interaction
+        window.interactionTracker.handleInteraction(
+          {
+            target: canvas,
+            clientX: e.clientX,
+            clientY: e.clientY
+          }, 
+          {
+            id: `tmt-${currentItem}-${currentPart}`,
+            questionId: questionId,
+            x: x,
+            y: y,
+            width: 10,
+            height: 10,
+            type: 'tmt-circle'
+          }
+        );
+      } catch (err) {
+        console.error('Error recording TMT interaction:', err);
+      }
+    }
     
     // Check if clicked on any item
     let clickedItem = null;
@@ -344,7 +409,7 @@ const TMTest = ({ onTestEnd, onTestStart, settings, questionId }) => {
     setIsRunning(true);
     setIsPractice(true);
     setCurrentPart('Practice');
-    setRemainingTime(testSettings.timeLimit);
+    setRemainingTime(testSettings.partATimeLimit + testSettings.partBTimeLimit);
     setErrors(0);
     setCompletionTime(0);
     
