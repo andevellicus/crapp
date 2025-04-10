@@ -42,7 +42,10 @@ const AdminUserCharts = () => {
       { value: 'average_key_hold_time', label: 'Key Hold Time' },
       { value: 'key_press_variability', label: 'Key Press Variability' },
       { value: 'correction_rate', label: 'Correction Rate' },
-      { value: 'pause_rate', label: 'Pause Rate' }
+      { value: 'pause_rate', label: 'Pause Rate' },
+      { value: 'immediate_correction_tendency', label: 'Immediate Correction Tendency' },
+      { value: 'deep_thinking_pause_rate', label: 'Deep Thinking Pause Rate' },
+      { value: 'keyboard_fluency', label: 'Keyboard Fluency Score' }
     ],
     cpt: [
       { value: 'reaction_time', label: 'Reaction Time' },

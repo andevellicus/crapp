@@ -39,6 +39,9 @@ const MetricsExplanation = ({ metricsType, selectedMetric }) => {
             <li><strong>Key Press Variability:</strong> Consistency of key press durations (lower is more consistent)</li>
             <li><strong>Correction Rate:</strong> Frequency of backspace/delete usage (indicates error correction)</li>
             <li><strong>Pause Rate:</strong> Frequency of pauses while typing (can indicate cognitive processing)</li>
+            <li><strong>Immediate Correction Tendency:</strong> How quickly errors are corrected (higher indicates more attention)</li>
+            <li><strong>Deep Thinking Pause Rate:</strong> Frequency of long pauses (indicates deeper cognitive processing)</li>
+            <li><strong>Keyboard Fluency Score:</strong> Overall typing proficiency score combining multiple metrics (higher is better)</li>
           </ul>
       </div>
       );

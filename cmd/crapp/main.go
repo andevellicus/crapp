@@ -151,20 +151,6 @@ func main() {
 	router.GET("/forgot-password", viewHandler.ServeReactApp)
 	router.GET("/reset-password", viewHandler.ServeReactApp)
 
-	// Auth API routes
-	auth := router.Group("/api/auth")
-	auth.Use(middleware.RateLimiterMiddleware(), middleware.ValidateJSON())
-	{
-		auth.POST("/register", middleware.ValidateRequest(validation.RegisterRequest{}), authHandler.Register)
-		auth.POST("/login", middleware.ValidateRequest(validation.LoginRequest{}), authHandler.Login)
-		auth.POST("/refresh", middleware.ValidateRequest(validation.RefreshTokenRequest{}), authHandler.RefreshToken)
-		auth.POST("/logout", middleware.AuthMiddleware(authService), authHandler.Logout)
-		// Password reset API endpoints
-		auth.POST("/forgot-password", middleware.ValidateRequest(validation.ForgotPasswordRequest{}), authHandler.ForgotPassword)
-		auth.GET("/validate-reset-token", authHandler.ValidateResetToken)
-		auth.POST("/reset-password", middleware.ValidateRequest(validation.ResetPasswordRequest{}), authHandler.ResetPassword)
-	}
-
 	// Protected API routes
 	api := router.Group("/api")
 	api.Use(middleware.AuthMiddleware(authService), middleware.CSRFMiddleware(), middleware.ValidateJSON())
@@ -187,6 +173,20 @@ func main() {
 		// Metric routes
 		api.GET("/metrics/chart/correlation", apiHandler.GetChartCorrelationData)
 		api.GET("/metrics/chart/timeline", apiHandler.GetChartTimelineData)
+	}
+
+	// Auth API routes
+	auth := router.Group("/api/auth")
+	auth.Use(middleware.RateLimiterMiddleware(), middleware.ValidateJSON())
+	{
+		auth.POST("/register", middleware.ValidateRequest(validation.RegisterRequest{}), authHandler.Register)
+		auth.POST("/login", middleware.ValidateRequest(validation.LoginRequest{}), authHandler.Login)
+		auth.POST("/refresh", middleware.ValidateRequest(validation.RefreshTokenRequest{}), authHandler.RefreshToken)
+		auth.POST("/logout", middleware.AuthMiddleware(authService), authHandler.Logout)
+		// Password reset API endpoints
+		auth.POST("/forgot-password", middleware.ValidateRequest(validation.ForgotPasswordRequest{}), authHandler.ForgotPassword)
+		auth.GET("/validate-reset-token", authHandler.ValidateResetToken)
+		auth.POST("/reset-password", middleware.ValidateRequest(validation.ResetPasswordRequest{}), authHandler.ResetPassword)
 	}
 
 	form := router.Group("/api/form")
