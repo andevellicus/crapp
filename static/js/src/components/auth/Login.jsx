@@ -19,6 +19,14 @@ const Login = () => {
 
   // Redirect if already authenticated
   useEffect(() => {
+    // Check for auth message in session storage
+    const authMessage = sessionStorage.getItem('auth_message');
+    if (authMessage) {
+      setGeneralError(authMessage);
+      // Clear the message so it doesn't show again
+      sessionStorage.removeItem('auth_message');
+    }
+
     if (isAuthenticated) {
       // Redirect to the page they were trying to access or home
       const from = location.state?.from || '/';

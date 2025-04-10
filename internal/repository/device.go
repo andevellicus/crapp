@@ -74,20 +74,62 @@ func (r *DeviceRepository) Update(device *models.Device) error {
 	return nil
 }
 
+// Delete handles device deletion with cascading updates
 func (r *DeviceRepository) Delete(id string) error {
 	if id == "" {
 		return fmt.Errorf("device ID cannot be empty")
 	}
 
-	// Perform deletion
-	result := r.db.Delete(&models.Device{}, "id = ?", id)
-	if result.Error != nil {
-		r.log.Errorw("Database error deleting device", "error", result.Error, "id", id)
-		return fmt.Errorf("failed to delete device: %w", result.Error)
+	// Start a transaction to ensure all operations succeed or fail together
+	tx := r.db.Begin()
+	if tx.Error != nil {
+		return tx.Error
+	}
+
+	// Update related records first
+	// 1. Update assessments to use a null device ID or placeholder
+	if err := tx.Model(&models.Assessment{}).
+		Where("device_id = ?", id).
+		Update("device_id", "deleted_device").Error; err != nil {
+		tx.Rollback()
+		return fmt.Errorf("failed to update assessments: %w", err)
+	}
+
+	// 2. Update CPT results
+	if err := tx.Model(&models.CPTResult{}).
+		Where("device_id = ?", id).
+		Update("device_id", "deleted_device").Error; err != nil {
+		tx.Rollback()
+		return fmt.Errorf("failed to update CPT results: %w", err)
+	}
+
+	// 3. Update TMT results
+	if err := tx.Model(&models.TMTResult{}).
+		Where("device_id = ?", id).
+		Update("device_id", "deleted_device").Error; err != nil {
+		tx.Rollback()
+		return fmt.Errorf("failed to update TMT results: %w", err)
+	}
+
+	// 4. Update refresh tokens
+	if err := tx.Delete(&models.RefreshToken{}, "device_id = ?", id).Error; err != nil {
+		tx.Rollback()
+		return fmt.Errorf("failed to delete refresh tokens: %w", err)
+	}
+
+	// Finally, delete the device
+	if err := tx.Delete(&models.Device{}, "id = ?", id).Error; err != nil {
+		tx.Rollback()
+		return fmt.Errorf("failed to delete device: %w", err)
+	}
+
+	// Commit transaction
+	if err := tx.Commit().Error; err != nil {
+		return fmt.Errorf("failed to commit transaction: %w", err)
 	}
 
 	// Log the operation
-	r.log.Infow("Device deleted", "id", id, "rows_affected", result.RowsAffected)
+	r.log.Infow("Device deleted with related data updated", "id", id)
 
 	return nil
 }

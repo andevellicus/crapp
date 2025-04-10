@@ -21,6 +21,7 @@ type LoginRequest struct {
 
 type RefreshTokenRequest struct {
 	RefreshToken string `json:"refresh_token" validate:"required"`
+	DeviceID     string `json:"device_id" validate:"required"`
 }
 
 // User validation models

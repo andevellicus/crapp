@@ -213,7 +213,7 @@ func (h *AuthHandler) RefreshToken(c *gin.Context) {
 	deviceID := c.GetHeader("X-Device-ID")
 	if deviceID == "" {
 		// Check if device ID is in query
-		deviceID = c.Query("device_id")
+		deviceID = req.DeviceID
 		if deviceID == "" {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Device ID is required"})
 			return

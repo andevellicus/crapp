@@ -11,6 +11,7 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const navigate = useNavigate();
+  const [tokenMonitorId, setTokenMonitorId] = useState(null);
 
   // Check authentication status on mount
   useEffect(() => {
@@ -53,6 +54,57 @@ export function AuthProvider({ children }) {
 
     checkAuth();
   }, []);
+
+  useEffect(() => {
+    // Function to check token expiration
+    const checkTokenExpiration = () => {
+      const token = localStorage.getItem('auth_token');
+      if (!token) return;
+      
+      // Check if token is expired using JWT structure
+      try {
+        // Split the token to get the payload
+        const payload = JSON.parse(atob(token.split('.')[1]));
+        
+        // Check expiration (exp is in seconds, Date.now() is in milliseconds)
+        const isExpired = payload.exp * 1000 < Date.now();
+        
+        if (isExpired) {          
+          // Try to refresh the token
+          refreshToken().catch(() => {
+            // If refresh fails, log out and redirect
+            clearAuthData();
+            
+            // Add a message to display after redirect
+            sessionStorage.setItem('auth_message', 'Your session has expired. Please log in again.');
+            
+            // Redirect to login
+            navigate('/login');
+          });
+        }
+      } catch (error) {
+        console.error('Error checking token expiration:', error);
+      }
+    };
+    
+    // Only set up monitoring if user is authenticated
+    if (isAuthenticated && !tokenMonitorId) {
+      // Check token every minute
+      const intervalId = setInterval(checkTokenExpiration, 60000);
+      setTokenMonitorId(intervalId);
+      
+      // Initial check
+      checkTokenExpiration();
+    }
+    
+    // Clean up on unmount or when auth state changes
+    return () => {
+      if (tokenMonitorId) {
+        clearInterval(tokenMonitorId);
+        setTokenMonitorId(null);
+      }
+    };
+  }, [isAuthenticated, navigate]);
 
   // Login function
   const login = async (email, password, deviceInfo = {}) => {
