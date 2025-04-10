@@ -247,7 +247,7 @@ func (r *UserRepository) SaveNotificationPreferences(userEmail string, preferenc
 	}
 
 	// Update user model
-	if err := r.db.Model(&user).Update("push_preferences", preferencesJSON).Error; err != nil {
+	if err := r.db.Model(&user).Update("notification_preferences", preferencesJSON).Error; err != nil {
 		return err
 	}
 
@@ -272,7 +272,7 @@ func (r *UserRepository) GetNotificationPreferences(userEmail string) (*UserNoti
 	}
 
 	// Default preferences if none are set
-	if user.PushPreferences == "" {
+	if user.NotificationPreferences == "" {
 		return &UserNotificationPreferences{
 			PushEnabled:   false,
 			EmailEnabled:  false,
@@ -282,7 +282,7 @@ func (r *UserRepository) GetNotificationPreferences(userEmail string) (*UserNoti
 	}
 
 	var preferences UserNotificationPreferences
-	if err := json.Unmarshal([]byte(user.PushPreferences), &preferences); err != nil {
+	if err := json.Unmarshal([]byte(user.NotificationPreferences), &preferences); err != nil {
 		return nil, err
 	}
 

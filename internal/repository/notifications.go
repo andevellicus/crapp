@@ -46,7 +46,7 @@ func (r *Repository) GetAllUniqueReminderTimes() ([]string, error) {
 	var users []models.User
 
 	// Find users with push subscriptions
-	if err := r.db.Where("push_subscription IS NOT NULL AND push_subscription != ''").Find(&users).Error; err != nil {
+	if err := r.db.Where("notification_preferences IS NOT NULL").Find(&users).Error; err != nil {
 		return nil, err
 	}
 

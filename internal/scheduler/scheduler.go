@@ -56,14 +56,16 @@ func (s *ReminderScheduler) Start() error {
 	// Combine with default times from config
 	allTimes := make(map[string]bool)
 
-	// Add config times
-	for _, timeStr := range s.config.Reminders.Times {
-		allTimes[timeStr] = true
-	}
-
 	// Add user times
 	for _, timeStr := range userTimes {
 		allTimes[timeStr] = true
+	}
+
+	// Add config times if user times are empty:
+	if len(userTimes) < 1 {
+		for _, timeStr := range s.config.Reminders.Times {
+			allTimes[timeStr] = true
+		}
 	}
 
 	// Schedule all unique times
