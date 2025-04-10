@@ -79,6 +79,35 @@
     text-align: center;
 }
 
+/* CPT mobile styles */
+@media screen and (max-width: 768px) {
+  .cpt-stimulus-container {
+    width: 150px;
+    height: 150px;
+    margin: 15px auto;
+  }
+  
+  .mobile-tap-button {
+    display: block;
+    width: 80%;
+    max-width: 300px;
+    margin: 15px auto;
+    padding: 15px;
+    font-size: 18px;
+    background-color: #4a6fa5;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    touch-action: manipulation;
+  }
+  
+  /* Make tap targets bigger on mobile */
+  .cpt-test-container button {
+    min-height: 44px;
+    font-size: 16px;
+  }
+}
+
 /* Results styles */
 .cpt-results-summary {
     display: grid;
@@ -309,3 +338,30 @@
     font-weight: bold;
     margin: 0;
   }
+
+  /* Trail Making Test mobile styles */
+@media screen and (max-width: 768px) {
+  .trail-test-container {
+    padding: 10px 0;
+  }
+  
+  canvas {
+    touch-action: none; /* Prevents scrolling/zooming while using canvas */
+    -webkit-user-select: none;
+    user-select: none;
+  }
+  
+  .trail-header {
+    font-size: 14px;
+  }
+  
+  .trail-instructions-small {
+    font-size: 12px;
+  }
+}
+
+/* Prevent pull-to-refresh on mobile during tests */
+.cpt-test-container,
+.trail-test-container {
+  overscroll-behavior: contain;
+}

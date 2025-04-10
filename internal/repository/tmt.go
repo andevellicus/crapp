@@ -39,7 +39,7 @@ func (r *TMTRepository) GetTrailTimelineData(userEmail, metricKey string) ([]Tim
 
 	// Query the database for Trail Making Test results for the user, ordered by date
 	err := r.db.Where("user_email = ?", userEmail).
-		Order("test_start_time ASC").
+		Order("created_at ASC").
 		Find(&results).Error
 
 	if err != nil {

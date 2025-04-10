@@ -42,7 +42,7 @@ func (r *CognitiveTestRepository) GetCPTTimelineData(userEmail, metricKey string
 
 	// Query the database for CPT results for the user, ordered by date
 	err := r.db.Where("user_email = ?", userEmail).
-		Order("test_start_time ASC").
+		Order("created_at ASC").
 		Find(&results).Error
 
 	if err != nil {

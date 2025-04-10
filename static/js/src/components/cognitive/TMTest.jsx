@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../../context/AuthContext';
-import { formatTime } from '../../utils/utils';
+import { formatTime, isMobileDevice } from '../../utils/utils';
 
 const TMTest = ({ onTestEnd, onTestStart, settings, questionId }) => {
   // Default settings
@@ -28,6 +28,8 @@ const TMTest = ({ onTestEnd, onTestStart, settings, questionId }) => {
   const [startTime, setStartTime] = useState(0);
   const [completionTime, setCompletionTime] = useState(0);
   const [canvasSize, setCanvasSize] = useState({ width: 800, height: 600 });
+  const [canvasSizeFixed, setCanvasSizeFixed] = useState(false);
+  const canvasContainerRef = useRef(null);
   
   // Refs
   const canvasRef = useRef(null);
@@ -46,31 +48,41 @@ const TMTest = ({ onTestEnd, onTestStart, settings, questionId }) => {
     clicks: [],
     settings: testSettings
   });
-  
-  // Resize canvas on window resize
-  useEffect(() => {
-    const handleResize = () => {
-      const container = document.querySelector('.trail-test-container');
-      if (container) {
-        // Keep it responsive but with max dimensions
-        const width = Math.min(container.clientWidth - 40, 800);
-        const height = Math.min(window.innerHeight * 0.7, 600);
-        setCanvasSize({ width, height });
-      }
-    };
-    
-    window.addEventListener('resize', handleResize);
-    handleResize(); // Initial size
-    
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
 
+  // Set canvas size once on initial render
   useEffect(() => {
-    if (isRunning) {
+    if (!canvasSizeFixed && canvasContainerRef.current) {
+      // Get container dimensions
+      const container = canvasContainerRef.current;
+      const containerWidth = container.clientWidth;
+      
+      // Get window dimensions for mobile constraints
+      const windowWidth = window.innerWidth;
+      const windowHeight = window.innerHeight;
+      
+      // Calculate optimal size (smaller on mobile)
+      const maxWidth = isMobileDevice() ? Math.min(containerWidth - 20, 320) : Math.min(containerWidth - 40, 800);
+      
+      // Maintain aspect ratio
+      const aspectRatio = 3/4; // height/width ratio
+      const height = Math.min(maxWidth * aspectRatio, windowHeight * 0.5);
+      
+      // Set size and mark as fixed
+      setCanvasSize({ 
+        width: maxWidth, 
+        height: height 
+      });
+      setCanvasSizeFixed(true);
+    }
+  }, [canvasSizeFixed, isRunning]);
+
+  // Generate items and draw canvas when test starts or part changes
+  useEffect(() => {
+    if (isRunning && canvasSizeFixed) {
       generateItems();
       drawCanvas();
     }
-  }, [isRunning, currentPart, canvasSize]);
+  }, [isRunning, currentPart, canvasSizeFixed]);
 
   // Update canvas after items state changes to ensure immediate visual feedback
   useEffect(() => {
@@ -468,7 +480,7 @@ const TMTest = ({ onTestEnd, onTestStart, settings, questionId }) => {
   
   // Render test screen
   const renderTestScreen = () => (
-    <div className="trail-test-container">
+    <div className="trail-test-container" ref={canvasContainerRef}>
       <div className="trail-header">
         {!isPractice && (
           <div className="trail-timer">
@@ -494,7 +506,9 @@ const TMTest = ({ onTestEnd, onTestStart, settings, questionId }) => {
           border: '1px solid #ccc',
           backgroundColor: '#f9f9f9',
           borderRadius: '8px',
-          cursor: 'pointer'
+          cursor: 'pointer',
+          touchAction: 'none', // Prevent scrolling on touch devices
+          maxWidth: '100%'     // Ensure it doesn't overflow
         }}
       />
       

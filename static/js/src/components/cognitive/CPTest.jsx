@@ -1,7 +1,7 @@
 // Updated CPTest.jsx component focused on data collection only
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useAuth } from '../../context/AuthContext';
-import { formatTime } from '../../utils/utils';
+import { formatTime, isMobileDevice } from '../../utils/utils';
 
 export default function CPTest({ onTestEnd, onTestStart, settings, questionId  }) {
   // Default settings will be overridden by props
@@ -22,6 +22,7 @@ export default function CPTest({ onTestEnd, onTestStart, settings, questionId  }
   const [isComplete, setIsComplete] = useState(false);
   const [currentStimulus, setCurrentStimulus] = useState(null);
   const [remainingTime, setRemainingTime] = useState(testSettings.testDuration);
+  const [isMobile, setIsMobile] = useState(false);
   
   // Refs
   const timerIntervalRef = useRef(null);
@@ -60,6 +61,10 @@ export default function CPTest({ onTestEnd, onTestStart, settings, questionId  }
       };
     }
   }, [isRunning]);
+
+  useEffect(() => {
+    setIsMobile(isMobileDevice());
+  }, []);
    
   // Start the test
   const startTest = () => {
@@ -164,6 +169,19 @@ export default function CPTest({ onTestEnd, onTestStart, settings, questionId  }
     // Prevent page scrolling
     event.preventDefault();
     
+    // Process the response
+    processResponse();
+  }, []);
+
+  // Handle tap/touch events (mobile)
+  const handleTap = useCallback(() => {
+    if (!isRunningRef.current || !currentStimulusRef.current) return;
+    // Process the response
+    processResponse();
+  }, []);
+
+  // Process user response (common logic for both keyboard and touch)
+  const processResponse = () => {
     // Calculate response time
     const currentTime = performance.now();
     const responseTime = currentTime - stimulusStartTimeRef.current;
@@ -179,7 +197,7 @@ export default function CPTest({ onTestEnd, onTestStart, settings, questionId  }
       responseTime: responseTime,
       stimulusIndex: testDataRef.current.stimuliPresented.length - 1
     });
-  }, []);
+  };
   
   // End the test
   const endTest = () => {
@@ -217,7 +235,11 @@ export default function CPTest({ onTestEnd, onTestStart, settings, questionId  }
             <p><strong>Instructions:</strong></p>
             <ul>
                 <li>You will see letters appear on the screen one at a time</li>
+                {isMobile ? (
+                <li>Tap the box when you see '{testSettings.targets[0]}'</li>
+                ) : (
                 <li>Press the spacebar when you see the letter '{testSettings.targets[0]}'</li>
+                )}                
                 <li>Do NOT press any key for other letters</li>
                 <li>Try to respond as quickly and accurately as possible</li>
                 <li>The test will take {testSettings.testDuration / 1000 / 60} minutes to complete</li>
@@ -233,21 +255,54 @@ export default function CPTest({ onTestEnd, onTestStart, settings, questionId  }
   // Render test screen
   const renderTestScreen = () => (
     <div className="cpt-test-container">
-        <div className="cpt-timer">
-            Time Remaining: <span id="cpt-time-remaining">
-                {formatTime(remainingTime)}
-            </span>
+      <div className="cpt-timer">
+        Time Remaining: <span id="cpt-time-remaining">
+          {formatTime(remainingTime)}
+        </span>
+      </div>
+      
+      {/* Make stimulus container touchable for mobile */}
+      <div 
+        className="cpt-stimulus-container"
+        onClick={isMobile ? handleTap : undefined}
+        style={{ cursor: isMobile ? 'pointer' : 'default' }}
+      >
+        <div id="cpt-stimulus">
+          {currentStimulus ? currentStimulus.value : ''}
         </div>
-        <div className="cpt-stimulus-container">
-            <div id="cpt-stimulus">
-                {currentStimulus ? currentStimulus.value : ''}
-            </div>
-        </div>
-        <div className="cpt-instructions-small">
-            <p>Press spacebar for '{testSettings.targets[0]}' only</p>
-        </div>
+      </div>
+      
+      <div className="cpt-instructions-small">
+        {isMobile ? (
+          <p>Tap the box when you see '{testSettings.targets[0]}'</p>
+          ) : (
+          <p>Press spacebar for '{testSettings.targets[0]}' only</p>
+        )}
+      </div>
+      
+      {/* Add a tap button for mobile */}
+      {isMobile && (
+        <button 
+          type="button"
+          className="mobile-tap-button" 
+          onClick={handleTap}
+          style={{
+            marginTop: '20px',
+            padding: '15px 30px',
+            fontSize: '18px',
+            backgroundColor: '#4a6fa5',
+            color: 'white',
+            border: 'none',
+            borderRadius: '8px',
+            WebkitUserSelect: 'none',
+            userSelect: 'none',
+          }}
+        >
+          Tap for '{testSettings.targets[0]}'
+        </button>
+      )}
     </div>
-);
+  );
   
   // Render results screen
   const renderResultsScreen = () => (
