@@ -1,7 +1,8 @@
 import { useState } from 'react';
-import { useAuth } from '../../context/AuthContext';
+import { AuthProvider, useAuth } from '../../context/AuthContext';
 import CPTest from '../cognitive/CPTest';
 import TMTest from '../cognitive/TMTest';
+import api from '../../services/api';
 
 
 export default function Form() {
@@ -75,21 +76,13 @@ export default function Form() {
     
     // Initialize form state
     const initForm = async (forceNew = false) => {
-      try {
-        const response = await fetch('/api/form/init', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
-          },
-          body: JSON.stringify({ force_new: forceNew })
-        });
-        
-        if (!response.ok) {
-          throw new Error('Failed to initialize form');
+      try {        
+        const data = await api.post('/api/form/init', { force_new: forceNew })
+
+        if (!data) {
+          throw new Error('Error with form init request')
         }
-        
-        const data = await response.json();
+
         setStateId(data.id);
 
         // Reset form data for new form
@@ -110,17 +103,11 @@ export default function Form() {
     // Load current question
     const loadCurrentQuestion = async (id = stateId) => {
       try {
-        const response = await fetch(`/api/form/state/${id}`, {
-          headers: {
-            'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
-          }
-        });
-        
-        if (!response.ok) {
-          throw new Error('Failed to load question');
+        const data = await api.get(`/api/form/state/${id}`)
+
+        if (!data) {
+          throw new Error('Error with question request')
         }
-        
-        const data = await response.json();
         
         // Check if we're at the submission screen
         if (data.state === 'complete') {
@@ -160,13 +147,7 @@ export default function Form() {
           currentInteractionData = window.interactionTracker.getData();
         }
         
-        const response = await fetch(`/api/form/state/${stateId}/answer`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
-          },
-          body: JSON.stringify({
+        const data = await api.post(`/api/form/state/${stateId}/answer`, {
             question_id: currentQuestion.id,
             answer: answer,
             direction: direction,
@@ -174,13 +155,13 @@ export default function Form() {
             interaction_data: currentInteractionData,
             cpt_data: formData.cptResults,
             tmt_data: formData.tmtResults
-          })
-        });
-        
-        if (!response.ok) {
-            const errorData = await response.json();
-            setValidationError(errorData.error || 'Failed to save answer');
-            return;
+          }
+        )
+
+        if (!data) {
+          setValidationError(errorData.error || 'Failed to save answer');
+          throw new Error('Error with form_state answer request')
+
         }
         
         // Load next question
@@ -243,24 +224,16 @@ export default function Form() {
           }
         }
         
-        // Submit all data together
-        const response = await fetch(`/api/form/state/${stateId}/submit`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${localStorage.getItem('auth_token')}`,
-            'X-Device-ID': localStorage.getItem('device_id') || ''
-          },
-          body: JSON.stringify({
+        const data = await api.post(`/api/form/state/${stateId}/submit`, {
             // Only include final interaction data and CPT results
             interaction_data: finalInteractionData,
             cpt_data: cptResults,
             tmt_data: formData.tmtResults
-          })
-        });
-        
-        if (!response.ok) {
-            throw new Error('Failed to submit form');
+          }
+        )
+
+        if (!data) {
+          throw new Error('Failed to submit form');
         }
         
         // Show success message

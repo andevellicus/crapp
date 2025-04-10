@@ -1,5 +1,5 @@
 // Base API configurations
-const API_BASE = '';  // Empty for same-origin API
+const API_BASE = '';
 
 // Function to refresh the token - imported directly
 const refreshToken = async () => {
@@ -120,6 +120,19 @@ const handleResponse = async (response) => {
 
   // Check if response is successful
   if (!response.ok) {
+    // Handle unauthorized errors with redirect
+    if (response.status === 401) {
+      // Clear auth data
+      localStorage.removeItem('auth_token');
+      localStorage.removeItem('refresh_token');
+      localStorage.removeItem('user_info');
+      localStorage.removeItem('device_id');
+      
+      // Redirect to login page
+      window.location.href = '/login';
+      return null;
+    }
+
     // Create error object with response details
     const error = new Error(data.error || 'API request failed');
     error.status = response.status;

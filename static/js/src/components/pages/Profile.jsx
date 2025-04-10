@@ -1,4 +1,5 @@
 import { useAuth } from '../../context/AuthContext';
+import api from '../../services/api';
 import { urlBase64ToUint8Array, isPushNotificationSupported } from '../../utils/utils';
 
 export default function Profile() {
@@ -208,20 +209,10 @@ export default function Profile() {
           const registration = await navigator.serviceWorker.ready;
           
           // Get VAPID key
-          const response = await fetch('/api/push/vapid-public-key', {
-            headers: {
-              'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
-            }
-          });
-          
-          if (!response.ok) {
-            throw new Error('Failed to get VAPID key');
-          }
-          
-          const data = await response.json();
+          const data = await api.get('/api/push/vapid-public-key')
           const publicKey = data.publicKey;
           
-          if (!publicKey) {
+          if (!publicKey || !data) {
             throw new Error('No VAPID public key available');
           }
           
@@ -234,15 +225,7 @@ export default function Profile() {
             applicationServerKey: convertedKey
           });
           
-          // Send subscription to server
-          await fetch('/api/push/subscribe', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
-            },
-            body: JSON.stringify(subscription)
-          });
+          await api.post('/api/push/subscribe', {subscription})
           
           showSectionMessage('notification', 'Push notifications enabled successfully!', 'success');
         } catch (error) {
@@ -330,49 +313,13 @@ export default function Profile() {
       
       // Save profile info and password
       try {
-        const updateResponse = await fetch('/api/user', {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
-          },
-          body: JSON.stringify({
-            first_name: formData.first_name,
-            last_name: formData.last_name,
-            current_password: formData.current_password || undefined,
-            new_password: formData.new_password || undefined
-          })
-        });
+        const userData = await api.put('/api/user', {
+          first_name: formData.first_name,
+          last_name: formData.last_name,
+          current_password: formData.current_password || undefined,
+          new_password: formData.new_password || undefined
+        })
 
-        // Check if unauthorized (401) - token expired or invalid
-        if (updateResponse.status === 401) {
-          // Clear auth data and redirect to login
-          localStorage.removeItem('auth_token');
-          localStorage.removeItem('refresh_token');
-          localStorage.removeItem('user_info');
-          localStorage.removeItem('device_id');
-          
-          // Show message and redirect
-          showSectionMessage('general', 'Your session has expired. Please log in again.', 'error');
-          
-          // Redirect after a short delay
-          setTimeout(() => {
-            window.location.href = '/login';
-          }, 1500);
-          
-          return;
-        }
-        
-        if (!updateResponse.ok) {
-          const errorData = await updateResponse.json();
-          // Determine which section has the error
-          if (errorData.error && errorData.error.toLowerCase().includes('password')) {
-            throw { message: errorData.error, section: 'password' };
-          } else {
-            throw { message: errorData.error || 'Failed to update profile', section: 'personal' };
-          }
-        }
-        
         // Show success for profile update
         showSectionMessage('personal', 'Profile information updated successfully', 'success');
         
@@ -394,11 +341,16 @@ export default function Profile() {
         
       } catch (error) {
         console.error('Error updating profile:', error);
-        showSectionMessage(
-          error.section || 'general',
-          error.message || 'Failed to update profile',
-          'error'
-        );
+  
+        // Determine which section has the error
+        if (error.data && error.data.error && 
+            error.data.error.toLowerCase().includes('password')) {
+          showSectionMessage('password', error.data.error, 'error');
+        } else {
+          showSectionMessage('personal', 
+            error.data?.error || error.message || 'Failed to update profile', 
+            'error');
+        }
       } finally {
         setIsSaving(false);
       }
@@ -432,27 +384,12 @@ export default function Profile() {
         }
         
         // Save preferences to the server
-        const response = await fetch('/api/push/preferences', {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
-          },
-          body: JSON.stringify({
-            push_enabled: notificationPrefs.pushEnabled,
-            email_enabled: notificationPrefs.emailEnabled,
-            reminder_times: notificationPrefs.reminderTimes
-          })
+        await api.put('/api/push/preferences', {
+          push_enabled: notificationPrefs.pushEnabled,
+          email_enabled: notificationPrefs.emailEnabled,
+          reminder_times: notificationPrefs.reminderTimes
         });
-        
-        if (!response.ok) {
-          const errorData = await response.json();
-          throw { 
-            message: errorData.error || 'Failed to update notification preferences', 
-            section: 'notification' 
-          };
-        }
-        
+
         // If we get here, notification settings were saved successfully
         if (notificationPrefs.pushEnabled || notificationPrefs.emailEnabled) {
           showSectionMessage(
@@ -470,8 +407,8 @@ export default function Profile() {
       } catch (error) {
         console.error('Error saving notification preferences:', error);
         showSectionMessage(
-          error.section || 'notification',
-          error.message || 'Failed to save notification preferences',
+          'notification',
+          error.data?.error || error.message || 'Failed to save notification preferences',
           'error'
         );
         throw error;
@@ -516,21 +453,9 @@ export default function Profile() {
       clearAllMessages();
       
       try {
-        const response = await fetch('/api/user/delete', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
-          },
-          body: JSON.stringify({
-            password: deletePassword
-          })
-        });
-        
-        if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(errorData.error || 'Failed to delete account');
-        }
+        await api.put('/api/user/delete', {
+          password: deletePassword
+        })
         
         // Show success message and redirect to login
         alert('Your account has been deleted successfully. You will be redirected to the login page.');

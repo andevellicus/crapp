@@ -1,4 +1,5 @@
 import { useAuth } from '../../context/AuthContext';
+import api from '../../services/api';
 
 export default function Devices() {
     const [devices, setDevices] = React.useState([]);
@@ -24,17 +25,8 @@ export default function Devices() {
       setErrorMessage('');
       
       try {
-        const response = await fetch('/api/devices', {
-          headers: {
-            'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
-          }
-        });
-        
-        if (!response.ok) {
-          throw new Error('Failed to fetch devices');
-        }
-        
-        const data = await response.json();
+        const data = await api.get('/api/devices')
+
         setDevices(data);
       } catch (error) {
         console.error('Error fetching devices:', error);
@@ -87,18 +79,11 @@ export default function Devices() {
       }
       
       try {
-        const response = await fetch(`/api/devices/${modalState.deviceId}/rename`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
-          },
-          body: JSON.stringify({
-            device_name: modalState.deviceName
-          })
-        });
-        
-        if (!response.ok) {
+        const response = await api.post(`/api/devices/${modalState.deviceId}/rename`, {
+          device_name: modalState.deviceName
+        })
+
+        if (!response) {
           throw new Error('Failed to rename device');
         }
         
@@ -130,15 +115,12 @@ export default function Devices() {
     
     const handleDeleteDevice = async () => {
       try {
-        const response = await fetch(`/api/devices/${modalState.deviceId}`, {
-          method: 'DELETE',
-          headers: {
-            'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
-          }
-        });
-        
-        if (!response.ok) {
-          throw new Error('Failed to remove device');
+        const response = await api.delete(`/api/devices/${modalState.deviceId}`, {
+          device_name: modalState.deviceName
+        })
+
+        if (!response) {
+          throw new Error('Failed to rename device');
         }
         
         // Remove device from state
