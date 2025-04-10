@@ -96,7 +96,7 @@ const TMTest = ({ onTestEnd, onTestStart, settings, questionId }) => {
     }
   }, [isRunning, isPractice]);
 
-  // Record interactions with the interaction tracker if available //TODO
+  // Record interactions with the interaction tracker if available
   useEffect(() => {
     if (isRunning && window.interactionTracker) {
       // The tracker is already initialized in the parent Form component
@@ -104,22 +104,11 @@ const TMTest = ({ onTestEnd, onTestStart, settings, questionId }) => {
       return () => {
         if (window.interactionTracker) {
           // Make sure we don't leave any event listeners
-          // (though Form component handles most of this)
         }
       };
     }
   }, [isRunning]);
-  
-  // Format time as MM:SS
-  /* TODO
-  const formatTime = (milliseconds) => {
-    const totalSeconds = Math.ceil(milliseconds / 1000);
-    const minutes = Math.floor(totalSeconds / 60);
-    const seconds = totalSeconds % 60;
-    return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
-  };
-  */
-  
+
   // Generate test items (circles with numbers/letters)
   const generateItems = () => {
     const newItems = [];

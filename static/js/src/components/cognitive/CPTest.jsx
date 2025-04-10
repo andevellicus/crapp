@@ -60,17 +60,7 @@ export default function CPTest({ onTestEnd, onTestStart, settings, questionId  }
       };
     }
   }, [isRunning]);
-  
-  // Format time as MM:SS
-  /*
-  const formatTime = (milliseconds) => {
-    const totalSeconds = Math.ceil(milliseconds / 1000);
-    const minutes = Math.floor(totalSeconds / 60);
-    const seconds = totalSeconds % 60;
-    return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
-  }; // TODO
-  */
-  
+   
   // Start the test
   const startTest = () => {
     // Set running state
@@ -234,7 +224,7 @@ export default function CPTest({ onTestEnd, onTestStart, settings, questionId  }
             </ul>
             <p>Click 'Start Test' when you're ready to begin.</p>
         </div>
-        <button id="cpt-start-button" className="submit-button" onClick={startTest}>
+        <button className="submit-button" onClick={startTest}>
             Start Test
         </button>
     </div>

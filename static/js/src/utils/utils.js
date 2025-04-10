@@ -26,33 +26,6 @@ export const urlBase64ToUint8Array = (base64String) => {
     }
   };
   
-  /** //TODO
-   * Check if push notifications are supported in this browser
-   
-  export const isPushNotificationSupported = () => {
-    return 'Notification' in window && 
-           'serviceWorker' in navigator && 
-           'PushManager' in window;
-  };
-  
-  /**
-   * Request permission for push notifications
-   * Returns a boolean indicating if permission was granted
-  
-  export const requestNotificationPermission = async () => {
-    if (!isPushNotificationSupported()) {
-      return false;
-    }
-    
-    try {
-      const permission = await Notification.requestPermission();
-      return permission === 'granted';
-    } catch (error) {
-      console.error('Error requesting notification permission:', error);
-      return false;
-    }
-  };
-*/
   /**
    * Format time as MM:SS
    */
