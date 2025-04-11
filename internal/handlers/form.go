@@ -273,8 +273,15 @@ func (h *FormHandler) SubmitForm(c *gin.Context) {
 		return
 	}
 
+	// Get device ID
+	deviceID := getDeviceID(c)
+	if deviceID == "" {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Device ID required"})
+		return
+	}
+
 	// Create assessment
-	assessmentID, err := h.repo.Assessments.Create(userEmail.(string), c.GetHeader("X-Device-ID"))
+	assessmentID, err := h.repo.Assessments.Create(userEmail.(string), deviceID)
 	if err != nil {
 		h.log.Errorw("Error creating assessment", "error", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error saving assessment"})
@@ -325,7 +332,7 @@ func (h *FormHandler) SubmitForm(c *gin.Context) {
 
 				// Set assessment ID and user info
 				cptResults.UserEmail = userEmail.(string)
-				cptResults.DeviceID = c.GetHeader("X-Device-ID")
+				cptResults.DeviceID = deviceID
 				cptResults.AssessmentID = assessmentID
 
 				// Save CPT results
@@ -352,7 +359,7 @@ func (h *FormHandler) SubmitForm(c *gin.Context) {
 
 				// Set assessment ID and user info
 				tmtResults.UserEmail = userEmail.(string)
-				tmtResults.DeviceID = c.GetHeader("X-Device-ID")
+				tmtResults.DeviceID = deviceID
 				tmtResults.AssessmentID = assessmentID
 
 				// Save Trail Making Test results

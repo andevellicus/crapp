@@ -263,15 +263,11 @@ func (h *AuthHandler) RefreshToken(c *gin.Context) {
 		return
 	}
 
-	// Get device ID from cookie
-	deviceID, err := c.Cookie("device_id")
-	if err != nil {
-		// Fall back to header
-		deviceID = c.GetHeader("X-Device-ID")
-		if deviceID == "" {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Device ID is required"})
-			return
-		}
+	// Get device ID
+	deviceID := getDeviceID(c)
+	if deviceID == "" {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Device ID required"})
+		return
 	}
 
 	// Use the auth service to refresh the token

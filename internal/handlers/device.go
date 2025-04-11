@@ -134,3 +134,13 @@ func (h *AuthHandler) RenameDevice(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{"message": "Device renamed successfully"})
 }
+
+func getDeviceID(c *gin.Context) string {
+	// Get device ID from cookie
+	deviceID, err := c.Cookie("device_id")
+	if err != nil {
+		// Fall back to header
+		deviceID = c.GetHeader("X-Device-ID")
+	}
+	return deviceID
+}
