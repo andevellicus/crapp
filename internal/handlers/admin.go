@@ -72,7 +72,7 @@ func (h *AdminHandler) SendReminder(c *gin.Context) {
 		if h.emailService != nil {
 			err = h.emailService.SendReminderEmail(user.Email, user.FirstName)
 			if err != nil {
-				h.log.Errorw("Failed to send email reminder", "error", err, "email", req.Email)
+				h.log.Warnw("Failed to send email reminder", "error", err, "email", req.Email)
 				errorMsg = "Failed to send email reminder: " + err.Error()
 			} else {
 				success = true
@@ -84,7 +84,10 @@ func (h *AdminHandler) SendReminder(c *gin.Context) {
 
 	case "push":
 		// Send push notification
-		if h.pushService != nil && (prefs == nil || prefs.PushEnabled) {
+		if h.pushService == nil {
+			errorMsg = "Push notification service not available"
+			break
+		} else if prefs.PushEnabled {
 			err = h.pushService.SendNotification(
 				user.Email,
 				"Daily Assessment Reminder",
@@ -98,7 +101,11 @@ func (h *AdminHandler) SendReminder(c *gin.Context) {
 				h.log.Infow("Sent admin-initiated push reminder", "email", req.Email)
 			}
 		} else {
-			errorMsg = "Push notification service not available or user has disabled push notifications"
+			c.JSON(http.StatusForbidden, gin.H{
+				"success": false,
+				"error":   "User has disabled push notifications",
+			})
+			return
 		}
 
 	default:
@@ -112,7 +119,7 @@ func (h *AdminHandler) SendReminder(c *gin.Context) {
 			"message": "Reminder sent successfully",
 		})
 	} else {
-		c.JSON(http.StatusInternalServerError, gin.H{
+		c.JSON(http.StatusServiceUnavailable, gin.H{
 			"success": false,
 			"error":   errorMsg,
 		})

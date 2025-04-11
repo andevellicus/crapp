@@ -1,6 +1,6 @@
 // Updated CPTest.jsx component focused on data collection only
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { useAuth } from '../../context/AuthContext';
+// import { useAuth } from '../../context/AuthContext'; TODO
 import { formatTime, isMobileDevice } from '../../utils/utils';
 
 export default function CPTest({ onTestEnd, onTestStart, settings, questionId  }) {
@@ -30,6 +30,9 @@ export default function CPTest({ onTestEnd, onTestStart, settings, questionId  }
   const stimulusStartTimeRef = useRef(0);
   const isRunningRef = useRef(false);
   const currentStimulusRef = useRef(null);
+    // Refs to track if onTestStart and onTestEnd have already been called
+    const wasRunningRef = useRef(false);
+    const wasCompleteRef = useRef(false);
 
   // Raw data collection refs
   const testDataRef = useRef({
@@ -41,7 +44,11 @@ export default function CPTest({ onTestEnd, onTestStart, settings, questionId  }
   });
   
   // Auth context for user data and device ID
-  const { user, deviceId } = useAuth();
+  // const { user, deviceId } = useAuth(); TODO 
+
+  useEffect(() => {
+    setIsMobile(isMobileDevice());
+  }, []);
 
   // Update refs when state changes
   useEffect(() => {
@@ -51,6 +58,31 @@ export default function CPTest({ onTestEnd, onTestStart, settings, questionId  }
   useEffect(() => {
     currentStimulusRef.current = currentStimulus;
   }, [currentStimulus]);
+
+  // Defer calling onTestStart until after render when the test transitions to running
+  useEffect(() => {
+    if (isRunning && !wasRunningRef.current) {
+      if (onTestStart) {
+        onTestStart();
+      }
+      wasRunningRef.current = true;
+    } else if (!isRunning && wasRunningRef.current) {
+      // Reset the ref so we can call onTestStart next time
+      wasRunningRef.current = false;
+    }
+  }, [isRunning, onTestStart]);
+  
+  // Defer calling onTestEnd until after render when the test is marked complete
+  useEffect(() => {
+    if (isComplete && !wasCompleteRef.current) {
+      if (onTestEnd) {
+        onTestEnd(testDataRef.current);
+      }
+      wasCompleteRef.current = true;
+    } else if (!isComplete && wasCompleteRef.current) {
+      wasCompleteRef.current = false;
+    }
+  }, [isComplete, onTestEnd]);
   
   // Keyboard event listener
   useEffect(() => {
@@ -60,22 +92,13 @@ export default function CPTest({ onTestEnd, onTestStart, settings, questionId  }
         document.removeEventListener('keydown', handleKeyPress);
       };
     }
-  }, [isRunning]);
-
-  useEffect(() => {
-    setIsMobile(isMobileDevice());
-  }, []);
-   
+  }, [isRunning, handleKeyPress]);
+  
   // Start the test
   const startTest = () => {
     // Set running state
     setIsRunning(true);
     setRemainingTime(testSettings.testDuration);
-
-    // Call onTestStart callback if provided
-    if (onTestStart) {
-      onTestStart();
-    }
 
     // Record start time
     const startTime = performance.now();
@@ -116,14 +139,9 @@ export default function CPTest({ onTestEnd, onTestStart, settings, questionId  }
     
     // Determine stimulus type and value
     const isTarget = Math.random() < testSettings.targetProbability;
-    let stimulus;
-    if (isTarget) {
-      const randomIndex = Math.floor(Math.random() * testSettings.targets.length);
-      stimulus = testSettings.targets[randomIndex];
-    } else {
-      const randomIndex = Math.floor(Math.random() * testSettings.nonTargets.length);
-      stimulus = testSettings.nonTargets[randomIndex];
-    }
+    const stimulus = isTarget
+      ? testSettings.targets[Math.floor(Math.random() * testSettings.targets.length)]
+      : testSettings.nonTargets[Math.floor(Math.random() * testSettings.nonTargets.length)];
     
     // Record presentation time
     const currentTime = performance.now();
@@ -218,11 +236,6 @@ export default function CPTest({ onTestEnd, onTestStart, settings, questionId  }
     if (stimulusTimeoutRef.current) {
       clearTimeout(stimulusTimeoutRef.current);
       stimulusTimeoutRef.current = null;
-    }
-    
-    // Call onTestEnd with the raw data
-    if (onTestEnd) {
-      onTestEnd(testDataRef.current);
     }
   };
   
