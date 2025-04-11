@@ -16,32 +16,29 @@ export function AuthProvider({ children }) {
   // Check authentication status on mount
   useEffect(() => {
     const checkAuth = async () => {
-      const token = localStorage.getItem('auth_token');
-      if (!token) {
+      // Skip auth check if we're on a public page
+      const publicPaths = ['/login', '/register', '/forgot-password', '/reset-password'];
+      
+      if (publicPaths.includes(window.location.pathname)) {
+        // If we're on a public page, just set loading to false and return
         setLoading(false);
         return;
       }
-
+    
       try {
-        // Verify token validity by making a request to the user endpoint
+        // Verify authentication by making a request to the user endpoint
+        // Cookies will be sent automatically
         const response = await fetch('/api/user', {
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
+          credentials: 'include' // Important: include cookies in request
         });
 
         if (response.ok) {
           const userData = await response.json();
           setUser(userData);
           setIsAuthenticated(true);
-          setDeviceId(localStorage.getItem('device_id'));
         } else {
-          // If token is invalid, try to refresh it
-          const refreshed = await refreshToken();
-          if (!refreshed) {
-            // Clear invalid tokens
-            clearAuthData();
-          }
+          // If auth fails, clear state
+          clearAuthData();
         }
       } catch (error) {
         console.error('Auth check error:', error);
@@ -56,48 +53,35 @@ export function AuthProvider({ children }) {
   }, []);
 
   useEffect(() => {
-    // Function to check token expiration
-    const checkTokenExpiration = () => {
-      const token = localStorage.getItem('auth_token');
-      if (!token) return;
-      
-      // Check if token is expired using JWT structure
+    // Function to periodically check auth status
+    const checkAuthStatus = async () => {
       try {
-        // Split the token to get the payload
-        const payload = JSON.parse(atob(token.split('.')[1]));
+        // Simple endpoint to check if current session is valid
+        const response = await fetch('/api/user', {
+          credentials: 'include'
+        });
         
-        // Check expiration (exp is in seconds, Date.now() is in milliseconds)
-        const isExpired = payload.exp * 1000 < Date.now();
-        
-        if (isExpired) {          
-          // Try to refresh the token
-          refreshToken().catch(() => {
-            // If refresh fails, log out and redirect
+        if (!response.ok) {
+          // If auth fails, try refresh
+          const refreshed = await refreshToken();
+          if (!refreshed) {
             clearAuthData();
-            
-            // Add a message to display after redirect
-            sessionStorage.setItem('auth_message', 'Your session has expired. Please log in again.');
-            
-            // Redirect to login
             navigate('/login');
-          });
+          }
         }
       } catch (error) {
-        console.error('Error checking token expiration:', error);
+        console.error('Auth status check failed:', error);
       }
     };
     
     // Only set up monitoring if user is authenticated
     if (isAuthenticated && !tokenMonitorId) {
-      // Check token every minute
-      const intervalId = setInterval(checkTokenExpiration, 60000);
+      // Check auth every minute
+      const intervalId = setInterval(checkAuthStatus, 60000);
       setTokenMonitorId(intervalId);
-      
-      // Initial check
-      checkTokenExpiration();
     }
     
-    // Clean up on unmount or when auth state changes
+    // Clean up on unmount
     return () => {
       if (tokenMonitorId) {
         clearInterval(tokenMonitorId);
@@ -113,6 +97,7 @@ export function AuthProvider({ children }) {
     try {
       const response = await fetch('/api/auth/login', {
         method: 'POST',
+        credentials: 'include', // Important: include cookies in response
         headers: {
           'Content-Type': 'application/json'
         },
@@ -126,16 +111,9 @@ export function AuthProvider({ children }) {
 
       const data = await response.json();
       
-      // Store auth data
-      localStorage.setItem('auth_token', data.access_token);
-      localStorage.setItem('refresh_token', data.refresh_token);
-      localStorage.setItem('device_id', data.device_id);
-      localStorage.setItem('user_info', JSON.stringify(data.user));
-      
-      // Update state
+      // Update state with user data
       setUser(data.user);
       setIsAuthenticated(true);
-      setDeviceId(data.device_id);
 
       return data;
     } catch (error) {
@@ -147,15 +125,15 @@ export function AuthProvider({ children }) {
   // Logout function
   const logout = async () => {
     try {
-      const token = localStorage.getItem('auth_token');
-      if (token) {
-        await fetch('/api/auth/logout', {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
-        });
-      }
+      // Add proper Content-Type header even with empty body
+      await fetch('/api/auth/logout', {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json' // Important!
+        },
+        body: JSON.stringify({}) // Empty object as JSON
+      });
     } catch (error) {
       console.error('Logout error:', error);
     } finally {
@@ -167,63 +145,42 @@ export function AuthProvider({ children }) {
   // Refresh token function
   const refreshToken = async () => {
     try {
-      const refreshToken = localStorage.getItem('refresh_token');
-      const deviceId = localStorage.getItem('device_id');
-      
-      if (!refreshToken) {
-        return false;
-      }
-
+      // No need to send the token in the request body since it's in cookies
       const response = await fetch('/api/auth/refresh', {
         method: 'POST',
+        credentials: 'include', // Important: include cookies
         headers: {
           'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          refresh_token: refreshToken,
-          device_id: deviceId
-        })
+        }
       });
-
+  
       if (!response.ok) {
         throw new Error('Failed to refresh token');
       }
-
-      const data = await response.json();
-      
-      // Update stored tokens
-      localStorage.setItem('auth_token', data.access_token);
-      localStorage.setItem('refresh_token', data.refresh_token);
-      
+  
+      // Server sets the new cookies, no need to manually store them
       return true;
     } catch (error) {
       console.error('Token refresh failed:', error);
-      clearAuthData();
+      clearAuthData(); // Just clear state, no localStorage to clear
       return false;
     }
   };
 
-  // Clear authentication data
+  // Clear authentication data - now just clears state
   const clearAuthData = () => {
-    localStorage.removeItem('auth_token');
-    localStorage.removeItem('refresh_token');
-    localStorage.removeItem('user_info');
     setUser(null);
     setIsAuthenticated(false);
-    setDeviceId(null);
   };
 
   return (
     <AuthContext.Provider value={{
       user,
       isAuthenticated,
-      deviceId,
       loading,
       error,
       login,
-      logout,
-      refreshToken,
-      clearAuthData
+      logout
     }}>
       {children}
     </AuthContext.Provider>

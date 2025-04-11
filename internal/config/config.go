@@ -152,8 +152,9 @@ func LoadConfig(configPath string) (*Config, error) {
 			HTTPPort: v.GetInt("tls.http_port"),
 		},
 		JWT: JWTConfig{
-			Secret:  v.GetString("jwt.secret"),
-			Expires: v.GetInt("jwt.expires"),
+			Secret:         v.GetString("jwt.secret"),
+			Expires:        v.GetInt("jwt.expires"),
+			RefreshExpires: v.GetInt("jwt.refresh_expires"),
 		},
 		PWA: PWAConfig{
 			Enabled:         v.GetBool("pwa.enabled"),

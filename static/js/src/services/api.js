@@ -1,105 +1,84 @@
 // Base API configurations
 const API_BASE = '';
 
-// Function to refresh the token - imported directly
+// Function to refresh the token
 const refreshToken = async () => {
   try {
-    const refreshToken = localStorage.getItem('refresh_token');
-    const deviceId = localStorage.getItem('device_id');
-    
-    if (!refreshToken) {
-      return false;
-    }
-
     const response = await fetch('/api/auth/refresh', {
       method: 'POST',
+      credentials: 'include', // Include cookies
       headers: {
         'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        refresh_token: refreshToken,
-        device_id: deviceId
-      })
+      }
     });
 
     if (!response.ok) {
       throw new Error('Failed to refresh token');
     }
 
-    const data = await response.json();
-    
-    // Update stored tokens
-    localStorage.setItem('auth_token', data.access_token);
-    localStorage.setItem('refresh_token', data.refresh_token);
-    
+    // Cookies are automatically set by the server
     return true;
   } catch (error) {
     console.error('Token refresh failed:', error);
-    // Clear authentication data
-    localStorage.removeItem('auth_token');
-    localStorage.removeItem('refresh_token');
-    localStorage.removeItem('user_info');
+    // No localStorage to clear, just return false
     return false;
   }
 };
 
-// Create a request handler with automatic token refreshing
+// Create a request handler that includes credentials (cookies)
 const apiRequest = async (url, options = {}) => {
-  // Get auth token
-  const token = localStorage.getItem('auth_token');
-  
-  // Set up headers with auth token if available
-  const headers = {
-    ...options.headers,
-    'Content-Type': 'application/json'
+  // Always include credentials
+  const requestOptions = {
+    ...options,
+    credentials: 'include', // Critical for cookies to be sent
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers
+    }
   };
 
-  if (token) {
-    headers['Authorization'] = `Bearer ${token}`;
+  // Add CSRF token for non-GET requests
+  if (options.method && options.method !== 'GET') {
+    const csrfToken = getCookie('csrf_token');
+  
+    if (csrfToken) {
+      requestOptions.headers['X-CSRF-Token'] = csrfToken;
+    }
   }
 
-  const deviceId = localStorage.getItem('device_id');
-  if (deviceId) {
-    headers['X-Device-ID'] = deviceId;
-  }
-
-  // Make the request
   try {
-    const response = await fetch(`${API_BASE}${url}`, {
-      ...options,
-      headers
-    });
+    let response = await fetch(`${API_BASE}${url}`, requestOptions);
 
-    // Handle unauthorized error (token expired)
+    // Handle 401 by attempting to refresh the token
     if (response.status === 401) {
       // Try to refresh the token
       const refreshed = await refreshToken();
       
       // If refresh successful, retry the original request
       if (refreshed) {
-        // Get the new token
-        const newToken = localStorage.getItem('auth_token');
-        
-        // Update headers with new token
-        headers.Authorization = `Bearer ${newToken}`;
-        
-        // Retry the request
-        return fetch(`${API_BASE}${url}`, {
-          ...options,
-          headers
-        }).then(handleResponse);
+        // No need to update headers, cookies are sent automatically
+        return fetch(`${API_BASE}${url}`, requestOptions)
+          .then(handleResponse);
       } else {
-        // If refresh failed, clear auth data and redirect
-        clearAuthAndRedirect();
+        // If refresh failed, redirect to login
+        window.location.href = '/login?expired=true';
         return null;
       }
     }
-
     return handleResponse(response);
+
   } catch (error) {
     console.error('API request failed:', error);
     throw error;
   }
+};
+
+// Helper to get cookie value
+const getCookie = (name) => {
+  const value = `; ${document.cookie}`;
+  const parts = value.split(`; ${name}=`);
+  if (parts.length === 2) return parts.pop().split(';').shift();
+  return null;
 };
 
 const clearAuthAndRedirect = () => {
@@ -136,12 +115,6 @@ const handleResponse = async (response) => {
   if (!response.ok) {
     // Handle unauthorized errors with redirect
     if (response.status === 401) {
-      // Clear auth data
-      localStorage.removeItem('auth_token');
-      localStorage.removeItem('refresh_token');
-      localStorage.removeItem('user_info');
-      localStorage.removeItem('device_id');
-      
       // Redirect to login page
       window.location.href = '/login';
       return null;

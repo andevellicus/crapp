@@ -2,7 +2,6 @@ package middleware
 
 import (
 	"net/http"
-	"strings"
 	"sync"
 	"time"
 
@@ -119,35 +118,6 @@ func RateLimiterMiddleware() gin.HandlerFunc {
 
 		// Add current request time
 		store[ip] = append(recent, now)
-
-		c.Next()
-	}
-}
-
-func CSRFMiddleware() gin.HandlerFunc {
-	return func(c *gin.Context) {
-		// Skip for GET, HEAD, OPTIONS requests
-		if c.Request.Method == "GET" ||
-			c.Request.Method == "HEAD" ||
-			c.Request.Method == "OPTIONS" {
-			c.Next()
-			return
-		}
-
-		// Verify Origin/Referer header matches host
-		origin := c.GetHeader("Origin")
-		referer := c.GetHeader("Referer")
-		host := c.Request.Host
-
-		validOrigin := origin == "" || strings.Contains(origin, host)
-		validReferer := referer == "" || strings.Contains(referer, host)
-
-		if !validOrigin && !validReferer {
-			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{
-				"error": "CSRF validation failed",
-			})
-			return
-		}
 
 		c.Next()
 	}

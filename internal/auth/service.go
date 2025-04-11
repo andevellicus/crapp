@@ -3,6 +3,7 @@ package auth
 
 import (
 	"fmt"
+	"net/http"
 	"time"
 
 	"github.com/andevellicus/crapp/internal/config"
@@ -18,7 +19,7 @@ type AuthService struct {
 	tokenTTL        time.Duration
 	refreshTokenTTL time.Duration
 	secretKey       string
-	jwtConfig       *config.JWTConfig
+	JWTConfig       *config.JWTConfig
 }
 
 // CustomClaims defines the claims in the JWT token
@@ -36,13 +37,32 @@ type TokenPair struct {
 	ExpiresIn    int    `json:"expires_in"` // Expiration in seconds
 }
 
+// Add this to the AuthService struct
+type CookieConfig struct {
+	Domain   string
+	Path     string
+	Secure   bool
+	HttpOnly bool
+	SameSite http.SameSite
+}
+
 func NewAuthService(repo *repository.Repository, cfg *config.JWTConfig) *AuthService {
 	return &AuthService{
 		repo:            repo,
 		tokenTTL:        time.Duration(cfg.Expires) * time.Minute,           // Short-lived access token
 		refreshTokenTTL: time.Duration(cfg.RefreshExpires) * time.Hour * 24, // Longer-lived refresh token (days)
 		secretKey:       cfg.Secret,
-		jwtConfig:       cfg,
+		JWTConfig:       cfg,
+	}
+}
+
+func (s *AuthService) GetCookieConfig() CookieConfig {
+	return CookieConfig{
+		Domain:   "",                   // Empty for current domain
+		Path:     "/",                  // Available on all paths
+		Secure:   true,                 // HTTPS only
+		HttpOnly: true,                 // Not accessible by JavaScript
+		SameSite: http.SameSiteLaxMode, // Helps with CSRF protection
 	}
 }
 
@@ -128,7 +148,7 @@ func (s *AuthService) GenerateTokenPair(email string, isAdmin bool, deviceID str
 func (s *AuthService) generateAccessToken(email string, isAdmin bool, tokenID string) (string, error) {
 	// Add more claims for security
 	expirationTime := time.Now().Add(s.tokenTTL)
-	notBeforeTime := time.Now().Add(s.jwtConfig.NotBefore)
+	notBeforeTime := time.Now().Add(s.JWTConfig.NotBefore)
 
 	claims := &CustomClaims{
 		Email:   email,
@@ -138,15 +158,15 @@ func (s *AuthService) generateAccessToken(email string, isAdmin bool, tokenID st
 			ExpiresAt: jwt.NewNumericDate(expirationTime),
 			IssuedAt:  jwt.NewNumericDate(time.Now()),
 			NotBefore: jwt.NewNumericDate(notBeforeTime),
-			Issuer:    s.jwtConfig.Issuer,
-			Audience:  []string{s.jwtConfig.Audience},
+			Issuer:    s.JWTConfig.Issuer,
+			Audience:  []string{s.JWTConfig.Audience},
 			Subject:   email,
 			ID:        tokenID, // JWT ID
 		},
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	tokenString, err := token.SignedString([]byte(s.jwtConfig.Secret))
+	tokenString, err := token.SignedString([]byte(s.JWTConfig.Secret))
 
 	return tokenString, err
 }
@@ -186,7 +206,7 @@ func (s *AuthService) RefreshToken(refreshToken string, deviceID string) (*Token
 
 // ValidateToken verifies a token and returns claims
 func (s *AuthService) ValidateToken(tokenString string) (*CustomClaims, error) {
-	if s.jwtConfig == nil {
+	if s.JWTConfig == nil {
 		return nil, fmt.Errorf("JWT not initialized")
 	}
 
@@ -197,7 +217,7 @@ func (s *AuthService) ValidateToken(tokenString string) (*CustomClaims, error) {
 			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
 		}
 
-		return []byte(s.jwtConfig.Secret), nil
+		return []byte(s.JWTConfig.Secret), nil
 	})
 
 	if err != nil {

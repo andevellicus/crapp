@@ -117,6 +117,7 @@ func main() {
 	router.Use(gin.Recovery())
 	router.Use(middleware.GinLogger(log))
 	router.Use(middleware.SecurityHeadersMiddleware())
+	router.Use(middleware.SetCSRFTokenMiddleware())
 	// Add email service middleware to make it available in handlers
 	router.Use(func(c *gin.Context) {
 		if emailService != nil {

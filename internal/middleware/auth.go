@@ -8,20 +8,20 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// AuthMiddleware verifies the JWT token in the Authorization header
+// AuthMiddleware verifies the JWT token in cookies or Authorization header
 func AuthMiddleware(authService *auth.AuthService) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var tokenString string
 
-		// First check Authorization header
-		authHeader := c.GetHeader("Authorization")
-		if authHeader != "" && strings.HasPrefix(authHeader, "Bearer ") {
-			tokenString = strings.TrimPrefix(authHeader, "Bearer ")
+		// First try to get token from cookie
+		token, err := c.Cookie("auth_token")
+		if err == nil && token != "" {
+			tokenString = token
 		} else {
-			// If not in header, check cookie
-			token, err := c.Cookie("auth_token")
-			if err == nil && token != "" {
-				tokenString = token
+			// Fall back to Authorization header
+			authHeader := c.GetHeader("Authorization")
+			if authHeader != "" && strings.HasPrefix(authHeader, "Bearer ") {
+				tokenString = strings.TrimPrefix(authHeader, "Bearer ")
 			}
 		}
 
@@ -43,10 +43,7 @@ func AuthMiddleware(authService *auth.AuthService) gin.HandlerFunc {
 		// Set user info in context
 		c.Set("userEmail", claims.Email)
 		c.Set("isAdmin", claims.IsAdmin)
-
-		if claims.TokenID != "" {
-			c.Set("tokenID", claims.TokenID)
-		}
+		c.Set("tokenID", claims.TokenID)
 
 		c.Next()
 	}

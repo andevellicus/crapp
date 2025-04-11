@@ -208,7 +208,7 @@ func (r *UserRepository) UpdatePassword(email string, hashedPassword []byte) err
 // Check if user has already completed assessment for today
 func (r *UserRepository) HasCompletedAssessment(userEmail string) (bool, error) {
 	var count int64
-	today := time.Now().Truncate(24 * time.Hour) // Start of today
+	today := time.Now().Truncate(24 * time.Hour).Format("2006-01-02") // Start of today
 
 	err := r.db.Model(&models.User{}).
 		Where("email = ? AND last_assessment_date >= ?", userEmail, today).

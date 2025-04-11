@@ -153,32 +153,65 @@ func (h *AuthHandler) Login(c *gin.Context) {
 		return
 	}
 
-	// Set cookie for server-side auth (access token only)
-	c.SetCookie("auth_token", tokenPair.AccessToken, tokenPair.ExpiresIn, "/", "", true, true)
+	// Get cookie settings
+	cookieConfig := h.authService.GetCookieConfig()
 
-	// Return response with both tokens for client-side handling
+	// Set auth token cookie
+	c.SetCookie(
+		"auth_token",
+		tokenPair.AccessToken,
+		tokenPair.ExpiresIn,
+		cookieConfig.Path,
+		cookieConfig.Domain,
+		cookieConfig.Secure,
+		cookieConfig.HttpOnly,
+	)
+
+	// Set refresh token cookie - longer expiration
+	// Convert refresh token TTL from days to seconds
+	refreshExpiresIn := h.authService.JWTConfig.RefreshExpires * 24 * 60 * 60
+	c.SetCookie(
+		"refresh_token",
+		tokenPair.RefreshToken,
+		refreshExpiresIn,
+		cookieConfig.Path,
+		cookieConfig.Domain,
+		cookieConfig.Secure,
+		cookieConfig.HttpOnly,
+	)
+
+	// Also set the device ID in a cookie (not httpOnly)
+	c.SetCookie(
+		"device_id",
+		device.ID,
+		refreshExpiresIn, // Same lifespan as refresh token
+		cookieConfig.Path,
+		cookieConfig.Domain,
+		cookieConfig.Secure,
+		false, // Not HttpOnly so JS can access
+	)
+
+	// Return response without tokens
 	c.JSON(http.StatusOK, gin.H{
-		"access_token":  tokenPair.AccessToken,
-		"refresh_token": tokenPair.RefreshToken,
-		"expires_in":    tokenPair.ExpiresIn,
-		"token_type":    "Bearer",
-		"user":          *user,
-		"device_id":     device.ID,
+		"message":    "Login successful",
+		"user":       *user,
+		"device_id":  device.ID,
+		"expires_in": tokenPair.ExpiresIn,
 	})
 }
 
 // Logout handles user logout and token revocation
 func (h *AuthHandler) Logout(c *gin.Context) {
-	// Get user email from context - this should be set by auth middleware
+	// Get token ID from context
+	tokenID, hasTokenID := c.Get("tokenID")
+
+	// Get user email from context
 	userEmail, exists := c.Get("userEmail")
 	if !exists {
 		h.log.Warnw("No authenticated session for logout")
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "No authenticated session"})
 		return
 	}
-
-	// Try to get tokenID if available
-	tokenID, hasTokenID := c.Get("tokenID")
 
 	// If we have a tokenID, revoke the specific token
 	if hasTokenID && tokenID != nil {
@@ -198,8 +231,11 @@ func (h *AuthHandler) Logout(c *gin.Context) {
 		}
 	}
 
-	// Clear auth cookie
-	c.SetCookie("auth_token", "", -1, "/", "", true, true)
+	// Clear auth cookies
+	cookieConfig := h.authService.GetCookieConfig()
+	c.SetCookie("auth_token", "", -1, cookieConfig.Path, cookieConfig.Domain, cookieConfig.Secure, cookieConfig.HttpOnly)
+	c.SetCookie("refresh_token", "", -1, cookieConfig.Path, cookieConfig.Domain, cookieConfig.Secure, cookieConfig.HttpOnly)
+	c.SetCookie("device_id", "", -1, cookieConfig.Path, cookieConfig.Domain, cookieConfig.Secure, false)
 
 	h.log.Infow("Logout successful", "userEmail", userEmail)
 	c.JSON(http.StatusOK, gin.H{"message": "Successfully logged out"})
@@ -207,13 +243,18 @@ func (h *AuthHandler) Logout(c *gin.Context) {
 
 // RefreshToken handles token refresh requests
 func (h *AuthHandler) RefreshToken(c *gin.Context) {
-	req := c.MustGet("validatedRequest").(*validation.RefreshTokenRequest)
+	// Get refresh token from cookie instead of request body
+	refreshToken, err := c.Cookie("refresh_token")
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Missing refresh token"})
+		return
+	}
 
-	// Get device ID from header or query
-	deviceID := c.GetHeader("X-Device-ID")
-	if deviceID == "" {
-		// Check if device ID is in query
-		deviceID = req.DeviceID
+	// Get device ID from cookie
+	deviceID, err := c.Cookie("device_id")
+	if err != nil {
+		// Fall back to header
+		deviceID = c.GetHeader("X-Device-ID")
 		if deviceID == "" {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Device ID is required"})
 			return
@@ -221,18 +262,42 @@ func (h *AuthHandler) RefreshToken(c *gin.Context) {
 	}
 
 	// Use the auth service to refresh the token
-	tokenPair, err := h.authService.RefreshToken(req.RefreshToken, deviceID)
+	tokenPair, err := h.authService.RefreshToken(refreshToken, deviceID)
 	if err != nil {
 		h.log.Warnw("Token refresh failed", "error", err)
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid or expired refresh token"})
 		return
 	}
 
-	// Return the new token pair
+	// Get cookie settings
+	cookieConfig := h.authService.GetCookieConfig()
+
+	// Set new cookies
+	c.SetCookie(
+		"auth_token",
+		tokenPair.AccessToken,
+		tokenPair.ExpiresIn,
+		cookieConfig.Path,
+		cookieConfig.Domain,
+		cookieConfig.Secure,
+		cookieConfig.HttpOnly,
+	)
+
+	// Set refresh token cookie - longer expiration
+	refreshExpiresIn := h.authService.JWTConfig.RefreshExpires * 24 * 60 * 60
+	c.SetCookie(
+		"refresh_token",
+		tokenPair.RefreshToken,
+		refreshExpiresIn,
+		cookieConfig.Path,
+		cookieConfig.Domain,
+		cookieConfig.Secure,
+		cookieConfig.HttpOnly,
+	)
+
+	// Return success
 	c.JSON(http.StatusOK, gin.H{
-		"access_token":  tokenPair.AccessToken,
-		"refresh_token": tokenPair.RefreshToken,
-		"expires_in":    tokenPair.ExpiresIn,
-		"token_type":    "Bearer",
+		"message":    "Token refreshed successfully",
+		"expires_in": tokenPair.ExpiresIn,
 	})
 }
