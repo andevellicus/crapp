@@ -72,7 +72,6 @@ const Login = () => {
   // Handle form submission
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setGeneralError('');
     
     // Validate form
     if (!validateForm()) {

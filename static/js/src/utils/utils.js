@@ -36,11 +36,24 @@ export const urlBase64ToUint8Array = (base64String) => {
     return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
   };
 
-/**
- * Check if the current device is a mobile device
- * @returns {boolean} True if device is mobile
- */
-export const isMobileDevice = () => {
-  return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || 
-    (window.innerWidth <= 768);
-};
+  /**
+   * Format a date as "Month Day, Year"
+   */
+  // 
+  const formatDate = (dateString) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    });
+  };
+
+  /**
+   * Check if the current device is a mobile device
+   * @returns {boolean} True if device is mobile
+   */
+  export const isMobileDevice = () => {
+    return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || 
+      (window.innerWidth <= 768);
+  };

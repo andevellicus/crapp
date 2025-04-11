@@ -95,6 +95,20 @@ export function AuthProvider({ children }) {
     setError(null);
     
     try {
+      // Check for existing device ID in cookies
+      const getCookie = (name) => {
+        const value = `; ${document.cookie}`;
+        const parts = value.split(`; ${name}=`);
+        if (parts.length === 2) return parts.pop().split(';').shift();
+        return null;
+      };
+      
+      // Get device ID from cookie if available and not already provided
+      const deviceId = getCookie('device_id');
+      if (deviceId && !deviceInfo.id) {
+        deviceInfo.id = deviceId;
+      }
+
       const response = await fetch('/api/auth/login', {
         method: 'POST',
         credentials: 'include', // Important: include cookies in response
@@ -114,6 +128,7 @@ export function AuthProvider({ children }) {
       // Update state with user data
       setUser(data.user);
       setIsAuthenticated(true);
+      setDeviceId(data.device_id);
 
       return data;
     } catch (error) {

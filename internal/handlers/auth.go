@@ -248,7 +248,7 @@ func (h *AuthHandler) Logout(c *gin.Context) {
 	cookieConfig := h.authService.GetCookieConfig()
 	c.SetCookie("auth_token", "", -1, cookieConfig.Path, cookieConfig.Domain, cookieConfig.Secure, cookieConfig.HttpOnly)
 	c.SetCookie("refresh_token", "", -1, cookieConfig.Path, cookieConfig.Domain, cookieConfig.Secure, cookieConfig.HttpOnly)
-	c.SetCookie("device_id", "", -1, cookieConfig.Path, cookieConfig.Domain, cookieConfig.Secure, false)
+	//c.SetCookie("device_id", "", -1, cookieConfig.Path, cookieConfig.Domain, cookieConfig.Secure, false)
 
 	h.log.Infow("Logout successful", "userEmail", userEmail)
 	c.JSON(http.StatusOK, gin.H{"message": "Successfully logged out"})

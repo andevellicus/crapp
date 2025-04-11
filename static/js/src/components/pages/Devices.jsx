@@ -1,5 +1,6 @@
 import { useAuth } from '../../context/AuthContext';
 import api from '../../services/api';
+import { formatDate } from '../../utils/utils';
 
 export default function Devices() {
     const [devices, setDevices] = React.useState([]);
@@ -144,17 +145,7 @@ export default function Devices() {
         }, 3000);
       }
     };
-    
-    // Format a date as "Month Day, Year"
-    const formatDate = (dateString) => {
-      const date = new Date(dateString);
-      return date.toLocaleDateString('en-US', {
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric'
-      });
-    };
-    
+        
     // Get device type icon class
     const getDeviceTypeIcon = (device) => {
       const deviceType = device.device_type?.toLowerCase() || '';

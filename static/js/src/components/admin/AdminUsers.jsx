@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../../services/api';
+import { formatDate } from '../../utils/utils';
 
 const AdminUsers = () => {
   const [users, setUsers] = useState([]);
@@ -81,16 +82,6 @@ const AdminUsers = () => {
         page: prev.page - 1
       }));
     }
-  };
-
-  // Format date
-  const formatDate = (dateString) => {
-    if (!dateString) return 'Never';
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric'
-    });
   };
 
   // Send reminder
