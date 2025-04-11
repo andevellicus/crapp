@@ -78,11 +78,16 @@ export function AuthProvider({ children }) {
       }
     };
     
-    // Only set up monitoring if user is authenticated
+    // If user is authenticated and no monitor exists, set it up
     if (isAuthenticated && !tokenMonitorId) {
       // Check auth every minute
       const intervalId = setInterval(checkAuthStatus, 60000);
       setTokenMonitorId(intervalId);
+    } 
+    // If user is NOT authenticated but monitor exists, clear it
+    else if (!isAuthenticated && tokenMonitorId) {
+      clearInterval(tokenMonitorId);
+      setTokenMonitorId(null);
     }
     
     // Clean up on unmount
@@ -148,6 +153,11 @@ export function AuthProvider({ children }) {
     } catch (error) {
       console.error('Logout error:', error);
     } finally {
+      // Clear the token monitor interval BEFORE clearing auth data
+      if (tokenMonitorId) {
+        clearInterval(tokenMonitorId);
+        setTokenMonitorId(null);
+      }
       clearAuthData();
       navigate('/login');
     }

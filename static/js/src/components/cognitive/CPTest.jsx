@@ -1,6 +1,5 @@
 // Updated CPTest.jsx component focused on data collection only
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-// import { useAuth } from '../../context/AuthContext'; TODO
 import { formatTime, isMobileDevice } from '../../utils/utils';
 
 export default function CPTest({ onTestEnd, onTestStart, settings, questionId  }) {
@@ -43,9 +42,6 @@ export default function CPTest({ onTestEnd, onTestStart, settings, questionId  }
     settings: testSettings
   });
   
-  // Auth context for user data and device ID
-  // const { user, deviceId } = useAuth(); TODO 
-
   useEffect(() => {
     setIsMobile(isMobileDevice());
   }, []);

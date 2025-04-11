@@ -1,3 +1,4 @@
+import { useNavigate } from 'react-router-dom';
 export default function ResetPassword() {
     const [formData, setFormData] = React.useState({
       new_password: '',
@@ -9,6 +10,7 @@ export default function ResetPassword() {
     const [isSubmitting, setIsSubmitting] = React.useState(false);
     const [message, setMessage] = React.useState('');
     const [messageType, setMessageType] = React.useState('');
+    const navigate = useNavigate();
     
     // Extract token from URL on component mount
     React.useEffect(() => {
@@ -124,7 +126,7 @@ export default function ResetPassword() {
         
         // Redirect to login after a delay
         setTimeout(() => {
-          window.location.href = '/login';
+          navigate('/login');
         }, 3000);
         
       } catch (error) {

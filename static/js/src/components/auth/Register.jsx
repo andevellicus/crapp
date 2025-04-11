@@ -1,3 +1,4 @@
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 
 export default function Register() {
@@ -11,6 +12,7 @@ export default function Register() {
     const [error, setError] = React.useState('');
     const [isLoading, setIsLoading] = React.useState(false);
     const [termsAccepted, setTermsAccepted] = React.useState(false);
+    const navigate = useNavigate();
     
     const { login } = useAuth();
     
@@ -119,7 +121,7 @@ export default function Register() {
         window.showMessage && window.showMessage('Registration successful! Redirecting...', 'success');
         
         // Redirect to home page
-        window.location.href = '/';
+        navigate('/');
         
       } catch (error) {
         setError(error.message || 'Registration failed. Please try again.');
