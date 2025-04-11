@@ -62,7 +62,6 @@ func (h *AuthHandler) RegisterDevice(c *gin.Context) {
 		"device_name": req.DeviceName,
 		"device_type": req.DeviceType,
 		"user_agent":  req.UserAgent,
-		"os":          req.OS,
 		"screen_size": req.ScreenSize,
 	}
 
@@ -134,16 +133,4 @@ func (h *AuthHandler) RenameDevice(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "Device renamed successfully"})
-}
-
-// extractDeviceInfo extracts device information from the request
-func extractDeviceInfo(c *gin.Context) map[string]any {
-	userAgent := c.GetHeader("User-Agent")
-
-	deviceInfo := map[string]any{
-		"user_agent": userAgent,
-		"ip":         c.ClientIP(),
-	}
-
-	return deviceInfo
 }

@@ -3,6 +3,7 @@ package repository
 import (
 	"fmt"
 	"math/rand"
+	"strings"
 	"time"
 
 	"github.com/andevellicus/crapp/internal/models"
@@ -148,13 +149,41 @@ func (r *DeviceRepository) GetUserDevices(userEmail string) ([]models.Device, er
 // RegisterDevice registers a new device or updates an existing one
 func (r *DeviceRepository) RegisterDevice(userEmail string, deviceInfo map[string]any) (*models.Device, error) {
 	// Generate device ID if not provided
-	deviceID := r.generateDeviceID(deviceInfo)
+	var deviceID string
+	// Check if an ID is already provided
+	if id, ok := deviceInfo["id"].(string); ok && id != "" {
+		deviceID = id
+	} else {
+		// Generate a random ID
+		const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+		b := make([]byte, 16)
+		for i := range b {
+			b[i] = charset[rand.Int63()%int64(len(charset))]
+		}
+		deviceID = string(b)
+	}
 
 	// Extract device information
 	deviceName, _ := deviceInfo["device_name"].(string)
 	deviceType, _ := deviceInfo["device_type"].(string)
 	browser, _ := deviceInfo["user_agent"].(string)
 	os, _ := deviceInfo["os"].(string)
+
+	if os == "" {
+		userAgent := strings.ToLower(deviceInfo["user_agent"].(string))
+
+		if strings.Contains(userAgent, "windows") {
+			os = "Windows"
+		} else if strings.Contains(userAgent, "mac") || strings.Contains(userAgent, "darwin") {
+			os = "macOS"
+		} else if strings.Contains(userAgent, "linux") {
+			os = "Linux"
+		} else if strings.Contains(userAgent, "android") {
+			os = "Android"
+		} else if strings.Contains(userAgent, "ios") || strings.Contains(userAgent, "iphone") || strings.Contains(userAgent, "ipad") {
+			os = "iOS"
+		}
+	}
 
 	// Create or update device
 	device := &models.Device{
@@ -203,20 +232,4 @@ func (r *DeviceRepository) UpdateDeviceName(deviceID string, userEmail string, n
 	// Update the device name
 	device.DeviceName = newName
 	return r.Update(&device)
-}
-
-// generateDeviceID creates a unique device ID
-func (r *DeviceRepository) generateDeviceID(deviceInfo map[string]any) string {
-	// Check if an ID is already provided
-	if id, ok := deviceInfo["id"].(string); ok && id != "" {
-		return id
-	}
-
-	// Generate a random ID
-	const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
-	b := make([]byte, 16)
-	for i := range b {
-		b[i] = charset[rand.Int63()%int64(len(charset))]
-	}
-	return string(b)
 }

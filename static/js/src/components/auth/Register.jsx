@@ -108,7 +108,7 @@ export default function Register() {
           user_agent: navigator.userAgent,
           screen_width: window.screen.width,
           screen_height: window.screen.height,
-          device_name: navigator.platform || 'Unknown Device',
+          device_name: navigator.userAgentData?.platform || navigator.userAgent.match(/\(([^)]+)\)/)?.[1] || 'Unknown Device',
           device_type: /Mobi|Android/i.test(navigator.userAgent) ? 'mobile' : 'desktop'
         };
         

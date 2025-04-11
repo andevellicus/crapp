@@ -106,11 +106,24 @@ func (h *AuthHandler) Register(c *gin.Context) {
 		return
 	}
 
-	// Register device and generate tokens
-	device, tokenPair, err := h.registerDeviceAndGenerateTokens(c, h.authService, user.Email, user.IsAdmin)
+	// Extract device info
+	userAgent := c.GetHeader("User-Agent")
+	deviceInfo := map[string]any{
+		"user_agent": userAgent,
+		"ip":         c.ClientIP(),
+	}
+
+	// Register device
+	device, err := h.repo.Devices.RegisterDevice(user.Email, deviceInfo)
 	if err != nil {
-		h.log.Errorw("Error generating tokens", "error", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error setting up account"})
+		h.log.Errorw("Error registering device", "error", err)
+		return
+	}
+
+	// Generate token pair
+	tokenPair, err := h.authService.GenerateTokenPair(user.Email, user.IsAdmin, device.ID)
+	if err != nil {
+		h.log.Errorw("Error generating token pair", "error", err)
 		return
 	}
 

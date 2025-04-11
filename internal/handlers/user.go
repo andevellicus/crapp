@@ -3,8 +3,6 @@ package handlers
 import (
 	"net/http"
 
-	"github.com/andevellicus/crapp/internal/auth"
-	"github.com/andevellicus/crapp/internal/models"
 	"github.com/andevellicus/crapp/internal/validation"
 	"github.com/gin-gonic/gin"
 	"golang.org/x/crypto/bcrypt"
@@ -167,26 +165,4 @@ func (h *AuthHandler) DeleteAccount(c *gin.Context) {
 	c.SetCookie("auth_token", "", -1, "/", "", true, true)
 
 	c.JSON(http.StatusOK, gin.H{"message": "Account deleted successfully"})
-}
-
-// Helper to register device and generate token
-func (h *AuthHandler) registerDeviceAndGenerateTokens(c *gin.Context, authService *auth.AuthService, email string, isAdmin bool) (*models.Device, *auth.TokenPair, error) {
-	// Extract device info
-	deviceInfo := extractDeviceInfo(c)
-
-	// Register device
-	device, err := h.repo.Devices.RegisterDevice(email, deviceInfo)
-	if err != nil {
-		h.log.Errorw("Error registering device", "error", err)
-		return nil, nil, err
-	}
-
-	// Generate token pair
-	tokenPair, err := authService.GenerateTokenPair(email, isAdmin, device.ID)
-	if err != nil {
-		h.log.Errorw("Error generating token pair", "error", err)
-		return device, nil, err
-	}
-
-	return device, tokenPair, nil
 }
