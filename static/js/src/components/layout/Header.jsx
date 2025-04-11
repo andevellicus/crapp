@@ -1,16 +1,18 @@
-// static/js/react/components/Header.jsx
+// static/js/src/components/layout/Header.jsx
+import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom'; // Add this import
 import { useAuth } from '../../context/AuthContext';
 
-export default function Header() {
+const Header = () => {
   const { user, isAuthenticated, logout } = useAuth();
-  const [dropdownOpen, setDropdownOpen] = React.useState(false);
+  const [dropdownOpen, setDropdownOpen] = useState(false);
   
   const toggleDropdown = () => {
     setDropdownOpen(!dropdownOpen);
   };
   
   // Close dropdown when clicking outside
-  React.useEffect(() => {
+  useEffect(() => {
     function handleClickOutside(event) {
       const dropdown = document.querySelector('.user-dropdown');
       const trigger = document.querySelector('.user-menu-trigger');
@@ -37,9 +39,9 @@ export default function Header() {
       
       <nav className="main-nav">
         <div className="nav-links">
-          <a href="/">Home</a>
+          <Link to="/">Home</Link>
           {isAuthenticated && user && user.is_admin && (
-            <a href="/admin/users">Manage Users</a>
+            <Link to="/admin/users">Manage Users</Link>
           )}
         </div>
         
@@ -51,10 +53,10 @@ export default function Header() {
                 <span className="dropdown-arrow">▼</span>
               </div>
               <div className={`user-dropdown ${dropdownOpen ? 'show' : ''}`}>
-                <a href="/profile">Profile</a>
-                <a href="/devices">My Devices</a>
+                <Link to="/profile">Profile</Link>
+                <Link to="/devices">My Devices</Link>
                 {user.is_admin && (
-                  <a href="/admin/users">Admin Dashboard</a>
+                  <Link to="/admin/users">Admin Dashboard</Link>
                 )}
                 <a href="#" onClick={(e) => {
                   e.preventDefault();
@@ -64,12 +66,14 @@ export default function Header() {
             </div>
           ) : (
             <div className="guest-nav">
-              <a href="/login" className="nav-button">Login</a>
-              <a href="/register" className="nav-button highlight">Register</a>
+              <Link to="/login" className="nav-button">Login</Link>
+              <Link to="/register" className="nav-button highlight">Register</Link>
             </div>
           )}
         </div>
       </nav>
     </header>
   );
-}
+};
+
+export default Header;

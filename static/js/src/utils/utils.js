@@ -40,7 +40,7 @@ export const urlBase64ToUint8Array = (base64String) => {
    * Format a date as "Month Day, Year"
    */
   // 
-  const formatDate = (dateString) => {
+  export const formatDate = (dateString) => {
     const date = new Date(dateString);
     return date.toLocaleDateString('en-US', {
       year: 'numeric',

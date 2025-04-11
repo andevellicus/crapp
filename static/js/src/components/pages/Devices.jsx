@@ -1,23 +1,24 @@
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import api from '../../services/api';
 import { formatDate } from '../../utils/utils';
 
 export default function Devices() {
-    const [devices, setDevices] = React.useState([]);
-    const [isLoading, setIsLoading] = React.useState(true);
-    const [modalState, setModalState] = React.useState({
+    const [devices, setDevices] = useState([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [modalState, setModalState] = useState({
       showRename: false,
       showDelete: false,
       deviceId: null,
       deviceName: ''
     });
-    const [errorMessage, setErrorMessage] = React.useState('');
-    const [successMessage, setSuccessMessage] = React.useState('');
+    const [errorMessage, setErrorMessage] = useState('');
+    const [successMessage, setSuccessMessage] = useState('');
     
     const { deviceId: currentDeviceId } = useAuth();
     
     // Load devices on component mount
-    React.useEffect(() => {
+    useEffect(() => {
       fetchDevices();
     }, []);
     

@@ -36,6 +36,10 @@ export function AuthProvider({ children }) {
           const userData = await response.json();
           setUser(userData);
           setIsAuthenticated(true);
+          const deviceIdFromCookie = getCookie('device_id');
+          if (deviceIdFromCookie) {
+            setDeviceId(deviceIdFromCookie);
+          }
         } else {
           // If auth fails, clear state
           clearAuthData();
@@ -94,15 +98,7 @@ export function AuthProvider({ children }) {
   const login = async (email, password, deviceInfo = {}) => {
     setError(null);
     
-    try {
-      // Check for existing device ID in cookies
-      const getCookie = (name) => {
-        const value = `; ${document.cookie}`;
-        const parts = value.split(`; ${name}=`);
-        if (parts.length === 2) return parts.pop().split(';').shift();
-        return null;
-      };
-      
+    try {     
       // Get device ID from cookie if available and not already provided
       const deviceId = getCookie('device_id');
       if (deviceId && !deviceInfo.id) {
@@ -157,6 +153,14 @@ export function AuthProvider({ children }) {
     }
   };
 
+  // Check for existing device ID in cookies
+  const getCookie = (name) => {
+    const value = `; ${document.cookie}`;
+    const parts = value.split(`; ${name}=`);
+    if (parts.length === 2) return parts.pop().split(';').shift();
+    return null;
+  };
+
   // Refresh token function
   const refreshToken = async () => {
     try {
@@ -194,6 +198,7 @@ export function AuthProvider({ children }) {
       isAuthenticated,
       loading,
       error,
+      deviceId,
       login,
       logout
     }}>
