@@ -296,7 +296,7 @@ func (r *UserRepository) SearchUsers(query string, skip, limit int) (*[]models.U
 
 	if query != "" {
 		query = "%" + query + "%"
-		r.db = r.db.Where("email LIKE ? OR first_name LIKE ? OR last_name LIKE ?", query, query, query)
+		r.db = r.db.Where("email ILIKE ? OR first_name ILIKE ? OR last_name ILIKE ?", query, query, query)
 	}
 
 	if err := r.db.Model(&models.User{}).Count(&total).Error; err != nil {

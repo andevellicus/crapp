@@ -1,11 +1,15 @@
 package repository
 
 import (
+	"fmt"
+
 	"github.com/andevellicus/crapp/internal/config"
 	"github.com/andevellicus/crapp/internal/logger"
 	"github.com/andevellicus/crapp/internal/models"
 	"github.com/andevellicus/crapp/internal/utils"
+	_ "github.com/lib/pq"
 	"go.uber.org/zap"
+	"gorm.io/driver/postgres"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 )
@@ -68,6 +72,7 @@ func (r *Repository) CreateInBatches(value any, batchSize int) error {
 // setupDatabase initializes the database connection
 func setupDatabase(cfg *config.Config) (*gorm.DB, error) {
 	// Get database configuration
+	dbDriver := cfg.Database.Driver
 	dbURL := cfg.Database.URL
 
 	// Get a logger for GORM
@@ -76,8 +81,19 @@ func setupDatabase(cfg *config.Config) (*gorm.DB, error) {
 	// Configure GORM logger
 	gormConfig := logger.SetUpGormConfig(dbLogger, cfg.Logging.Level)
 
-	// Connect to database
-	db, err := gorm.Open(sqlite.Open(dbURL), gormConfig)
+	// Connect to database based on driver
+	var db *gorm.DB
+	var err error
+
+	switch dbDriver {
+	case "sqlite":
+		db, err = gorm.Open(sqlite.Open(dbURL), gormConfig)
+	case "postgres":
+		db, err = gorm.Open(postgres.Open(dbURL), gormConfig)
+	default:
+		return nil, fmt.Errorf("unsupported database driver: %s", dbDriver)
+	}
+
 	if err != nil {
 		return nil, err
 	}

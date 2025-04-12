@@ -95,10 +95,10 @@ func (r *AssessmentRepository) GetMetricsCorrelation(userID, symptomKey, metricK
             JOIN question_responses qr ON a.id = qr.assessment_id
             JOIN assessment_metrics am ON a.id = am.assessment_id
         WHERE 
-            a.user_email = ?
-            AND qr.question_id = ?
-            AND am.metric_key = ?
-            AND am.question_id = ?
+            a.user_email = $1
+            AND qr.question_id = $2
+            AND am.metric_key = $3
+            AND am.question_id = $4
     `
 
 	err := r.db.Raw(query, userID, symptomKey, metricKey, symptomKey).Scan(&result).Error
@@ -131,10 +131,10 @@ func (r *AssessmentRepository) GetMetricsTimeline(userID, symptomKey, metricKey 
             JOIN question_responses qr ON a.id = qr.assessment_id
             JOIN assessment_metrics am ON a.id = am.assessment_id
         WHERE 
-            a.user_email = ?
-            AND qr.question_id = ?
-            AND am.metric_key = ?
-            AND am.question_id = ?
+            a.user_email = $1
+            AND qr.question_id = $2
+            AND am.metric_key = $3
+            AND am.question_id = $4
         ORDER BY a.submitted_at ASC
     `
 

@@ -39,7 +39,7 @@ func (j JSON) Value() (driver.Value, error) {
 	}
 
 	bytes, err := json.Marshal(j)
-	return string(bytes), err
+	return bytes, err // For PostgreSQL, we return bytes directly
 }
 
 // Scan implements the sql.Scanner interface for JSON

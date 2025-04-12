@@ -1,0 +1,27 @@
+# Git
+../.git
+../.gitignore
+
+# Build artifacts and binaries
+../crapp
+../static/dist
+
+# Log files
+../logs/
+
+# Keys directory
+../certs/
+
+# IDE specific files
+../.idea/
+../.vscode/
+../*.swp
+../*.swo
+
+# OS specific files
+../.DS_Store
+../Thumbs.db
+
+# Node.js
+../node_modules
+../npm-debug.log
