@@ -1,4 +1,4 @@
-FROM golang:1.24.1
+FROM golang:1.24.2
 
 # Add NodeJS for frontend development
 RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
