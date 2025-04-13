@@ -4,7 +4,7 @@ package handlers
 import (
 	"net/http"
 
-	"github.com/andevellicus/crapp/internal/email"
+	"github.com/andevellicus/crapp/internal/services"
 	"github.com/andevellicus/crapp/internal/validation"
 	"github.com/gin-gonic/gin"
 )
@@ -30,7 +30,7 @@ func (h *AuthHandler) ForgotPassword(c *gin.Context) {
 		return
 	}
 
-	if err := emailService.(*email.EmailService).SendPasswordResetEmail(req.Email, token); err != nil {
+	if err := emailService.(*services.EmailService).SendPasswordResetEmail(req.Email, token); err != nil {
 		h.log.Errorw("Failed to send password reset email", "error", err, "email", req.Email)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to send reset email"})
 		return

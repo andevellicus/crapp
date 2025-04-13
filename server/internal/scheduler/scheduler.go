@@ -7,17 +7,16 @@ import (
 	"time"
 
 	"github.com/andevellicus/crapp/internal/config"
-	"github.com/andevellicus/crapp/internal/email"
 	"github.com/andevellicus/crapp/internal/models"
-	"github.com/andevellicus/crapp/internal/push"
 	"github.com/andevellicus/crapp/internal/repository"
+	"github.com/andevellicus/crapp/internal/services"
 	"go.uber.org/zap"
 )
 
 // ReminderScheduler handles scheduling of reminders
 type ReminderScheduler struct {
-	pushService  *push.PushService
-	emailService *email.EmailService
+	pushService  *services.PushService
+	emailService *services.EmailService
 	config       *config.Config
 	repo         *repository.Repository
 	log          *zap.SugaredLogger
@@ -29,8 +28,8 @@ type ReminderScheduler struct {
 func NewReminderScheduler(repo *repository.Repository,
 	log *zap.SugaredLogger,
 	config *config.Config,
-	pushService *push.PushService,
-	emailService *email.EmailService) *ReminderScheduler {
+	pushService *services.PushService,
+	emailService *services.EmailService) *ReminderScheduler {
 
 	return &ReminderScheduler{
 		pushService:  pushService,

@@ -5,10 +5,9 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/andevellicus/crapp/internal/auth"
-	"github.com/andevellicus/crapp/internal/email"
 	"github.com/andevellicus/crapp/internal/models"
 	"github.com/andevellicus/crapp/internal/repository"
+	"github.com/andevellicus/crapp/internal/services"
 	"github.com/andevellicus/crapp/internal/validation"
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
@@ -19,7 +18,7 @@ import (
 type AuthHandler struct {
 	repo        *repository.Repository
 	log         *zap.SugaredLogger
-	authService *auth.AuthService
+	authService *services.AuthService
 }
 
 // RegisterRequest represents a user registration request
@@ -54,7 +53,7 @@ type AuthResponse struct {
 }
 
 // NewAuthHandler creates a new authentication handler
-func NewAuthHandler(repo *repository.Repository, log *zap.SugaredLogger, authService *auth.AuthService) *AuthHandler {
+func NewAuthHandler(repo *repository.Repository, log *zap.SugaredLogger, authService *services.AuthService) *AuthHandler {
 	return &AuthHandler{
 		repo:        repo,
 		log:         log.Named("auth"),
@@ -133,7 +132,7 @@ func (h *AuthHandler) Register(c *gin.Context) {
 	}
 
 	if emailService, exists := c.Get("emailService"); exists && emailService != nil {
-		go emailService.(*email.EmailService).SendWelcomeEmail(user.Email, user.FirstName)
+		go emailService.(*services.EmailService).SendWelcomeEmail(user.Email, user.FirstName)
 	}
 
 	// Return response with tokens

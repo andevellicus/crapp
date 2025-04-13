@@ -1,50 +1,74 @@
 const path = require('path');
+const webpack = require('webpack'); 
+const HtmlWebpackPlugin = require('html-webpack-plugin');
 const MiniCssExtractPlugin = require('mini-css-extract-plugin');
-const webpack = require('webpack'); // add this
+const CopyWebpackPlugin = require('copy-webpack-plugin');
 
-module.exports = {
-  mode: 'development',
-  entry: './src/index.jsx',
-  output: {
-    path: path.resolve(__dirname, 'dist'),
-    filename: 'bundle.js',
-    publicPath: '/'
-  },
-  module: {
-    rules: [
-      {
-        test: /\.(js|jsx)$/,
-        exclude: /node_modules/,
-        use: {
-          loader: 'babel-loader',
-          options: {
-            presets: [
-              '@babel/preset-env',
-              ['@babel/preset-react', { "runtime": "automatic" }]
-            ]
+module.exports = (env, argv) => {
+  const isProduction = argv.mode === 'production';
+  
+  return {
+    entry: './src/index.jsx',
+    output: {
+      path: path.resolve(__dirname, 'dist'),
+      filename: 'main.js',
+      publicPath: '/'
+    },
+    // Enable source maps for debugging
+    devtool: isProduction ? 'source-map' : 'inline-source-map',
+    resolve: {
+      extensions: ['.js', '.jsx']
+    },
+    module: {
+      rules: [
+        {
+          test: /\.(js|jsx)$/,
+          exclude: /node_modules/,
+          use: {
+            loader: 'babel-loader',
+            options: {
+              presets: ['@babel/preset-env', '@babel/preset-react'],
+              // This helps with line numbers in stack traces
+              sourceMaps: true
+            }
           }
+        },
+        {
+          test: /\.css$/,
+          use: [
+            MiniCssExtractPlugin.loader,
+            {
+              loader: 'css-loader',
+              options: {
+                sourceMap: true
+              }
+            }
+          ]
         }
-      },
-      {
-        test: /\.css$/,
-        use: [
-          MiniCssExtractPlugin.loader,
-          'css-loader'
+      ]
+    },
+    plugins: [
+      new HtmlWebpackPlugin({
+        template: './public/templates/app.html'
+      }),
+      new MiniCssExtractPlugin({
+        filename: 'css/[name].css'
+      }),
+      // This plugin injects React automatically
+      new webpack.ProvidePlugin({
+        React: 'react'
+      }),
+      new CopyWebpackPlugin({
+        patterns: [
+          { 
+            from: 'public', 
+            to: '', 
+            globOptions: {
+              ignore: ['**/index.html']
+            }
+          }
         ]
-      }
-    ]
-  },
-  resolve: {
-    extensions: ['.js', '.jsx']
-  },
-  plugins: [
-    new MiniCssExtractPlugin({
-      filename: 'css/[name].css'
-    }),
-    // This plugin injects React automatically
-    new webpack.ProvidePlugin({
-      React: 'react'
-    })
-  ],
-  devtool: 'source-map'
+      })
+    ],
+  };
 };

@@ -5,9 +5,8 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/andevellicus/crapp/internal/email"
-	"github.com/andevellicus/crapp/internal/push"
 	"github.com/andevellicus/crapp/internal/repository"
+	"github.com/andevellicus/crapp/internal/services"
 	"github.com/andevellicus/crapp/internal/validation"
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
@@ -17,16 +16,16 @@ import (
 type AdminHandler struct {
 	repo         *repository.Repository
 	log          *zap.SugaredLogger
-	pushService  *push.PushService
-	emailService *email.EmailService
+	pushService  *services.PushService
+	emailService *services.EmailService
 }
 
 // NewAdminHandler creates a new admin handler
 func NewAdminHandler(
 	repo *repository.Repository,
 	log *zap.SugaredLogger,
-	pushService *push.PushService,
-	emailService *email.EmailService,
+	pushService *services.PushService,
+	emailService *services.EmailService,
 ) *AdminHandler {
 	return &AdminHandler{
 		repo:         repo,

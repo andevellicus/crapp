@@ -5,9 +5,9 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"github.com/andevellicus/crapp/internal/push"
 	"github.com/andevellicus/crapp/internal/repository"
 	"github.com/andevellicus/crapp/internal/scheduler"
+	"github.com/andevellicus/crapp/internal/services"
 	"github.com/andevellicus/crapp/internal/validation"
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
@@ -15,14 +15,14 @@ import (
 
 // PushHandler handles push notification endpoints
 type PushHandler struct {
-	pushService *push.PushService
+	pushService *services.PushService
 	repo        *repository.Repository
 	log         *zap.SugaredLogger
 	scheduler   *scheduler.ReminderScheduler
 }
 
 // NewPushHandler creates a new push notification handler
-func NewPushHandler(repo *repository.Repository, log *zap.SugaredLogger, pushService *push.PushService, scheduler *scheduler.ReminderScheduler) *PushHandler {
+func NewPushHandler(repo *repository.Repository, log *zap.SugaredLogger, pushService *services.PushService, scheduler *scheduler.ReminderScheduler) *PushHandler {
 	return &PushHandler{
 		pushService: pushService,
 		repo:        repo,

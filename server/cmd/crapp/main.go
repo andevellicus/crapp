@@ -8,15 +8,13 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/andevellicus/crapp/internal/auth"
 	"github.com/andevellicus/crapp/internal/config"
-	"github.com/andevellicus/crapp/internal/email"
 	"github.com/andevellicus/crapp/internal/handlers"
 	"github.com/andevellicus/crapp/internal/logger"
 	"github.com/andevellicus/crapp/internal/middleware"
-	"github.com/andevellicus/crapp/internal/push"
 	"github.com/andevellicus/crapp/internal/repository"
 	"github.com/andevellicus/crapp/internal/scheduler"
+	"github.com/andevellicus/crapp/internal/services"
 	"github.com/andevellicus/crapp/internal/utils"
 	"github.com/andevellicus/crapp/internal/validation"
 	"github.com/gin-gonic/gin"
@@ -71,18 +69,18 @@ func main() {
 
 	// Create auth service -- MUST BE DONE BEFORE SETTING UP ROUTES AND MIDDLEWARE
 	// BECAUSE JWT GETS INITIALIZED
-	authService := auth.NewAuthService(repo, &cfg.JWT)
+	authService := services.NewAuthService(repo, &cfg.JWT)
 
 	// Initialize email service if enabled
-	var emailService *email.EmailService
+	var emailService *services.EmailService
 	if cfg.Email.Enabled {
-		emailService = email.NewEmailService(&cfg.Email, log)
+		emailService = services.NewEmailService(&cfg.Email, log)
 		log.Infow("Email service initialized", "host", cfg.Email.SMTPHost)
 	} else {
 		log.Infow("Email service disabled")
 	}
 	// Initialize push service
-	pushService := push.NewPushService(repo, log, cfg.PWA.VAPIDPublicKey, cfg.PWA.VAPIDPrivateKey)
+	pushService := services.NewPushService(repo, log, cfg.PWA.VAPIDPublicKey, cfg.PWA.VAPIDPrivateKey)
 	// Initialize the reminder scheduler
 	reminderScheduler := scheduler.NewReminderScheduler(repo, log, cfg, pushService, emailService)
 
@@ -96,6 +94,9 @@ func main() {
 		// Set the template engine
 		router.SetHTMLTemplate(t)
 	}
+
+	router.Static("static", filepath.Join("client", "public"))
+	router.StaticFile("/main.js", filepath.Join("client", "dist", "main.js"))
 
 	// Initialize handlers
 	apiHandler := handlers.NewAPIHandler(repo, log, questionLoader)

@@ -91,7 +91,7 @@ func (r *DeviceRepository) Delete(id string) error {
 	// 1. Update assessments to use a null device ID or placeholder
 	if err := tx.Model(&models.Assessment{}).
 		Where("device_id = ?", id).
-		Update("device_id", "deleted_device").Error; err != nil {
+		Update("device_id", nil).Error; err != nil {
 		tx.Rollback()
 		return fmt.Errorf("failed to update assessments: %w", err)
 	}
@@ -99,7 +99,7 @@ func (r *DeviceRepository) Delete(id string) error {
 	// 2. Update CPT results
 	if err := tx.Model(&models.CPTResult{}).
 		Where("device_id = ?", id).
-		Update("device_id", "deleted_device").Error; err != nil {
+		Update("device_id", nil).Error; err != nil {
 		tx.Rollback()
 		return fmt.Errorf("failed to update CPT results: %w", err)
 	}
@@ -107,7 +107,7 @@ func (r *DeviceRepository) Delete(id string) error {
 	// 3. Update TMT results
 	if err := tx.Model(&models.TMTResult{}).
 		Where("device_id = ?", id).
-		Update("device_id", "deleted_device").Error; err != nil {
+		Update("device_id", nil).Error; err != nil {
 		tx.Rollback()
 		return fmt.Errorf("failed to update TMT results: %w", err)
 	}

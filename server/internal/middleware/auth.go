@@ -4,12 +4,12 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/andevellicus/crapp/internal/auth"
+	"github.com/andevellicus/crapp/internal/services"
 	"github.com/gin-gonic/gin"
 )
 
 // AuthMiddleware verifies the JWT token in cookies or Authorization header
-func AuthMiddleware(authService *auth.AuthService) gin.HandlerFunc {
+func AuthMiddleware(authService *services.AuthService) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var tokenString string
 
@@ -51,7 +51,7 @@ func AuthMiddleware(authService *auth.AuthService) gin.HandlerFunc {
 
 // AuthRedirectMiddleware redirects logged out users to login page
 // This is useful for index page, where we want logged out users to be redirected
-func AuthRedirectMiddleware(authService *auth.AuthService) gin.HandlerFunc {
+func AuthRedirectMiddleware(authService *services.AuthService) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		// Check for auth token in cookie
 		token, err := c.Cookie("auth_token")
