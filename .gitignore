@@ -11,9 +11,6 @@
 *.out
 go.work
 
-# SQLite database
-crapp.db
-
 # Log files
 logs/
 
@@ -36,10 +33,10 @@ utils/
 .DS_Store
 Thumbs.db
 
-# Config file with secrets
-config.yaml
-
 # React
 static/dist
 node_modules
 package-lock.json
+
+# Dev container .env:
+.devcontainer/.env

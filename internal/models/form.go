@@ -19,7 +19,7 @@ type FormState struct {
 	TMTData         []byte    `json:"tmt_data" gorm:"type:bytea"`
 
 	// Will be 0 until assessment is "completed"
-	AssessmentID uint `json:"assessment_id" gorm:"index"`
+	AssessmentID *uint `json:"assessment_id" gorm:"index"`
 
 	// Relationships
 	Assessment Assessment `json:"-" gorm:"foreignKey:AssessmentID"`

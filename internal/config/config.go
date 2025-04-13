@@ -189,8 +189,8 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault("app.questions_file", "questions.yaml")
 
 	// Database defaults
-	v.SetDefault("database.driver", "sqlite")
-	v.SetDefault("database.url", "crapp.db")
+	v.SetDefault("database.driver", "postgres")
+	v.SetDefault("database.url", "postgres://postgres:postgres@localhost:5432/crapp?sslmode=disable")
 
 	// Server defaults
 	v.SetDefault("server.host", "0.0.0.0")

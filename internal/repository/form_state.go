@@ -74,7 +74,7 @@ func (r *FormStateRepository) Update(formState *models.FormState) error {
 	}
 	// State transition validation -- make sure that the form is not set as complete
 	// somehow unless it's on the last step
-	if formState.AssessmentID != 0 && formState.CurrentStep < len(questionOrder) {
+	if formState.AssessmentID != nil && formState.CurrentStep < len(questionOrder) {
 		return fmt.Errorf("cannot mark form as completed when questions remain")
 	}
 
@@ -119,7 +119,7 @@ func (r *FormStateRepository) Delete(id string) error {
 func (r *FormStateRepository) GetUserActiveFormState(userEmail string) (*models.FormState, error) {
 	var formState models.FormState
 
-	err := r.db.Where("user_email = ? AND assessment_id = ?", userEmail, 0).
+	err := r.db.Where("user_email = ? AND assessment_id IS NULL", userEmail).
 		Order("last_updated_at DESC").
 		First(&formState).Error
 

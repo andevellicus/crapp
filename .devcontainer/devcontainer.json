@@ -1,0 +1,25 @@
+{
+  "name": "CRAPP Development",
+  "dockerComposeFile": "docker-compose.yml",
+  "service": "app",
+  "workspaceFolder": "/workspace",
+  "remoteUser": "vscode",
+  "customizations": {
+    "vscode": {
+      "settings": {
+        "terminal.integrated.defaultProfile.linux": "bash",
+        "go.useLanguageServer": true,
+        "go.gopath": "/go",
+        "go.toolsManagement.checkForUpdates": "local"
+      },
+      "extensions": [
+        "golang.go",
+        "dbaeumer.vscode-eslint",
+        "esbenp.prettier-vscode",
+        "ms-azuretools.vscode-docker"
+      ]
+    }
+  },
+  "forwardPorts": [5000, 5432],
+  "postCreateCommand": "sudo mkdir -p /app && sudo chown -R $(whoami):$(whoami) /app && go mod download && npm install"
+}

@@ -387,7 +387,7 @@ func (h *FormHandler) SubmitForm(c *gin.Context) {
 	}
 
 	// Mark form state as completed
-	formState.AssessmentID = assessmentID
+	formState.AssessmentID = &assessmentID
 	h.repo.FormStates.Update(formState)
 
 	// Set last assessment completed time to now:
