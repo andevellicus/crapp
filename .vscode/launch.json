@@ -6,12 +6,12 @@
             "type": "go",
             "request": "launch",
             "mode": "auto",
-            "program": "${workspaceFolder}/cmd/crapp/main.go",
-            "args": ["--config=config.yaml"],
+            "program": "${workspaceFolder}/server/cmd/crapp/main.go",
+            "args": ["--config=${workspaceFolder}/config/config.yaml"],
             "env": {
                 "CRAPP_APP_ENVIRONMENT": "development",
                 "CRAPP_DATABASE_DRIVER": "postgres",
-                "CRAPP_DATABASE_URL": "postgres://postgres:postgres@db:5432/crapp?sslmode=disable",
+                //"CRAPP_DATABASE_URL": "postgres://postgres:postgres@db:5432/crapp?sslmode=disable",
                 "GOPATH": "/go",
                 "GOMODCACHE": "/go/pkg/mod"
             },
@@ -19,49 +19,5 @@
             "cwd": "${workspaceFolder}",
             "preLaunchTask": "npm: build"
         },
-        {
-            "name": "Attach to Process",
-            "type": "go",
-            "request": "attach",
-            "mode": "remote",
-            "remotePath": "${workspaceFolder}",
-            "port": 2345,
-            "host": "127.0.0.1",
-            "cwd": "${workspaceFolder}"
-        },
-        {
-            "name": "Debug Current Test File",
-            "type": "go",
-            "request": "launch",
-            "mode": "test",
-            "program": "${fileDirname}",
-            "env": {
-                "CRAPP_APP_ENVIRONMENT": "test",
-                "CRAPP_DATABASE_DRIVER": "sqlite",
-                "CRAPP_DATABASE_URL": ":memory:",
-                "GOPATH": "/go",
-                "GOMODCACHE": "/go/pkg/mod"
-            },
-            "buildFlags": "-mod=readonly",
-            "args": [],
-            "cwd": "${workspaceFolder}"
-        },
-        {
-            "name": "Debug All Tests",
-            "type": "go",
-            "request": "launch",
-            "mode": "test",
-            "program": "${workspaceFolder}/...",
-            "env": {
-                "CRAPP_APP_ENVIRONMENT": "test",
-                "CRAPP_DATABASE_DRIVER": "sqlite",
-                "CRAPP_DATABASE_URL": ":memory:",
-                "GOPATH": "/go",
-                "GOMODCACHE": "/go/pkg/mod"
-            },
-            "buildFlags": "-mod=readonly",
-            "args": [],
-            "cwd": "${workspaceFolder}"
-        }
     ]
 }

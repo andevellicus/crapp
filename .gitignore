@@ -1,6 +1,3 @@
-# Compiled Go binary
-/crapp
-
 # Go specific
 *.exe
 *.exe~
@@ -17,9 +14,6 @@ logs/
 # Keys directory
 certs/
 
-# Util directory
-utils/
-
 # Dependency directories (remove these if vendoring dependencies)
 /vendor/
 
@@ -33,7 +27,7 @@ utils/
 Thumbs.db
 
 # React
-static/dist
+dist
 node_modules
 package-lock.json
 
