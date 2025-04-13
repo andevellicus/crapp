@@ -99,7 +99,7 @@ func setupDatabase(cfg *config.Config) (*gorm.DB, error) {
 		return nil, err
 	}
 
-	dbLogger.Info("Database initialized.")
+	dbLogger.Info("Database initialized")
 
 	return db, nil
 }
