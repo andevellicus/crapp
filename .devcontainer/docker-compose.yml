@@ -8,7 +8,7 @@ services:
       - go-cache:/go
     command: sleep infinity
     environment:
-      CRAPP_DATABASE_URL: "postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}?sslmode=required"
+      CRAPP_DATABASE_URL: "postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5431/${POSTGRES_DB}?sslmode=required"
       CRAPP_JWT_SECRET: ${JWT_SECRET}
       CRAPP_PWA_VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY}
       CRAPP_PWA_VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY}
@@ -23,7 +23,7 @@ services:
       - crapp-network
 
   db:
-    image: postgres:16
+    image: postgres:17
     restart: unless-stopped
     environment:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
@@ -32,7 +32,7 @@ services:
     volumes:
       - postgres-data:/var/lib/postgresql/data
     ports:
-      - "5432:5432"
+      - "5431:5431"
     networks:
       - crapp-network
 

@@ -136,7 +136,7 @@ func main() {
 		// Allow service worker to control the whole origin
 		c.Header("Service-Worker-Allowed", "/")
 
-		c.File("./client/src/service-worker.js")
+		c.File("./client/public/service-worker.js")
 	})
 
 	// View routes

@@ -8,8 +8,6 @@ const CACHE_FILES = [
   '/static/icons/icon-192x192.png',
   '/static/icons/icon-512x512.png',
   '/static/icons/badge-96x96.png',
-//  '/client/src/services/api.js',
-//  '/client/src/utils/utils.js'
 ];
 
 // Install event

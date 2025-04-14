@@ -1,0 +1,21 @@
+FROM nginx:alpine
+
+# Copy configuration
+COPY docker/nginx.conf /etc/nginx/nginx.conf
+
+# Create directory for certs
+RUN mkdir -p /etc/nginx/certs
+
+# Copy certificates
+COPY certs/server.crt /etc/nginx/certs/
+COPY certs/server.key /etc/nginx/certs/
+
+# Set proper permissions
+RUN chmod 644 /etc/nginx/certs/server.crt && \
+    chmod 600 /etc/nginx/certs/server.key
+
+# Expose ports
+EXPOSE 5000 443
+
+# Start nginx
+CMD ["nginx", "-g", "daemon off;"]

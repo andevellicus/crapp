@@ -20,6 +20,6 @@
       ]
     }
   },
-  "forwardPorts": [5000, 5432],
+  "forwardPorts": [5050, 5431],
   "postCreateCommand": "sudo mkdir -p /app && sudo chown -R $(whoami):$(whoami) /app && go mod download && npm install"
 }

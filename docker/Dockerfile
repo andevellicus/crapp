@@ -1,7 +1,7 @@
 ##########################
 # Stage 1 - Client Build #
 ##########################
-FROM node:20-alpine AS client-builder
+FROM node:23-alpine AS client-builder
 
 WORKDIR /app
 
@@ -64,6 +64,7 @@ COPY client/public/templates/ /app/client/public/templates/
 COPY client/public/icons/ /app/client/public/icons/
 COPY client/public/css/ /app/client/public/css/
 COPY client/public/manifest.json /app/client/public/manifest.json
+COPY client/public/service-worker.js /app/client/public/service-worker.js
 
 # Copy certs
 COPY certs/ /app/certs/
@@ -78,7 +79,7 @@ RUN chown -R appuser:appgroup /app
 USER appuser
 
 # Expose the application port
-EXPOSE 5000
+EXPOSE ${SERVER_PORT}
 
 # Command to run
 ENTRYPOINT ["/app/db_startup.sh", "/app/crapp_server"]

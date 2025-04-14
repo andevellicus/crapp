@@ -194,7 +194,7 @@ func setDefaults(v *viper.Viper) {
 
 	// Server defaults
 	v.SetDefault("server.host", "0.0.0.0")
-	v.SetDefault("server.port", "5000")
+	v.SetDefault("server.port", "5050")
 
 	// Logging defaults
 	v.SetDefault("logging.directory", "logs")
@@ -234,7 +234,7 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault("email.smtp_password", "")
 	v.SetDefault("email.from_email", "noreply@example.com")
 	v.SetDefault("email.from_name", "CRAPP Notification")
-	v.SetDefault("email.app_url", "http://localhost:5000")
+	v.SetDefault("email.app_url", "http://localhost")
 }
 
 // IsDevelopment returns true if the app is in development mode

@@ -4,7 +4,7 @@ app_name: CRAPP
 
 app:
   name: "CRAPP - Cognitive Reporting Application"
-  environment: "development"  # Options: development, production, testing
+  environment: "testing"  # Options: development, production, testing
   # questions_file: "config/questions.yaml"
 
 database:
@@ -13,7 +13,7 @@ database:
 
 server:
   host: "0.0.0.0"
-  port: 5050
+  # port: 5000 -- Set in ENV
 
 logging:
   directory: logs
@@ -36,18 +36,19 @@ pwa:
   #vapid_private_key: stored in ENV
 
 tls:
-  enabled: true
+  enabled: true # Disable if running a reverse proxy managing the TLS (i.e., nginx+SSL)
+  http_port: 8080  # Optional port for HTTP redirect
   #cert_file: stored in ENV
   #key_file: stored in ENV
-  http_port: 8080  # Optional port for HTTP redirect
+
 
 # Email configuration
 email:
   enabled: true
   smtp_host: "smtp.mailersend.net"
   smtp_port: 587
-  #smtp_username: stored in ENV
-  #smtp_password: stored in ENV
   from_email: "MS_MOJ1mU@trial-vz9dlemej3n4kj50.mlsender.net"
   from_name: "CRAPP Notification"
   app_url: "https://crapp.ceretronic.com"  # Base URL for links in emails
+  #smtp_username: stored in ENV
+  #smtp_password: stored in ENV
