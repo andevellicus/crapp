@@ -16,7 +16,7 @@
             },
             "buildFlags": "-mod=readonly",
             "cwd": "${workspaceFolder}",
-            "preLaunchTask": "npm: build"
+            "preLaunchTask": "npm: dev"
         },
     ]
 }

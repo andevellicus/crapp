@@ -2,12 +2,17 @@ services:
   app:
     build:
       context: ../
-      dockerfile: docker/Dockerfile.deploy
+      dockerfile: docker/Dockerfile
+    container_name: crapp
+    hostname: app
+    restart: unless-stopped
+    depends_on:
+      - db
     expose:
       - "5000"  # Internal port where your app listens
     environment:
       # Place your app-specific environment variables here
-      CRAPP_DATABASE_URL: "postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${DB_NAME}?sslmode=disable"
+      CRAPP_DATABASE_URL: "postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}?sslmode=require"
       CRAPP_JWT_SECRET: ${JWT_SECRET}
       CRAPP_PWA_VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY}
       CRAPP_PWA_VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY}
@@ -15,35 +20,41 @@ services:
       CRAPP_EMAIL_SMTP_PASSWORD: ${SMTP_PASSWORD}
       CRAPP_TLS_CERT_FILE: ${CERT_FILE}
       CRAPP_TLS_KEY_FILE: ${KEY_FILE}
+      TZ: "America/New_York"
+    volumes:
+      - crapp-logs:/app/logs
+    networks:
+      - crapp-network
+
+  db:
+    build:
+      context: ../
+      dockerfile: docker/Dockerfile.db
+    container_name: crapp-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
     networks:
       - crapp-network
 
   nginx:
     image: nginx:alpine
+    container_name: crapp-nginx
+    restart: unless-stopped
     ports:
-      - "80:80"     # Listen for HTTP requests
-      - "443:443"   # Listen for HTTPS requests
+      - "80:80"
+      - "443:443"
     volumes:
-      # Mount a custom nginx.conf that configures redirection and proxying
       - ./nginx.conf:/etc/nginx/nginx.conf:ro
-      # Optionally mount a directory containing SSL certificate and key files
       - ../certs:/etc/nginx/certs:ro
     depends_on:
       - app
-    networks:
-      - crapp-network
-
-  db:
-    image: postgres:16
-    restart: unless-stopped
-    environment:
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_DB: ${DB_NAME}
-    volumes:
-      - postgres-data:/var/lib/postgresql/data
-    ports:
-      - "5432:5432"
     networks:
       - crapp-network
 
@@ -53,3 +64,4 @@ networks:
 
 volumes:
   postgres-data:
+  crapp-logs:

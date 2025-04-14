@@ -5,7 +5,7 @@ app_name: CRAPP
 app:
   name: "CRAPP - Cognitive Reporting Application"
   environment: "development"  # Options: development, production, testing
-  #questions_file: "./questions.yaml"
+  # questions_file: "config/questions.yaml"
 
 database:
   driver: postgres
@@ -13,7 +13,7 @@ database:
 
 server:
   host: "0.0.0.0"
-  port: 5000
+  port: 5050
 
 logging:
   directory: logs

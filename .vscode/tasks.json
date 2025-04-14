@@ -2,9 +2,9 @@
     "version": "2.0.0",
     "tasks": [
         {
-            "label": "npm: build",
+            "label": "npm: dev",
             "type": "shell",
-            "command": "cd client && npm run build",
+            "command": "cd client && npm run dev",
             "group": "build",
             "problemMatcher": []
         }

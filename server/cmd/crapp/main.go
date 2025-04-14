@@ -89,7 +89,7 @@ func main() {
 
 	t, err := handlers.SetupTemplates()
 	if err != nil {
-		log.Warnw("Error setting up templates", "error", err)
+		log.Fatalw("Error setting up templates", "error", err)
 	} else {
 		// Set the template engine
 		router.SetHTMLTemplate(t)

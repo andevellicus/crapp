@@ -1,0 +1,23 @@
+FROM postgres:17-alpine
+# Switch to root so you can set ownership/permissions
+USER root
+
+# Create a directory for the certs in the image and copy them in
+RUN mkdir -p /certs
+COPY certs/server.crt /certs/server.crt
+COPY certs/server.key /certs/server.key
+
+# Set the ownership and permissions for the private key
+RUN chown postgres:postgres /certs/server.key && chmod 600 /certs/server.key
+
+# Optionally, adjust ownership for the certificate too if needed
+RUN chown postgres:postgres /certs/server.crt && chmod 644 /certs/server.crt
+
+# Copy pg_hba.conf to a location that will be copied to data directory during initialization
+COPY docker/pg_hba.conf /usr/share/postgresql/pg_hba.conf.sample
+
+# Switch back to the postgres user
+USER postgres
+
+# Start postgres with SSL enabled, referencing the certs inside the image
+CMD ["postgres", "-c", "ssl=on", "-c", "ssl_cert_file=/certs/server.crt", "-c", "ssl_key_file=/certs/server.key"]
