@@ -37,34 +37,25 @@ func (j JSON) Value() (driver.Value, error) {
 	if j == nil {
 		return nil, nil
 	}
-
-	bytes, err := json.Marshal(j)
-	return bytes, err // For PostgreSQL, we return bytes directly
+	return json.Marshal(j)
 }
 
 // Scan implements the sql.Scanner interface for JSON
 func (j *JSON) Scan(value any) error {
-	var bytes []byte
+	if value == nil {
+		*j = nil
+		return nil
+	}
 
+	var bytes []byte
 	switch v := value.(type) {
-	case []byte:
-		bytes = v
 	case string:
 		bytes = []byte(v)
-	case nil:
-		*j = make(JSON)
-		return nil
+	case []byte:
+		bytes = v
 	default:
-		return fmt.Errorf("unsupported type for JSON scanning: %T", value)
+		return fmt.Errorf("failed to unmarshal JSONB value: %v", value)
 	}
 
-	if len(bytes) == 0 {
-		*j = make(JSON)
-		return nil
-	}
-
-	result := make(JSON)
-	err := json.Unmarshal(bytes, &result)
-	*j = result
-	return err
+	return json.Unmarshal(bytes, j)
 }

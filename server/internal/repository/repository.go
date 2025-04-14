@@ -1,6 +1,8 @@
 package repository
 
 import (
+	"time"
+
 	"github.com/andevellicus/crapp/internal/config"
 	"github.com/andevellicus/crapp/internal/logger"
 	"github.com/andevellicus/crapp/internal/models"
@@ -98,6 +100,29 @@ func setupDatabase(cfg *config.Config) (*gorm.DB, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	db.Exec("CREATE INDEX IF NOT EXISTS idx_assessments_user_email ON assessments(user_email)")
+	db.Exec("CREATE INDEX IF NOT EXISTS idx_assessments_device_id ON assessments(device_id)")
+	db.Exec("CREATE INDEX IF NOT EXISTS idx_assessments_submitted_at ON assessments(submitted_at)")
+	db.Exec("CREATE INDEX IF NOT EXISTS idx_question_responses_assessment_id ON question_responses(assessment_id)")
+	db.Exec("CREATE INDEX IF NOT EXISTS idx_question_responses_question_id ON question_responses(question_id)")
+	db.Exec("CREATE INDEX IF NOT EXISTS idx_assessment_metrics_assessment_id ON assessment_metrics(assessment_id)")
+	db.Exec("CREATE INDEX IF NOT EXISTS idx_assessment_metrics_metric_key ON assessment_metrics(metric_key)")
+	db.Exec("CREATE INDEX IF NOT EXISTS idx_cpt_results_user_email ON cpt_results(user_email)")
+	db.Exec("CREATE INDEX IF NOT EXISTS idx_cpt_results_created_at ON cpt_results(created_at)")
+
+	// Set connection pool parameters
+	sqlDB, err := db.DB()
+	if err != nil {
+		return nil, err
+	}
+
+	// Set max open connections based on your expected load
+	sqlDB.SetMaxOpenConns(25)
+	// Set max idle connections to reduce connection churn
+	sqlDB.SetMaxIdleConns(10)
+	// Set connection max lifetime to clean up inactive connections
+	sqlDB.SetConnMaxLifetime(time.Hour)
 
 	dbLogger.Info("Database initialized")
 

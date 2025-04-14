@@ -87,18 +87,17 @@ func (r *AssessmentRepository) GetMetricsCorrelation(userID, symptomKey, metricK
 
 	// Use a different JOIN approach - first get the response data, then match metrics
 	query := `
-        SELECT 
-            qr.numeric_value as symptom_value,
-            am.metric_value
-        FROM 
-            assessments a
-            JOIN question_responses qr ON a.id = qr.assessment_id
-            JOIN assessment_metrics am ON a.id = am.assessment_id
-        WHERE 
-            a.user_email = $1
-            AND qr.question_id = $2
-            AND am.metric_key = $3
-            AND am.question_id = $4
+		SELECT 
+			qr.numeric_value as symptom_value,
+			am.metric_value
+		FROM 
+			assessments a
+		JOIN question_responses qr ON a.id = qr.assessment_id
+		JOIN assessment_metrics am ON a.id = am.assessment_id AND am.question_id = qr.question_id
+		WHERE 
+			a.user_email = $1
+			AND qr.question_id = $2
+			AND am.metric_key = $3
     `
 
 	err := r.db.Raw(query, userID, symptomKey, metricKey, symptomKey).Scan(&result).Error

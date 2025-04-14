@@ -5,7 +5,7 @@ app_name: CRAPP
 app:
   name: "CRAPP - Cognitive Reporting Application"
   environment: "testing"  # Options: development, production, testing
-  # questions_file: "config/questions.yaml"
+  # questions_file: Default: "config/questions.yaml"
 
 database:
   driver: postgres

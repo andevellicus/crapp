@@ -239,7 +239,8 @@ func setDefaults(v *viper.Viper) {
 
 // IsDevelopment returns true if the app is in development mode
 func (c *Config) IsDevelopment() bool {
-	return strings.ToLower(c.App.Environment) == "development"
+	return strings.ToLower(c.App.Environment) == "development" ||
+		strings.ToLower(c.App.Environment) == "testing"
 }
 
 // IsProduction returns true if the app is in production mode
