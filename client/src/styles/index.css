@@ -1,0 +1,31 @@
+/* index.css */
+
+/* Base styles */
+@import './base/variables.css';
+@import './base/reset.css';
+@import './base/typography.css';
+@import './base/layout.css';
+
+/* Components */
+@import './components/buttons.css';
+@import './components/forms.css';
+@import './components/navigation.css';
+@import './components/modals.css';
+@import './components/cards.css';
+@import './components/tables.css';
+@import './components/messages.css';
+@import './components/spinners.css';
+
+/* Pages */
+@import './pages/auth.css';
+@import './pages/profile.css';
+@import './pages/admin.css';
+@import './pages/assessment.css';
+
+/* Utils */
+@import './utils/animations.css';
+@import './utils/responsive.css';
+
+/* Cognitive tests */
+@import './cognitive-tests/cpt.css';
+@import './cognitive-tests/tmt.css';

@@ -1,0 +1,150 @@
+/* cards.css */
+@import '../base/variables.css';
+
+/* Base card style */
+.card {
+  background-color: white;
+  border-radius: var(--border-radius);
+  padding: var(--spacing-md);
+  margin-bottom: var(--spacing-md);
+  box-shadow: var(--card-shadow);
+}
+
+/* Form sections */
+.form-section {
+  background-color: white;
+  padding: var(--spacing-lg);
+  border-radius: var(--border-radius-lg);
+  box-shadow: var(--card-shadow);
+  margin-bottom: var(--spacing-xl);
+}
+
+.form-section h4 {
+  margin-top: 0;
+  margin-bottom: var(--spacing-md);
+  color: #555;
+  border-bottom: 1px solid #eee;
+  padding-bottom: var(--spacing-sm);
+}
+
+/* Device cards */
+.device-card {
+  display: flex;
+  align-items: center;
+  background-color: white;
+  padding: var(--spacing-md);
+  border-radius: var(--border-radius-lg);
+  box-shadow: var(--card-shadow);
+}
+
+.device-card.current .current-device-badge {
+  display: inline-block;
+}
+
+.device-icon {
+  width: 50px;
+  height: 50px;
+  border-radius: 25px;
+  background-color: #e0e0e0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: var(--spacing-md);
+  flex-shrink: 0;
+}
+
+.device-type-icon.desktop::before {
+  content: "💻";
+}
+
+.device-type-icon.mobile::before {
+  content: "📱";
+}
+
+.device-type-icon.tablet::before {
+  content: "📱";
+}
+
+.device-info {
+  flex-grow: 1;
+}
+
+.device-name {
+  font-weight: bold;
+  margin-bottom: 5px;
+  display: flex;
+  align-items: center;
+}
+
+.device-name-text {
+  margin-right: var(--spacing-sm);
+}
+
+.current-device-badge {
+  background-color: var(--success-color);
+  color: white;
+  font-size: 0.7rem;
+  padding: 2px 8px;
+  border-radius: 10px;
+  display: none;
+}
+
+.device-details {
+  color: #666;
+  font-size: 0.9rem;
+  margin-bottom: 5px;
+}
+
+.device-last-active {
+  color: #999;
+  font-size: 0.8rem;
+}
+
+.device-actions {
+  display: flex;
+  gap: var(--spacing-sm);
+}
+
+/* Empty state */
+.empty-state {
+  text-align: center;
+  padding: var(--spacing-xxl) var(--spacing-lg);
+  color: #666;
+}
+
+.empty-icon {
+  font-size: 40px;
+  margin-bottom: var(--spacing-lg);
+}
+
+.empty-state h4 {
+  margin-bottom: var(--spacing-sm);
+  color: #555;
+}
+
+/* Responsive card styles */
+@media screen and (max-width: 768px) {
+  .form-section {
+    padding: var(--spacing-md);
+  }
+  
+  .device-card {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  
+  .device-icon {
+    margin-bottom: var(--spacing-sm);
+  }
+  
+  .device-actions {
+    margin-top: var(--spacing-md);
+    align-self: flex-end;
+  }
+}
+
+@media screen and (max-width: 480px) {
+  .form-section {
+    padding: var(--spacing-md);
+  }
+}

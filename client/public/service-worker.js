@@ -3,8 +3,6 @@ const CACHE_NAME = 'crapp-v1';
 // Cache files list
 const CACHE_FILES = [
   '/',
-  '/static/css/main.css',
-  '/static/css/cpt.css',
   '/static/icons/icon-192x192.png',
   '/static/icons/icon-512x512.png',
   '/static/icons/badge-96x96.png',
