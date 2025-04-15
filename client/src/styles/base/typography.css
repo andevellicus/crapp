@@ -1,0 +1,33 @@
+/* typography.css */
+h1, h2, h3, h4, h5, h6 {
+    margin-bottom: 0.5em;
+  }
+  
+  h1 {
+    color: var(--primary-color);
+    margin-bottom: 5px;
+  }
+  
+  h2 {
+    color: #666;
+    font-size: 1.2rem;
+    font-weight: normal;
+  }
+  
+  h3 {
+    color: var(--primary-color);
+    margin-bottom: 20px;
+  }
+  
+  p {
+    margin-bottom: 1em;
+  }
+  
+  a {
+    color: var(--primary-color);
+    text-decoration: none;
+  }
+  
+  a:hover {
+    text-decoration: underline;
+  }

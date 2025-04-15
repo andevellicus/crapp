@@ -1,0 +1,144 @@
+/* utils/responsive.css */
+/* This file contains responsive utilities and breakpoint-specific styles */
+
+/* Media query breakpoints */
+/* Mobile: 0-480px */
+/* Tablet: 481-768px */
+/* Desktop: 769px+ */
+
+/* Responsive text classes */
+.text-sm {
+    font-size: 0.875rem;
+  }
+  
+  .text-md {
+    font-size: 1rem;
+  }
+  
+  .text-lg {
+    font-size: 1.25rem;
+  }
+  
+  /* Hide elements based on breakpoint */
+  .hide-on-mobile {
+    display: block;
+  }
+  
+  .show-on-mobile {
+    display: none;
+  }
+  
+  /* Responsive utilities */
+  @media screen and (max-width: 768px) {
+    /* Tablet and mobile styles */
+    .container {
+      padding: 15px;
+    }
+    
+    .row-to-column {
+      flex-direction: column !important;
+    }
+    
+    .hide-on-tablet {
+      display: none !important;
+    }
+    
+    .show-on-tablet {
+      display: block !important;
+    }
+    
+    /* Adjust button sizes for better touch targets */
+    button, .button, .nav-button {
+      min-height: 44px;
+    }
+    
+    /* Adjust form elements */
+    .form-row {
+      flex-direction: column;
+    }
+    
+    /* Increase spacing on mobile */
+    .mobile-spacing {
+      margin-bottom: 20px;
+    }
+  }
+  
+  @media screen and (max-width: 480px) {
+    /* Mobile-only styles */
+    .hide-on-mobile {
+      display: none !important;
+    }
+    
+    .show-on-mobile {
+      display: block !important;
+    }
+    
+    /* Font size adjustments */
+    h1 {
+      font-size: 1.8rem;
+    }
+    
+    h2 {
+      font-size: 1.1rem;
+    }
+    
+    /* Increase touch targets */
+    .option-label {
+      padding: 15px 10px;
+    }
+    
+    input[type="radio"], 
+    input[type="checkbox"] {
+      min-width: 22px;
+      min-height: 22px;
+    }
+    
+    /* Stack navigation buttons on very small screens */
+    .navigation-buttons {
+      gap: 10px;
+    }
+    
+    /* Reduce padding in forms */
+    .form-section, 
+    .auth-container {
+      padding: 15px;
+    }
+    
+    /* Adjust message padding */
+    .message {
+      padding: 10px;
+    }
+  }
+  
+  /* iOS-specific adjustments */
+  @supports (-webkit-touch-callout: none) {
+    input, 
+    select, 
+    textarea, 
+    button {
+      -webkit-appearance: none;
+      appearance: none;
+      border-radius: 4px;
+    }
+    
+    /* Fix for iOS input focus */
+    input:focus {
+      position: relative;
+      z-index: 1;
+    }
+  }
+  
+  /* High DPI screens adjustments */
+  @media (-webkit-min-device-pixel-ratio: 2), 
+         (min-resolution: 192dpi) {
+    body {
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+  }
+  
+  /* Prevent pull-to-refresh on mobile during tests */
+  .cpt-test-container,
+  .trail-test-container {
+    overscroll-behavior: contain;
+  }

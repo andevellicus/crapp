@@ -1,0 +1,41 @@
+/* pages/admin.css */
+.admin-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+  }
+  
+  .search-container {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 20px;
+  }
+  
+  #search-input {
+    width: 100%;
+    max-width: 300px;
+  }
+  
+  .admin-content {
+    background-color: var(--secondary-bg);
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: var(--card-shadow);
+  }
+  
+  @media screen and (max-width: 768px) {
+    .admin-header {
+      flex-direction: column;
+      align-items: flex-start;
+    }
+    
+    .search-container {
+      width: 100%;
+    }
+    
+    #search-input {
+      max-width: none;
+      flex: 1;
+    }
+  }

@@ -28,7 +28,6 @@ module.exports = (env, argv) => {
             loader: 'babel-loader',
             options: {
               presets: ['@babel/preset-env', '@babel/preset-react'],
-              // This helps with line numbers in stack traces
               sourceMaps: true
             }
           }
@@ -54,7 +53,6 @@ module.exports = (env, argv) => {
       new MiniCssExtractPlugin({
         filename: 'css/[name].css'
       }),
-      // This plugin injects React automatically
       new webpack.ProvidePlugin({
         React: 'react'
       }),

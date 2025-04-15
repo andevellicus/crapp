@@ -98,7 +98,8 @@ func main() {
 		router.SetHTMLTemplate(t)
 	}
 
-	router.Static("static", filepath.Join("client", "public"))
+	router.Static("/static", filepath.Join("client", "public"))
+	router.Static("/css", filepath.Join("client", "dist", "css"))
 	router.StaticFile("/main.js", filepath.Join("client", "dist", "main.js"))
 
 	// Initialize handlers

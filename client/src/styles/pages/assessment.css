@@ -1,0 +1,176 @@
+/* pages/assessment.css */
+.progress-indicator {
+    text-align: center;
+    margin-bottom: 20px;
+    color: #666;
+    font-weight: bold;
+  }
+  
+  .symptom-scale {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    touch-action: pan-y;
+    -webkit-overflow-scrolling: touch;
+  }
+  
+  .option-label {
+    display: flex;
+    align-items: flex-start;
+    padding: 15px;
+    background-color: var(--form-bg);
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background-color 0.2s;
+    position: relative;
+  }
+  
+  @media (hover: hover) {
+    .option-label:hover {
+      background-color: #e0e0e0;
+    }
+  }
+  
+  .option-label input {
+    margin-right: 15px;
+    margin-top: 3px;
+    pointer-events: auto;
+    position: relative;
+    z-index: 2;
+  }
+  
+  .option-text {
+    pointer-events: none;
+    flex: 1;
+  }
+  
+  .completion-message {
+    margin: 20px 0;
+    padding: 15px;
+    background-color: #e6f7ff;
+    border-radius: 4px;
+  }
+  
+  .submit-button {
+    background-color: var(--success-color);
+  }
+  
+  .submit-button:hover {
+    background-color: #2f855a;
+  }
+  
+  .reset-button {
+    background-color: var(--error-color);
+    margin-top: 10px;
+  }
+  
+  .reset-button:hover {
+    background-color: #8b2525;
+  }
+  
+  /* Chart container for visualization */
+  .chart-container {
+    width: 100%;
+    height: 400px;
+    margin-bottom: 40px;
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    padding: 15px;
+    background-color: white;
+  }
+  
+  .metrics-help {
+    background-color: white;
+    padding: 15px;
+    border-radius: 4px;
+    margin-top: 30px;
+    margin-bottom: 20px;
+    border: 1px solid var(--border-color);
+  }
+  
+  .metrics-help h3 {
+    margin-bottom: 10px;
+    color: var(--primary-color);
+  }
+  
+  .metrics-help ul {
+    padding-left: 20px;
+  }
+  
+  .metrics-help li {
+    margin-bottom: 8px;
+  }
+  
+  .no-data {
+    text-align: center;
+    padding: 50px;
+    background-color: white;
+    border-radius: 4px;
+    margin-bottom: 40px;
+    border: 1px solid var(--border-color);
+  }
+  
+  .no-data h3 {
+    color: var(--primary-color);
+    margin-bottom: 10px;
+  }
+  
+  .context-display {
+    background-color: white;
+    padding: 15px;
+    border-radius: 4px;
+    margin-bottom: 20px;
+    border: 1px solid var(--border-color);
+  }
+  
+  .context-display h3 {
+    margin-bottom: 10px;
+    color: var(--primary-color);
+  }
+  
+  .context-display span {
+    font-weight: bold;
+    color: var(--primary-light);
+  }
+  
+  /* Responsive assessment */
+  @media screen and (max-width: 768px) {
+    .option-label {
+      padding: 15px 12px;
+      margin-bottom: 15px;
+    }
+  
+    .option-label input[type="radio"] {
+      width: 28px; 
+      height: 28px;
+      margin-right: 15px;
+      flex-shrink: 0;
+    }
+    
+    .symptom-scale {
+      padding: 20px;
+      margin: 0 -5px;
+    }
+  
+    .option-label:has(input[type="radio"]:checked) {
+      box-shadow: 0 0 0 3px rgba(74, 111, 165, 0.6);
+    }
+  }
+  
+  @media screen and (max-width: 480px) {
+    .option-label {
+      padding: 12px 10px 12px 15px;
+    }
+    
+    .symptom-scale {
+      padding: 10px 5px;
+      margin: 0 -5px;
+      -webkit-overflow-scrolling: touch;
+    }
+    
+    .option-label input[type="radio"] {
+      width: 24px;
+      height: 24px;
+      margin-right: 10px;
+    }
+  }

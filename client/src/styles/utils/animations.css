@@ -1,0 +1,104 @@
+/* utils/animations.css */
+@keyframes fadeIn {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+  
+  @keyframes fadeInUp {
+    from {
+      opacity: 0;
+      transform: translateY(20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  
+  @keyframes fadeOut {
+    from {
+      opacity: 1;
+    }
+    to {
+      opacity: 0;
+    }
+  }
+  
+  @keyframes spin {
+    to { 
+      transform: rotate(360deg); 
+    }
+  }
+  
+  @keyframes pulse {
+    0% {
+      transform: scale(1);
+    }
+    50% {
+      transform: scale(1.05);
+    }
+    100% {
+      transform: scale(1);
+    }
+  }
+  
+  /* Animation utility classes */
+  .fade-in {
+    animation: fadeIn 0.5s ease forwards;
+  }
+  
+  .fade-in-up {
+    animation: fadeInUp 0.5s ease forwards;
+  }
+  
+  .fade-out {
+    animation: fadeOut 0.5s ease forwards;
+  }
+  
+  .spin {
+    animation: spin 1s ease-in-out infinite;
+  }
+  
+  .pulse {
+    animation: pulse 2s ease infinite;
+  }
+  
+  /* Apply animations to elements */
+  .cpt-completion-message,
+  .trail-completion-message {
+    animation: fadeIn 0.5s ease-in;
+  }
+  
+  .message.success,
+  .message.error {
+    animation: fadeIn 0.3s ease-in;
+  }
+  
+  .spinner {
+    animation: spin 1s ease-in-out infinite;
+  }
+  
+  /* For form transitions */
+  .form-transition-enter {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  
+  .form-transition-enter-active {
+    opacity: 1;
+    transform: translateY(0);
+    transition: opacity 0.3s, transform 0.3s;
+  }
+  
+  .form-transition-exit {
+    opacity: 1;
+  }
+  
+  .form-transition-exit-active {
+    opacity: 0;
+    transition: opacity 0.3s;
+  }

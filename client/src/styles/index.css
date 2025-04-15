@@ -9,6 +9,7 @@
 /* Components */
 @import './components/buttons.css';
 @import './components/forms.css';
+@import './components/header.css';
 @import './components/navigation.css';
 @import './components/modals.css';
 @import './components/cards.css';
@@ -27,5 +28,5 @@
 @import './utils/responsive.css';
 
 /* Cognitive tests */
-@import './cognitive-tests/cpt.css';
-@import './cognitive-tests/tmt.css';
+@import './cognitive/cpt.css';
+@import './cognitive/tmt.css';

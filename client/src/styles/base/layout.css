@@ -1,0 +1,85 @@
+/* base/layout.css */
+.container {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 20px;
+    background-color: white;
+    min-height: 100vh;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+  }
+  
+  .section {
+    margin-bottom: 40px;
+  }
+  
+  /* Grid layout utilities */
+  .flex-row {
+    display: flex;
+    flex-direction: row;
+  }
+  
+  .flex-column {
+    display: flex;
+    flex-direction: column;
+  }
+  
+  .flex-wrap {
+    flex-wrap: wrap;
+  }
+  
+  .flex-gap {
+    gap: var(--spacing-md);
+  }
+  
+  .justify-between {
+    justify-content: space-between;
+  }
+  
+  .justify-center {
+    justify-content: center;
+  }
+  
+  .align-center {
+    align-items: center;
+  }
+  
+  /* Spacing utilities */
+  .mt-md {
+    margin-top: var(--spacing-md);
+  }
+  
+  .mb-md {
+    margin-bottom: var(--spacing-md);
+  }
+  
+  .mt-lg {
+    margin-top: var(--spacing-lg);
+  }
+  
+  .mb-lg {
+    margin-bottom: var(--spacing-lg);
+  }
+  
+  .p-md {
+    padding: var(--spacing-md);
+  }
+  
+  /* Layout utilities */
+  .text-center {
+    text-align: center;
+  }
+  
+  .full-width {
+    width: 100%;
+  }
+  
+  /* Responsive layouts */
+  @media screen and (max-width: 768px) {
+    .container {
+      padding: 15px;
+    }
+    
+    .flex-row-md-column {
+      flex-direction: column;
+    }
+  }

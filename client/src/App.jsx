@@ -25,6 +25,9 @@ import AdminUsers from './components/admin/AdminUsers';
 import AdminUserCharts from './components/admin/AdminUserCharts';
 import NotFound from './components/pages/NotFound';
 
+// Import styles 
+import './styles/index.css';
+
 const App = () => {
   return (
     <HelmetProvider>

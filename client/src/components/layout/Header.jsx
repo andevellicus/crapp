@@ -1,5 +1,6 @@
+// src/components/layout/Header.jsx
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom'; // Add this import
+import { Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 
 const Header = () => {
