@@ -18,10 +18,6 @@ questions:
     type: radio
     metrics_type: mouse
     required: true
-    scale:
-      min: 0
-      max: 3
-      step: 1
     options:
       - value: 0
         label: SYMPTOMS WERE NOT PRESENT OR RARELY PRESENT
@@ -43,10 +39,6 @@ questions:
     type: radio
     metrics_type: mouse
     required: true
-    scale:
-      min: 0
-      max: 3
-      step: 1    
     options:
       - value: 0
         label: SYMPTOMS WERE NOT PRESENT OR RARELY PRESENT
@@ -68,10 +60,6 @@ questions:
     type: radio
     metrics_type: mouse
     required: true
-    scale:
-      min: 0
-      max: 3
-      step: 1    
     options:
       - value: 0
         label: SYMPTOMS WERE NOT PRESENT OR RARELY PRESENT
@@ -93,10 +81,6 @@ questions:
     type: radio
     metrics_type: mouse
     required: true
-    scale:
-      min: 0
-      max: 3
-      step: 1    
     options:
       - value: 0
         label: SYMPTOMS WERE NOT PRESENT OR RARELY PRESENT
@@ -118,10 +102,6 @@ questions:
     type: radio
     metrics_type: mouse
     required: true
-    scale:
-      min: 0
-      max: 3
-      step: 1    
     options:
       - value: 0
         label: SYMPTOMS WERE NOT PRESENT OR RARELY PRESENT
@@ -143,19 +123,19 @@ questions:
     type: dropdown
     metrics_type: mouse
     required: false
-    default_option: none
+    default_option: 0 # Corresponds to the value, NOT the label
     options:
-      - value: none
+      - value: 0
         label: No changes
-      - value: medication_change
+      - value: 1
         label: Medication change
-      - value: pt
+      - value: 2
         label: Physical therapy
-      - value: chiropractor
+      - value: 3
         label: Chiropractor
-      - value: botox
+      - value: 4
         label: Botox
-      - value: other
+      - value: 5
         label: Other
 
   - id: emotional_events

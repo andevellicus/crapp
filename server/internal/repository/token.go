@@ -33,14 +33,30 @@ func (r *RefreshTokenRepository) Create(refreshToken *models.RefreshToken) error
 	return nil
 }
 
-// Specialized methods
-func (r *RefreshTokenRepository) Get(tokenString string) (*models.RefreshToken, error) {
+// GetByTokenID retrieves a refresh token by its associated access token ID (TokenID)
+func (r *RefreshTokenRepository) GetByTokenID(tokenID string) (*models.RefreshToken, error) {
 	var token models.RefreshToken
-	err := r.db.Where("token = ? AND revoked_at IS NULL", tokenString).First(&token).Error
+	// Find the most recent non-revoked token associated with this TokenID
+	err := r.db.Where("token_id = ? AND revoked_at IS NULL", tokenID).Order("created_at DESC").First(&token).Error
 	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return nil, fmt.Errorf("refresh token not found for token ID %s", tokenID)
+		}
+		r.log.Errorw("Database error getting refresh token by token ID", "token_id", tokenID, "error", err)
 		return nil, err
 	}
 	return &token, nil
+}
+
+// GetAllActiveForUser retrieves all non-revoked refresh tokens for a user
+func (r *RefreshTokenRepository) GetAllActiveForUser(userEmail string) ([]models.RefreshToken, error) {
+	var tokens []models.RefreshToken
+	err := r.db.Where("user_email = ? AND revoked_at IS NULL", userEmail).Find(&tokens).Error
+	if err != nil {
+		r.log.Errorw("Database error getting all active refresh tokens for user", "user_email", userEmail, "error", err)
+		return nil, err
+	}
+	return tokens, nil
 }
 
 func (r *RefreshTokenRepository) Delete(tokenString string) error {
@@ -80,7 +96,7 @@ func (r *RevokedTokenRepository) IsTokenRevoked(tokenID string) (bool, error) {
 	return count > 0, err
 }
 
-func (r *RevokedTokenRepository) RevokeToken(tokenID string) error {
+func (r *RevokedTokenRepository) RevokeToken(tokenID string, userEmail string) error {
 	// Check if token is already revoked
 	var count int64
 	r.db.Model(&models.RevokedToken{}).Where("token_id = ?", tokenID).Count(&count)
@@ -91,8 +107,9 @@ func (r *RevokedTokenRepository) RevokeToken(tokenID string) error {
 	// Add to revoked tokens
 	revokedToken := models.RevokedToken{
 		TokenID:   tokenID,
+		UserEmail: userEmail, // Store the user email
 		RevokedAt: time.Now(),
-		ExpiresAt: time.Now().Add(24 * time.Hour), // Keep record for 24 hours (for cleanup)
+		ExpiresAt: time.Now().Add(48 * time.Hour), // Keep record longer (e.g., 48 hours)
 	}
 
 	if err := r.Create(&revokedToken); err != nil {
@@ -121,7 +138,7 @@ func (r *RevokedTokenRepository) RevokeAllUserTokens(email string) error {
 
 	// Add all token IDs to revoked tokens
 	for _, token := range tokens {
-		r.RevokeToken(token.TokenID)
+		r.RevokeToken(token.TokenID, email)
 	}
 
 	return nil

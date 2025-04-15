@@ -36,12 +36,15 @@ func main() {
 		panic(fmt.Sprintf("Failed to create logs directory: %v", err))
 	}
 
-	// Get log file path
-	logFile := cfg.GetLogFilePath()
-
-	// Initialize Zap logger
+	// Initialize Zap logger with rotation and partitioning
 	isDevelopment := cfg.IsDevelopment()
-	if err := logger.InitLogger(logFile, isDevelopment); err != nil {
+	logConfig := &logger.LogConfig{
+		MaxSize:    cfg.Logging.MaxSize,
+		MaxBackups: cfg.Logging.MaxBackups,
+		MaxAge:     cfg.Logging.MaxAge,
+		Compress:   cfg.Logging.Compress,
+	}
+	if err := logger.InitLogger(cfg.Logging.Directory, isDevelopment, logConfig); err != nil {
 		panic("Failed to initialize logger: " + err.Error())
 	}
 	defer logger.Sync()

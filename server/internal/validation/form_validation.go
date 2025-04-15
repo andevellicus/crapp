@@ -37,7 +37,7 @@ func (v *FormValidator) ValidateAnswer(questionID string, answer any) []Validati
 
 	// Check required fields
 	if question.Required {
-		if isEmptyAnswer(answer) {
+		if IsEmptyAnswer(answer) {
 			errors = append(errors, ValidationError{
 				Field:   questionID,
 				Message: "This question is required",
@@ -60,7 +60,7 @@ func (v *FormValidator) ValidateAnswer(questionID string, answer any) []Validati
 }
 
 // Helper to check if answer is empty
-func isEmptyAnswer(answer any) bool {
+func IsEmptyAnswer(answer any) bool {
 	if answer == nil {
 		return true
 	}

@@ -214,17 +214,35 @@ func (h *FormHandler) SaveAnswer(c *gin.Context) {
 
 	// If interaction data is provided, save it as raw data
 	if len(req.InteractionData) > 0 {
-		formState.InteractionData = req.InteractionData
+		compressed, err := utils.CompressData(req.InteractionData)
+		if err != nil {
+			h.log.Warnw("Failed to compress interaction data", "error", err)
+			formState.InteractionData = req.InteractionData // Fallback to uncompressed
+		} else {
+			formState.InteractionData = compressed
+		}
 	}
 
 	// If CPT data is provided, save it as raw data
 	if len(req.CPTData) > 0 {
-		formState.CPTData = req.CPTData
+		compressed, err := utils.CompressData(req.CPTData)
+		if err != nil {
+			h.log.Warnw("Failed to compress CPT data", "error", err)
+			formState.CPTData = req.CPTData // Fallback to uncompressed
+		} else {
+			formState.CPTData = compressed
+		}
 	}
 
 	// If Trail Making Test data is provided, save it as raw data
 	if len(req.TMTData) > 0 {
-		formState.TMTData = req.TMTData
+		compressed, err := utils.CompressData(req.TMTData)
+		if err != nil {
+			h.log.Warnw("Failed to compress CPT data", "error", err)
+			formState.TMTData = req.TMTData // Fallback to uncompressed
+		} else {
+			formState.TMTData = compressed
+		}
 	}
 
 	// Parse the question order from JSON string
@@ -295,8 +313,16 @@ func (h *FormHandler) SubmitForm(c *gin.Context) {
 
 		// Process interaction data if available
 		if len(formState.InteractionData) > 0 {
+			// Decompress the interaction data first
+			decompressedData, err := utils.DecompressData(formState.InteractionData)
+			if err != nil {
+				h.log.Warnw("Error decompressing interaction data", "error", err)
+				// Try to continue with potentially compressed data
+				decompressedData = formState.InteractionData
+			}
+
 			var interactionData metrics.InteractionData
-			if err := json.Unmarshal(formState.InteractionData, &interactionData); err != nil {
+			if err := json.Unmarshal(decompressedData, &interactionData); err != nil {
 				h.log.Warnw("Error parsing interaction data", "error", err)
 			} else {
 				// Calculate metrics from the raw data
@@ -347,10 +373,18 @@ func (h *FormHandler) SubmitForm(c *gin.Context) {
 			}
 		}
 
-		// Process CPT data if available - similar pattern for TMT data
+		// Process CPT data if available
 		if len(formState.CPTData) > 0 {
+			// Decompress the CPT data first
+			decompressedData, err := utils.DecompressData(formState.CPTData)
+			if err != nil {
+				h.log.Warnw("Error decompressing CPT data", "error", err)
+				// Try to continue with potentially compressed data
+				decompressedData = formState.CPTData
+			}
+
 			var cptData metrics.CPTData
-			if err := json.Unmarshal(formState.CPTData, &cptData); err != nil {
+			if err := json.Unmarshal(decompressedData, &cptData); err != nil {
 				h.log.Warnw("Error parsing CPT data", "error", err)
 			} else {
 				// If these aren't set, then we haven't perfomed the test
@@ -387,18 +421,25 @@ func (h *FormHandler) SubmitForm(c *gin.Context) {
 			}
 		}
 
-		// Process TMT data if available - around line 403 in form.go
-		// Add after the CPT data processing section
+		// Process Trail Making Test data if available
 		if len(formState.TMTData) > 0 {
-			var tmtData metrics.TrailMakingData
-			if err := json.Unmarshal(formState.TMTData, &tmtData); err != nil {
-				h.log.Warnw("Error parsing TMT data", "error", err)
+			// Decompress the TMT data first
+			decompressedData, err := utils.DecompressData(formState.TMTData)
+			if err != nil {
+				h.log.Warnw("Error decompressing TMT data", "error", err)
+				// Try to continue with potentially compressed data
+				decompressedData = formState.TMTData
+			}
+
+			var trailData metrics.TrailMakingData
+			if err := json.Unmarshal(decompressedData, &trailData); err != nil {
+				h.log.Warnw("Error parsing Trail Making Test data", "error", err)
 			} else {
 				// If these aren't set, then we haven't performed the test
-				if tmtData.TestStartTime == 0.0 && tmtData.TestEndTime == 0.0 {
-					h.log.Info("TMT data missing start or end time, skipping processing")
+				if trailData.TestStartTime == 0.0 && trailData.TestEndTime == 0.0 {
+					h.log.Info("Trail Making Test data missing start or end time, skipping processing")
 				} else {
-					tmtResults := metrics.CalculateTrailMetrics(&tmtData)
+					tmtResults := metrics.CalculateTrailMetrics(&trailData)
 
 					// Set assessment ID and user info
 					tmtResults.UserEmail = userEmail.(string)
@@ -502,14 +543,41 @@ func (h *FormHandler) processFormAnswers(formState *models.FormState, assessment
 	var responses []models.QuestionResponse
 	now := time.Now()
 
-	// Log number of answers being processed
-	h.log.Infow("Processing form answers",
-		"assessment_id", assessmentID,
-		"answer_count", len(formState.Answers),
-		"user_email", formState.UserEmail)
-
 	// Iterate through all answers
 	for questionID, answerValue := range formState.Answers {
+		// Get question definition to help determine expected answer type
+		question, questionExists := questionMap[questionID]
+		if !questionExists {
+			h.log.Warnw("Skipping answer for unknown question ID", "question_id", questionID)
+			continue
+		}
+
+		// Check if it's a dropdown and apply default if answer is missing/nil
+		// Use the isEmptyAnswer helper from internal/validation/form_validation.go
+		if question.Type == "dropdown" && validation.IsEmptyAnswer(answerValue) { // Make sure validation helper is accessible or reimplement check
+			if question.Default != "" {
+				// Try to find the option value corresponding to the default string
+				for _, opt := range question.Options {
+					var optionStr string
+					switch v := opt.Value.(type) { // Convert option value to string for comparison
+					case string:
+						optionStr = v
+					case float64:
+						optionStr = fmt.Sprintf("%g", v)
+					case int:
+						optionStr = fmt.Sprintf("%d", v)
+					default:
+						optionStr = fmt.Sprintf("%v", opt.Value)
+					}
+
+					if question.Default == optionStr {
+						answerValue = opt.Value // Use the actual option value
+						break
+					}
+				}
+			}
+		}
+
 		// Skip null or nil values
 		if answerValue == nil {
 			continue
@@ -517,7 +585,7 @@ func (h *FormHandler) processFormAnswers(formState *models.FormState, assessment
 
 		// Skip questions with complex object answers (like CPT tests)
 		switch answerValue.(type) {
-		case map[string]interface{}, []interface{}:
+		case map[string]any, []interface{}:
 			// This is likely a complex object (CPT test result, etc.)
 			h.log.Debugw("Skipping complex answer object",
 				"question_id", questionID,
@@ -531,9 +599,6 @@ func (h *FormHandler) processFormAnswers(formState *models.FormState, assessment
 			QuestionID:   questionID,
 			CreatedAt:    now,
 		}
-
-		// Get question definition to help determine expected answer type
-		question, questionExists := questionMap[questionID]
 
 		// Determine value type and set appropriate field
 		switch value := answerValue.(type) {

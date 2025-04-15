@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/andevellicus/crapp/internal/models"
+	"github.com/andevellicus/crapp/internal/utils"
 	"go.uber.org/zap"
 	"gorm.io/gorm"
 )
@@ -34,7 +35,7 @@ func (r *TMTRepository) Create(results *models.TMTResult) error {
 }
 
 // GetTrailTimelineData retrieves Trail Making Test metrics in timeline format
-func (r *TMTRepository) GetTrailTimelineData(userEmail, metricKey string) ([]TimelineDataPoint, error) {
+func (r *TMTRepository) GetTMTTimelineData(userEmail, metricKey string) ([]TimelineDataPoint, error) {
 	var results []models.TMTResult
 
 	// Query the database for Trail Making Test results for the user, ordered by date
@@ -45,6 +46,21 @@ func (r *TMTRepository) GetTrailTimelineData(userEmail, metricKey string) ([]Tim
 	if err != nil {
 		r.log.Errorw("Error retrieving Trail Making Test timeline data", "error", err)
 		return nil, err
+	}
+
+	// For each result, check if the raw data is compressed and decompress if needed
+	for i := range results {
+		if len(results[i].RawData) > 0 {
+			// Check if data is compressed (assuming you're using the GZIP header approach)
+			if len(results[i].RawData) >= 4 && string(results[i].RawData[0:4]) == "GZIP" {
+				decompressed, err := utils.DecompressData(results[i].RawData)
+				if err != nil {
+					r.log.Warnw("Failed to decompress TMT raw data", "error", err)
+				} else {
+					results[i].RawData = decompressed
+				}
+			}
+		}
 	}
 
 	// Convert to timeline data points

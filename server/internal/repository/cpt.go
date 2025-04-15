@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/andevellicus/crapp/internal/models"
+	"github.com/andevellicus/crapp/internal/utils"
 	"go.uber.org/zap"
 	"gorm.io/gorm"
 )
@@ -48,6 +49,21 @@ func (r *CognitiveTestRepository) GetCPTTimelineData(userEmail, metricKey string
 	if err != nil {
 		r.log.Errorw("Error retrieving CPT timeline data", "error", err)
 		return nil, err
+	}
+
+	// For each result, check if the raw data is compressed and decompress if needed
+	for i := range results {
+		if len(results[i].RawData) > 0 {
+			// Check if data is compressed (assuming you're using the GZIP header approach)
+			if len(results[i].RawData) >= 4 && string(results[i].RawData[0:4]) == "GZIP" {
+				decompressed, err := utils.DecompressData(results[i].RawData)
+				if err != nil {
+					r.log.Warnw("Failed to decompress CPT raw data", "error", err)
+				} else {
+					results[i].RawData = decompressed
+				}
+			}
+		}
 	}
 
 	// Convert to timeline data points
