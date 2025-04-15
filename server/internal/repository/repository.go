@@ -106,11 +106,15 @@ func setupDatabase(cfg *config.Config) (*gorm.DB, error) {
 
 	// For text stored as JSON, we need to cast to jsonb first
 	db.Exec("CREATE INDEX IF NOT EXISTS idx_user_notification_prefs ON users ((notification_preferences::jsonb)) WHERE notification_preferences IS NOT NULL")
+	db.Exec("CREATE INDEX IF NOT EXISTS idx_user_notification_email ON users((notification_preferences->>'email_enabled')) WHERE notification_preferences IS NOT NULL")
+	db.Exec("CREATE INDEX IF NOT EXISTS idx_user_notification_push ON users((notification_preferences->>'push_enabled')) WHERE notification_preferences IS NOT NULL")
 
 	// Add composite indexes for common query patterns
 	db.Exec("CREATE INDEX IF NOT EXISTS idx_metrics_query ON assessment_metrics(assessment_id, question_id, metric_key)")
 	db.Exec("CREATE INDEX IF NOT EXISTS idx_question_response_query ON question_responses(assessment_id, question_id, value_type)")
 	db.Exec("CREATE INDEX IF NOT EXISTS idx_timeline_query ON assessments(user_email, submitted_at)")
+	db.Exec("CREATE INDEX IF NOT EXISTS idx_active_form_states ON form_states(user_email) WHERE assessment_id IS NULL")
+	db.Exec("CREATE INDEX IF NOT EXISTS idx_active_assessments ON assessments(user_email, submitted_at DESC)")
 
 	// Standard indexes
 	db.Exec("CREATE INDEX IF NOT EXISTS idx_assessments_user_email ON assessments(user_email)")
@@ -135,6 +139,16 @@ func setupDatabase(cfg *config.Config) (*gorm.DB, error) {
 	sqlDB.SetMaxIdleConns(25)
 	// Set connection max lifetime to clean up inactive connections
 	sqlDB.SetConnMaxLifetime(30 * time.Minute)
+
+	// Add pool stat logging
+	go func() {
+		ticker := time.NewTicker(10 * time.Minute)
+		for range ticker.C {
+			stats := sqlDB.Stats()
+			dbLogger.Sugar().Infof("DB Pool stats: Open=%d, InUse=%d, Idle=%d, WaitCount=%d, WaitDuration=%v",
+				stats.OpenConnections, stats.InUse, stats.Idle, stats.WaitCount, stats.WaitDuration)
+		}
+	}()
 
 	dbLogger.Info("Database initialized")
 

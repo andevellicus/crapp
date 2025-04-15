@@ -85,39 +85,18 @@ func (r *AssessmentRepository) Create(userEmail string, deviceID string) (uint, 
 func (r *AssessmentRepository) GetMetricsCorrelation(userID, symptomKey, metricKey string) (*[]CorrelationDataPoint, error) {
 	var result []CorrelationDataPoint
 
-	// Use more efficient CTEs (Common Table Expressions) and JOIN strategy
 	query := `
-        WITH symptom_data AS (
-            SELECT 
-                a.id,
-                qr.numeric_value as symptom_value
-            FROM 
-                assessments a
-            JOIN question_responses qr ON a.id = qr.assessment_id
-            WHERE 
-                a.user_email = $1
-                AND qr.question_id = $2
-                AND qr.numeric_value IS NOT NULL
-        ),
-        metric_data AS (
-            SELECT 
-                a.id,
-                am.metric_value
-            FROM 
-                assessments a
-            JOIN assessment_metrics am ON a.id = am.assessment_id
-            WHERE 
-                a.user_email = $1
-                AND am.metric_key = $3
-                AND am.question_id = $2
-                AND am.metric_value IS NOT NULL
-        )
-        SELECT 
-            sd.symptom_value,
-            md.metric_value
-        FROM 
-            symptom_data sd
-        JOIN metric_data md ON sd.id = md.id
+		SELECT 
+			qr.numeric_value as symptom_value,
+			am.metric_value
+		FROM 
+			assessments a
+		JOIN question_responses qr ON a.id = qr.assessment_id
+		JOIN assessment_metrics am ON a.id = am.assessment_id AND am.question_id = qr.question_id
+		WHERE 
+			a.user_email = $1
+			AND qr.question_id = $2
+			AND am.metric_key = $3
     `
 
 	err := r.db.Raw(query, userID, symptomKey, metricKey).Scan(&result).Error
@@ -139,40 +118,22 @@ func (r *AssessmentRepository) GetMetricsCorrelation(userID, symptomKey, metricK
 func (r *AssessmentRepository) GetMetricsTimeline(userID, symptomKey, metricKey string) ([]TimelineDataPoint, error) {
 	var result []TimelineDataPoint
 
-	// Use window functions for faster time-series aggregation
+	// Use a different JOIN approach and debugging
 	query := `
-        WITH symptom_values AS (
-            SELECT 
-                a.id,
-                a.submitted_at as date,
-                qr.numeric_value as symptom_value
-            FROM 
-                assessments a
-                JOIN question_responses qr ON a.id = qr.assessment_id
-            WHERE 
-                a.user_email = $1
-                AND qr.question_id = $2
-        ),
-        metric_values AS (
-            SELECT 
-                a.id,
-                am.metric_value
-            FROM 
-                assessments a
-                JOIN assessment_metrics am ON a.id = am.assessment_id
-            WHERE 
-                a.user_email = $1
-                AND am.metric_key = $2
-                AND am.question_id = $3
-        )
         SELECT 
-            sv.date,
-            sv.symptom_value,
-            mv.metric_value
+            a.submitted_at as date,
+            qr.numeric_value as symptom_value,
+            am.metric_value
         FROM 
-            symptom_values sv
-            JOIN metric_values mv ON sv.id = mv.id
-        ORDER BY sv.date ASC
+            assessments a
+            JOIN question_responses qr ON a.id = qr.assessment_id
+            JOIN assessment_metrics am ON a.id = am.assessment_id
+        WHERE 
+            a.user_email = $1
+            AND qr.question_id = $2
+            AND am.metric_key = $3
+            AND am.question_id = $4
+        ORDER BY a.submitted_at ASC
     `
 
 	err := r.db.Raw(query, userID, symptomKey, metricKey, symptomKey).Scan(&result).Error
@@ -180,7 +141,6 @@ func (r *AssessmentRepository) GetMetricsTimeline(userID, symptomKey, metricKey 
 		r.log.Errorw("Error in timeline query", "error", err)
 		return nil, fmt.Errorf("database error: %w", err)
 	}
-
 	return result, nil
 }
 
@@ -202,6 +162,12 @@ func (r *AssessmentRepository) DeleteAssessment(assessmentID uint) error {
 
 	// Delete cpt results
 	if err := tx.Delete(&models.CPTResult{}, "assessment_id = ?", assessmentID).Error; err != nil {
+		tx.Rollback()
+		return fmt.Errorf("error deleting assessment metrics: %w", err)
+	}
+
+	// Delete tmt results
+	if err := tx.Delete(&models.TMTResult{}, "assessment_id = ?", assessmentID).Error; err != nil {
 		tx.Rollback()
 		return fmt.Errorf("error deleting assessment metrics: %w", err)
 	}

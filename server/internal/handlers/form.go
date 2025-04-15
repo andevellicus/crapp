@@ -387,6 +387,45 @@ func (h *FormHandler) SubmitForm(c *gin.Context) {
 			}
 		}
 
+		// Process TMT data if available - around line 403 in form.go
+		// Add after the CPT data processing section
+		if len(formState.TMTData) > 0 {
+			var tmtData metrics.TrailMakingData
+			if err := json.Unmarshal(formState.TMTData, &tmtData); err != nil {
+				h.log.Warnw("Error parsing TMT data", "error", err)
+			} else {
+				// If these aren't set, then we haven't performed the test
+				if tmtData.TestStartTime == 0.0 && tmtData.TestEndTime == 0.0 {
+					h.log.Info("TMT data missing start or end time, skipping processing")
+				} else {
+					tmtResults := metrics.CalculateTrailMetrics(&tmtData)
+
+					// Set assessment ID and user info
+					tmtResults.UserEmail = userEmail.(string)
+					tmtResults.DeviceID = deviceID
+					tmtResults.AssessmentID = assessmentID
+
+					// Save TMT results using direct SQL for better performance
+					if err := tx.Exec(`
+                INSERT INTO tmt_results (
+                    user_email, device_id, assessment_id, 
+                    test_start_time, test_end_time,
+                    part_a_completion_time, part_a_errors,
+                    part_b_completion_time, part_b_errors,
+                    b_to_a_ratio, raw_data, created_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+						tmtResults.UserEmail, tmtResults.DeviceID, tmtResults.AssessmentID,
+						tmtResults.TestStartTime, tmtResults.TestEndTime,
+						tmtResults.PartACompletionTime, tmtResults.PartAErrors,
+						tmtResults.PartBCompletionTime, tmtResults.PartBErrors,
+						tmtResults.BToARatio, tmtResults.RawData, time.Now()).Error; err != nil {
+						h.log.Warnw("Error saving TMT results", "error", err)
+						return err
+					}
+				}
+			}
+		}
+
 		// Process form answers and save as question responses
 		questionResponses, err := h.processFormAnswers(formState, assessmentID)
 		if err != nil {
@@ -395,30 +434,28 @@ func (h *FormHandler) SubmitForm(c *gin.Context) {
 		}
 
 		if len(questionResponses) > 0 {
-			// Bulk insert question responses using PostgreSQL-optimized approach
-			columns := []string{"assessment_id", "question_id", "value_type", "numeric_value", "text_value", "created_at"}
-
+			// Use batch insert with VALUES clause for better performance
 			valueStrings := make([]string, 0, len(questionResponses))
-			valueArgs := make([]interface{}, 0, len(questionResponses)*len(columns))
+			valueArgs := make([]interface{}, 0, len(questionResponses)*6)
 
 			for i, response := range questionResponses {
 				valueStrings = append(valueStrings, fmt.Sprintf("($%d, $%d, $%d, $%d, $%d, $%d)",
 					i*6+1, i*6+2, i*6+3, i*6+4, i*6+5, i*6+6))
 
-				valueArgs = append(valueArgs, response.AssessmentID)
-				valueArgs = append(valueArgs, response.QuestionID)
-				valueArgs = append(valueArgs, response.ValueType)
-				valueArgs = append(valueArgs, response.NumericValue)
-				valueArgs = append(valueArgs, response.TextValue)
-				valueArgs = append(valueArgs, response.CreatedAt)
+				valueArgs = append(valueArgs,
+					response.AssessmentID,
+					response.QuestionID,
+					response.ValueType,
+					response.NumericValue,
+					response.TextValue,
+					response.CreatedAt)
 			}
 
-			stmt := fmt.Sprintf("INSERT INTO question_responses (%s) VALUES %s",
-				strings.Join(columns, ", "),
-				strings.Join(valueStrings, ", "))
+			stmt := fmt.Sprintf("INSERT INTO question_responses (assessment_id, question_id, value_type, numeric_value, text_value, created_at) VALUES %s",
+				strings.Join(valueStrings, ","))
 
 			if err := tx.Exec(stmt, valueArgs...).Error; err != nil {
-				h.log.Errorw("Error saving question responses", "error", err)
+				h.log.Errorw("Failed to execute batch insert", "error", err)
 				return err
 			}
 		}

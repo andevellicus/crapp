@@ -15,6 +15,8 @@ type UserRepository struct {
 	db  *gorm.DB
 	log *zap.SugaredLogger
 	cfg *config.Config
+
+	getUserStmt *gorm.DB
 }
 
 // UserNotificationPreferences represents a user's complete notification preferences
@@ -32,9 +34,10 @@ type UserNotificationPreferences struct {
 // NewUserRepository creates a new user repository
 func NewUserRepository(db *gorm.DB, log *zap.SugaredLogger, cfg *config.Config) *UserRepository {
 	return &UserRepository{
-		db:  db,
-		log: log.Named("user-repo"),
-		cfg: cfg,
+		db:          db,
+		log:         log.Named("user-repo"),
+		cfg:         cfg,
+		getUserStmt: db.Model(&models.User{}),
 	}
 }
 
@@ -203,7 +206,7 @@ func (r *UserRepository) GetByEmail(email string) (*models.User, error) {
 	}
 
 	var user models.User
-	result := r.db.Where("email = ?", email).First(&user)
+	result := r.getUserStmt.Where("email = ?", email).First(&user)
 	if result.Error != nil {
 		if result.Error == gorm.ErrRecordNotFound {
 			return nil, nil
@@ -267,20 +270,21 @@ func (r *UserRepository) SavePushSubscription(userEmail string, subscription str
 
 // SaveNotificationPreferences saves a user's complete notification preferences
 func (r *UserRepository) SaveNotificationPreferences(userEmail string, preferences *UserNotificationPreferences) error {
-	var user models.User
-	if err := r.db.Where("email = ?", userEmail).First(&user).Error; err != nil {
-		return err
-	}
-
 	// Convert preferences to JSON
 	preferencesJSON, err := json.Marshal(preferences)
 	if err != nil {
 		return err
 	}
 
-	// Update user model
-	if err := r.db.Model(&user).Update("notification_preferences", preferencesJSON).Error; err != nil {
-		return err
+	result := r.db.Model(&models.User{}).
+		Where("email = ?", userEmail).
+		Update("notification_preferences", string(preferencesJSON))
+
+	if result.Error != nil {
+		r.log.Errorw("Failed to update notification preferences",
+			"error", result.Error,
+			"email", userEmail)
+		return result.Error
 	}
 
 	return nil
@@ -328,7 +332,9 @@ func (r *UserRepository) SearchUsers(query string, skip, limit int) (*[]models.U
 
 	if query != "" {
 		query = "%" + query + "%"
-		r.db = r.db.Where("email ILIKE ? OR first_name ILIKE ? OR last_name ILIKE ?", query, query, query)
+		// Add query hints for search queries
+		r.db = r.db.Exec("/*+ IndexScan(users idx_users_email) */ SELECT * FROM users WHERE email ILIKE ? OR first_name ILIKE ? OR last_name ILIKE ?",
+			query, query, query)
 	}
 
 	if err := r.db.Model(&models.User{}).Count(&total).Error; err != nil {
