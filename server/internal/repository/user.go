@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/andevellicus/crapp/internal/config"
 	"github.com/andevellicus/crapp/internal/models"
 	"go.uber.org/zap"
 	"gorm.io/gorm"
@@ -13,6 +14,7 @@ import (
 type UserRepository struct {
 	db  *gorm.DB
 	log *zap.SugaredLogger
+	cfg *config.Config
 }
 
 // UserNotificationPreferences represents a user's complete notification preferences
@@ -28,10 +30,11 @@ type UserNotificationPreferences struct {
 }
 
 // NewUserRepository creates a new user repository
-func NewUserRepository(db *gorm.DB, log *zap.SugaredLogger) *UserRepository {
+func NewUserRepository(db *gorm.DB, log *zap.SugaredLogger, cfg *config.Config) *UserRepository {
 	return &UserRepository{
 		db:  db,
 		log: log.Named("user-repo"),
+		cfg: cfg,
 	}
 }
 
@@ -39,6 +42,25 @@ func (r *UserRepository) Create(user *models.User) error {
 	if err := r.validateUser(user); err != nil {
 		return fmt.Errorf("invalid user data: %w", err)
 	}
+
+	// Initialize default notification preferences if not set
+	if user.NotificationPreferences == "" {
+		defaultPrefs := UserNotificationPreferences{
+			PushEnabled:   false,
+			EmailEnabled:  false,
+			ReminderTimes: r.cfg.Reminders.Times,
+			CutoffTime:    r.cfg.Reminders.CutoffTime,
+		}
+
+		prefsJSON, err := json.Marshal(defaultPrefs)
+		if err != nil {
+			r.log.Errorw("Error marshaling default notification preferences", "error", err)
+			return fmt.Errorf("failed to create user: %w", err)
+		}
+
+		user.NotificationPreferences = string(prefsJSON)
+	}
+
 	if err := r.db.Create(user).Error; err != nil {
 		r.log.Errorw("Database error creating user", "email", user.Email, "error", err)
 		return fmt.Errorf("failed to create user: %w", err)
@@ -130,26 +152,36 @@ func (r *UserRepository) Delete(email string) error {
 		return fmt.Errorf("error deleting devices: %w", err)
 	}
 
-	// Delete assessments
-	if err := tx.Delete(&models.Assessment{}, "user_email = ?", email).Error; err != nil {
-		tx.Rollback()
-		return fmt.Errorf("error deleting assessments: %w", err)
-	}
-
-	// Delete assessment_metrics
-	if err := tx.Delete(&models.AssessmentMetric{}, "user_email = ?", email).Error; err != nil {
-		tx.Rollback()
-		return fmt.Errorf("error deleting assessments metrics: %w", err)
-	}
-
 	// Delete CPT results
 	if err := tx.Delete(&models.CPTResult{}, "user_email = ?", email).Error; err != nil {
 		tx.Rollback()
 		return fmt.Errorf("error deleting cpt results: %w", err)
 	}
 
+	// Delete TMT results
+	if err := tx.Delete(&models.TMTResult{}, "user_email = ?", email).Error; err != nil {
+		tx.Rollback()
+		return fmt.Errorf("error deleting cpt results: %w", err)
+	}
+
+	// Delete assessment_metrics
+	if err := tx.Where("assessment_id IN (?)",
+		tx.Table("assessments").Select("id").Where("user_email = ?", email)).
+		Delete(&models.AssessmentMetric{}).Error; err != nil {
+		tx.Rollback()
+		return fmt.Errorf("error deleting assessment metrics: %w", err)
+	}
+
+	// Delete assessments
+	if err := tx.Delete(&models.Assessment{}, "user_email = ?", email).Error; err != nil {
+		tx.Rollback()
+		return fmt.Errorf("error deleting assessments: %w", err)
+	}
+
 	// Delete question responses
-	if err := tx.Delete(&models.QuestionResponse{}, "user_email = ?", email).Error; err != nil {
+	if err := tx.Where("assessment_id IN (?)",
+		tx.Table("assessments").Select("id").Where("user_email = ?", email)).
+		Delete(&models.QuestionResponse{}).Error; err != nil {
 		tx.Rollback()
 		return fmt.Errorf("error deleting question responses: %w", err)
 	}

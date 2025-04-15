@@ -156,7 +156,7 @@ func main() {
 		// User routes
 		api.GET("/user", authHandler.GetCurrentUser)
 		api.PUT("/user", middleware.ValidateRequest(validation.UpdateUserRequest{}), authHandler.UpdateUser)
-		api.POST("/user/delete", middleware.ValidateRequest(validation.DeleteAccountRequest{}), authHandler.DeleteAccount)
+		api.PUT("/user/delete", middleware.ValidateRequest(validation.DeleteAccountRequest{}), authHandler.DeleteAccount)
 
 		// Device routes
 		api.GET("/devices", authHandler.GetUserDevices)

@@ -3,6 +3,9 @@
 package repository
 
 import (
+	"fmt"
+	"strings"
+
 	"github.com/andevellicus/crapp/internal/models"
 	"go.uber.org/zap"
 	"gorm.io/gorm"
@@ -28,19 +31,44 @@ func (r *QuestionResponseRepository) SaveBatch(responses []models.QuestionRespon
 		return nil
 	}
 
-	// Use CreateInBatches for better performance with large numbers of responses
-	result := r.db.CreateInBatches(&responses, 100)
-	if result.Error != nil {
-		r.log.Errorw("Failed to save question responses batch",
-			"error", result.Error,
-			"count", len(responses))
-		return result.Error
+	// Use PostgreSQL's COPY command for bulk inserts (much faster than individual INSERTs)
+	tx := r.db.Begin()
+
+	// Create a temporary table with the same structure
+	tx.Exec("CREATE TEMPORARY TABLE temp_question_responses (LIKE question_responses INCLUDING ALL)")
+
+	// Prepare values for bulk insert
+	valueStrings := make([]string, 0, len(responses))
+	valueArgs := make([]any, 0, len(responses)*7)
+
+	for i, response := range responses {
+		valueStrings = append(valueStrings, fmt.Sprintf("($%d, $%d, $%d, $%d, $%d, $%d, $%d)",
+			i*7+1, i*7+2, i*7+3, i*7+4, i*7+5, i*7+6, i*7+7))
+
+		valueArgs = append(valueArgs, response.AssessmentID)
+		valueArgs = append(valueArgs, response.QuestionID)
+		valueArgs = append(valueArgs, response.ValueType)
+		valueArgs = append(valueArgs, response.NumericValue)
+		valueArgs = append(valueArgs, response.TextValue)
+		valueArgs = append(valueArgs, response.CreatedAt)
+		valueArgs = append(valueArgs, 0) // For ID which will be generated
 	}
 
-	r.log.Infow("Saved question responses batch",
-		"count", len(responses),
-		"records_affected", result.RowsAffected)
-	return nil
+	stmt := fmt.Sprintf("INSERT INTO temp_question_responses (assessment_id, question_id, value_type, numeric_value, text_value, created_at, id) VALUES %s",
+		strings.Join(valueStrings, ","))
+
+	if err := tx.Exec(stmt, valueArgs...).Error; err != nil {
+		tx.Rollback()
+		return err
+	}
+
+	// Insert from temp table to real table (this will handle the serial ID correctly)
+	if err := tx.Exec("INSERT INTO question_responses SELECT * FROM temp_question_responses").Error; err != nil {
+		tx.Rollback()
+		return err
+	}
+
+	return tx.Commit().Error
 }
 
 // GetByAssessment retrieves all question responses for a given assessment

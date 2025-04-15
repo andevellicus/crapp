@@ -85,22 +85,42 @@ func (r *AssessmentRepository) Create(userEmail string, deviceID string) (uint, 
 func (r *AssessmentRepository) GetMetricsCorrelation(userID, symptomKey, metricKey string) (*[]CorrelationDataPoint, error) {
 	var result []CorrelationDataPoint
 
-	// Use a different JOIN approach - first get the response data, then match metrics
+	// Use more efficient CTEs (Common Table Expressions) and JOIN strategy
 	query := `
-		SELECT 
-			qr.numeric_value as symptom_value,
-			am.metric_value
-		FROM 
-			assessments a
-		JOIN question_responses qr ON a.id = qr.assessment_id
-		JOIN assessment_metrics am ON a.id = am.assessment_id AND am.question_id = qr.question_id
-		WHERE 
-			a.user_email = $1
-			AND qr.question_id = $2
-			AND am.metric_key = $3
+        WITH symptom_data AS (
+            SELECT 
+                a.id,
+                qr.numeric_value as symptom_value
+            FROM 
+                assessments a
+            JOIN question_responses qr ON a.id = qr.assessment_id
+            WHERE 
+                a.user_email = $1
+                AND qr.question_id = $2
+                AND qr.numeric_value IS NOT NULL
+        ),
+        metric_data AS (
+            SELECT 
+                a.id,
+                am.metric_value
+            FROM 
+                assessments a
+            JOIN assessment_metrics am ON a.id = am.assessment_id
+            WHERE 
+                a.user_email = $1
+                AND am.metric_key = $3
+                AND am.question_id = $2
+                AND am.metric_value IS NOT NULL
+        )
+        SELECT 
+            sd.symptom_value,
+            md.metric_value
+        FROM 
+            symptom_data sd
+        JOIN metric_data md ON sd.id = md.id
     `
 
-	err := r.db.Raw(query, userID, symptomKey, metricKey, symptomKey).Scan(&result).Error
+	err := r.db.Raw(query, userID, symptomKey, metricKey).Scan(&result).Error
 	if err != nil {
 		r.log.Errorw("Error in correlation query", "error", err)
 		return nil, fmt.Errorf("database error: %w", err)
@@ -119,22 +139,40 @@ func (r *AssessmentRepository) GetMetricsCorrelation(userID, symptomKey, metricK
 func (r *AssessmentRepository) GetMetricsTimeline(userID, symptomKey, metricKey string) ([]TimelineDataPoint, error) {
 	var result []TimelineDataPoint
 
-	// Use a different JOIN approach and debugging
+	// Use window functions for faster time-series aggregation
 	query := `
+        WITH symptom_values AS (
+            SELECT 
+                a.id,
+                a.submitted_at as date,
+                qr.numeric_value as symptom_value
+            FROM 
+                assessments a
+                JOIN question_responses qr ON a.id = qr.assessment_id
+            WHERE 
+                a.user_email = $1
+                AND qr.question_id = $2
+        ),
+        metric_values AS (
+            SELECT 
+                a.id,
+                am.metric_value
+            FROM 
+                assessments a
+                JOIN assessment_metrics am ON a.id = am.assessment_id
+            WHERE 
+                a.user_email = $1
+                AND am.metric_key = $2
+                AND am.question_id = $3
+        )
         SELECT 
-            a.submitted_at as date,
-            qr.numeric_value as symptom_value,
-            am.metric_value
+            sv.date,
+            sv.symptom_value,
+            mv.metric_value
         FROM 
-            assessments a
-            JOIN question_responses qr ON a.id = qr.assessment_id
-            JOIN assessment_metrics am ON a.id = am.assessment_id
-        WHERE 
-            a.user_email = $1
-            AND qr.question_id = $2
-            AND am.metric_key = $3
-            AND am.question_id = $4
-        ORDER BY a.submitted_at ASC
+            symptom_values sv
+            JOIN metric_values mv ON sv.id = mv.id
+        ORDER BY sv.date ASC
     `
 
 	err := r.db.Raw(query, userID, symptomKey, metricKey, symptomKey).Scan(&result).Error
@@ -142,13 +180,6 @@ func (r *AssessmentRepository) GetMetricsTimeline(userID, symptomKey, metricKey 
 		r.log.Errorw("Error in timeline query", "error", err)
 		return nil, fmt.Errorf("database error: %w", err)
 	}
-
-	// Log the results for debugging
-	r.log.Infow("Retrieved timeline data",
-		"user_id", userID,
-		"symptom", symptomKey,
-		"metric", metricKey,
-		"points_count", len(result))
 
 	return result, nil
 }

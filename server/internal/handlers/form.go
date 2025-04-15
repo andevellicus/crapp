@@ -8,6 +8,7 @@ import (
 	"math/rand"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/andevellicus/crapp/internal/metrics"
@@ -280,120 +281,169 @@ func (h *FormHandler) SubmitForm(c *gin.Context) {
 		return
 	}
 
-	// Create assessment
-	assessmentID, err := h.repo.Assessments.Create(userEmail.(string), deviceID)
-	if err != nil {
-		h.log.Errorw("Error creating assessment", "error", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error saving assessment"})
-		return
-	}
-
-	// Process interaction data if available
-	if len(formState.InteractionData) > 0 {
-		var interactionData metrics.InteractionData
-		if err := json.Unmarshal(formState.InteractionData, &interactionData); err != nil {
-			h.log.Warnw("Error parsing interaction data", "error", err)
-		} else {
-			// Calculate metrics from the raw data
-			calculatedMetrics := metrics.CalculateInteractionMetrics(&interactionData)
-
-			// Set assessment ID for all metrics
-			for i := range calculatedMetrics.GlobalMetrics {
-				calculatedMetrics.GlobalMetrics[i].AssessmentID = assessmentID
-			}
-			for i := range calculatedMetrics.QuestionMetrics {
-				calculatedMetrics.QuestionMetrics[i].AssessmentID = assessmentID
-			}
-
-			// Combine all metrics for efficient batch insert
-			allMetrics := append(calculatedMetrics.GlobalMetrics, calculatedMetrics.QuestionMetrics...)
-			// Save metrics in a single batch operation
-			if len(allMetrics) > 0 {
-				if err := h.repo.CreateInBatches(allMetrics, 100); err != nil {
-					h.log.Warnw("Error saving metrics", "error", err)
-				} else {
-					h.log.Infow("Saved metrics successfully", "count", len(allMetrics))
-				}
-			}
+	// Use a transaction for the entire submission process
+	var assessmentID uint
+	err = h.repo.WithTransaction(func(tx *gorm.DB) error {
+		// Create assessment using direct SQL for better performance
+		if err := tx.Raw(`
+            INSERT INTO assessments (user_email, device_id, submitted_at) 
+            VALUES (?, ?, ?)
+            RETURNING id
+            `, userEmail.(string), deviceID, time.Now()).Scan(&assessmentID).Error; err != nil {
+			return err
 		}
-	}
 
-	// Process CPT data if available
-	if len(formState.CPTData) > 0 {
-		var cptData metrics.CPTData
-		if err := json.Unmarshal(formState.CPTData, &cptData); err != nil {
-			h.log.Warnw("Error parsing CPT data", "error", err)
-		} else {
-			// If these aren't set, then we haven't perfomed the test
-			if cptData.TestStartTime == 0.0 && cptData.TestEndTime == 0.0 {
-				h.log.Info("CPT data missing start or end time, skipping processing")
+		// Process interaction data if available
+		if len(formState.InteractionData) > 0 {
+			var interactionData metrics.InteractionData
+			if err := json.Unmarshal(formState.InteractionData, &interactionData); err != nil {
+				h.log.Warnw("Error parsing interaction data", "error", err)
 			} else {
-				cptResults := metrics.CalculateCPTMetrics(&cptData)
+				// Calculate metrics from the raw data
+				calculatedMetrics := metrics.CalculateInteractionMetrics(&interactionData)
 
-				// Set assessment ID and user info
-				cptResults.UserEmail = userEmail.(string)
-				cptResults.DeviceID = deviceID
-				cptResults.AssessmentID = assessmentID
+				// Set assessment ID for all metrics
+				for i := range calculatedMetrics.GlobalMetrics {
+					calculatedMetrics.GlobalMetrics[i].AssessmentID = assessmentID
+				}
+				for i := range calculatedMetrics.QuestionMetrics {
+					calculatedMetrics.QuestionMetrics[i].AssessmentID = assessmentID
+				}
 
-				// Save CPT results
-				if err := h.repo.CPTResults.Create(cptResults); err != nil {
-					h.log.Warnw("Error saving CPT results", "error", err)
-				} else {
-					h.log.Infow("Saved CPT results successfully", "assessment_id", assessmentID)
+				// Combine all metrics for efficient batch insert
+				allMetrics := append(calculatedMetrics.GlobalMetrics, calculatedMetrics.QuestionMetrics...)
+
+				// Bulk insert metrics with PostgreSQL-optimized COPY approach
+				if len(allMetrics) > 0 {
+					metricsTable := "assessment_metrics"
+					columns := []string{"assessment_id", "question_id", "metric_key", "metric_value", "sample_size", "created_at"}
+
+					// Create value sets for bulk insert
+					valueStrings := make([]string, 0, len(allMetrics))
+					valueArgs := make([]interface{}, 0, len(allMetrics)*len(columns))
+
+					for i, metric := range allMetrics {
+						valueStrings = append(valueStrings, fmt.Sprintf("($%d, $%d, $%d, $%d, $%d, $%d)",
+							i*6+1, i*6+2, i*6+3, i*6+4, i*6+5, i*6+6))
+
+						valueArgs = append(valueArgs, metric.AssessmentID)
+						valueArgs = append(valueArgs, metric.QuestionID)
+						valueArgs = append(valueArgs, metric.MetricKey)
+						valueArgs = append(valueArgs, metric.MetricValue)
+						valueArgs = append(valueArgs, metric.SampleSize)
+						valueArgs = append(valueArgs, time.Now())
+					}
+
+					stmt := fmt.Sprintf("INSERT INTO %s (%s) VALUES %s",
+						metricsTable,
+						strings.Join(columns, ", "),
+						strings.Join(valueStrings, ", "))
+
+					if err := tx.Exec(stmt, valueArgs...).Error; err != nil {
+						h.log.Warnw("Error saving metrics", "error", err)
+						return err
+					}
 				}
 			}
 		}
-	}
 
-	// Process Trail Making Test data if available
-	if len(formState.TMTData) > 0 {
-		var trailData metrics.TrailMakingData
-		if err := json.Unmarshal(formState.TMTData, &trailData); err != nil {
-			h.log.Warnw("Error parsing Trail Making Test data", "error", err)
-		} else {
-			// If these aren't set, then we haven't performed the test
-			if trailData.TestStartTime == 0.0 && trailData.TestEndTime == 0.0 {
-				h.log.Info("Trail Making Test data missing start or end time, skipping processing")
+		// Process CPT data if available - similar pattern for TMT data
+		if len(formState.CPTData) > 0 {
+			var cptData metrics.CPTData
+			if err := json.Unmarshal(formState.CPTData, &cptData); err != nil {
+				h.log.Warnw("Error parsing CPT data", "error", err)
 			} else {
-				tmtResults := metrics.CalculateTrailMetrics(&trailData)
-
-				// Set assessment ID and user info
-				tmtResults.UserEmail = userEmail.(string)
-				tmtResults.DeviceID = deviceID
-				tmtResults.AssessmentID = assessmentID
-
-				// Save Trail Making Test results
-				if err := h.repo.TMTResults.Create(tmtResults); err != nil {
-					h.log.Warnw("Error saving Trail Making Test results", "error", err)
+				// If these aren't set, then we haven't perfomed the test
+				if cptData.TestStartTime == 0.0 && cptData.TestEndTime == 0.0 {
+					h.log.Info("CPT data missing start or end time, skipping processing")
 				} else {
-					h.log.Infow("Saved Trail Making Test results successfully", "assessment_id", assessmentID)
+					cptResults := metrics.CalculateCPTMetrics(&cptData)
+
+					// Set assessment ID and user info
+					cptResults.UserEmail = userEmail.(string)
+					cptResults.DeviceID = deviceID
+					cptResults.AssessmentID = assessmentID
+
+					// Save CPT results using direct SQL for better performance
+					if err := tx.Exec(`
+                        INSERT INTO cpt_results (
+                            user_email, device_id, assessment_id, 
+                            test_start_time, test_end_time,
+                            correct_detections, commission_errors, omission_errors,
+                            average_reaction_time, reaction_time_sd,
+                            detection_rate, omission_error_rate, commission_error_rate,
+                            raw_data, created_at
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+						cptResults.UserEmail, cptResults.DeviceID, cptResults.AssessmentID,
+						cptResults.TestStartTime, cptResults.TestEndTime,
+						cptResults.CorrectDetections, cptResults.CommissionErrors, cptResults.OmissionErrors,
+						cptResults.AverageReactionTime, cptResults.ReactionTimeSD,
+						cptResults.DetectionRate, cptResults.OmissionErrorRate, cptResults.CommissionErrorRate,
+						cptResults.RawData, time.Now()).Error; err != nil {
+						h.log.Warnw("Error saving CPT results", "error", err)
+						return err
+					}
 				}
 			}
 		}
-	}
 
-	// Process form answers and save as question responses
-	questionResponses, err := h.processFormAnswers(formState, assessmentID)
-	if err != nil {
-		h.log.Errorw("Error processing form answers", "error", err)
-		// Continue with other processing - don't fail the entire submission
-	} else if len(questionResponses) > 0 {
-		// Save question responses
-		if err := h.repo.QuestionResponses.SaveBatch(questionResponses); err != nil {
-			h.log.Errorw("Error saving question responses", "error", err)
-		} else {
-			h.log.Infow("Saved question responses successfully", "count", len(questionResponses))
+		// Process form answers and save as question responses
+		questionResponses, err := h.processFormAnswers(formState, assessmentID)
+		if err != nil {
+			h.log.Errorw("Error processing form answers", "error", err)
+			return err
 		}
-	}
 
-	// Mark form state as completed
-	formState.AssessmentID = &assessmentID
-	h.repo.FormStates.Update(formState)
+		if len(questionResponses) > 0 {
+			// Bulk insert question responses using PostgreSQL-optimized approach
+			columns := []string{"assessment_id", "question_id", "value_type", "numeric_value", "text_value", "created_at"}
 
-	// Set last assessment completed time to now:
-	if err := h.repo.Users.LastAssessmentNow(userEmail.(string)); err != nil {
-		h.log.Errorw("Error updating last assessment completed time", "error", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error updating user"})
+			valueStrings := make([]string, 0, len(questionResponses))
+			valueArgs := make([]interface{}, 0, len(questionResponses)*len(columns))
+
+			for i, response := range questionResponses {
+				valueStrings = append(valueStrings, fmt.Sprintf("($%d, $%d, $%d, $%d, $%d, $%d)",
+					i*6+1, i*6+2, i*6+3, i*6+4, i*6+5, i*6+6))
+
+				valueArgs = append(valueArgs, response.AssessmentID)
+				valueArgs = append(valueArgs, response.QuestionID)
+				valueArgs = append(valueArgs, response.ValueType)
+				valueArgs = append(valueArgs, response.NumericValue)
+				valueArgs = append(valueArgs, response.TextValue)
+				valueArgs = append(valueArgs, response.CreatedAt)
+			}
+
+			stmt := fmt.Sprintf("INSERT INTO question_responses (%s) VALUES %s",
+				strings.Join(columns, ", "),
+				strings.Join(valueStrings, ", "))
+
+			if err := tx.Exec(stmt, valueArgs...).Error; err != nil {
+				h.log.Errorw("Error saving question responses", "error", err)
+				return err
+			}
+		}
+
+		// Mark form state as completed
+		formState.AssessmentID = &assessmentID
+		if err := tx.Model(&models.FormState{}).
+			Where("id = ?", formState.ID).
+			Update("assessment_id", &assessmentID).Error; err != nil {
+			return err
+		}
+
+		// Set last assessment completed time to now
+		if err := tx.Model(&models.User{}).
+			Where("email = ?", userEmail.(string)).
+			Update("last_assessment_date", time.Now()).Error; err != nil {
+			return err
+		}
+
+		return nil
+	})
+
+	if err != nil {
+		h.log.Errorw("Error submitting form", "error", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error processing form submission"})
 		return
 	}
 

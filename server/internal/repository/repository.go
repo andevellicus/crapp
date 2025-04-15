@@ -45,7 +45,7 @@ func NewRepository(cfg *config.Config, log *zap.SugaredLogger, questionLoader *u
 	}
 
 	// Initialize specialized repositories
-	repo.Users = NewUserRepository(db, log)
+	repo.Users = NewUserRepository(db, log, cfg)
 	repo.Devices = NewDeviceRepository(db, log)
 	repo.Assessments = NewAssessmentRepository(db, log, repo.Users)
 	repo.QuestionResponses = NewQuestionResponseRepository(db, log)
@@ -101,6 +101,18 @@ func setupDatabase(cfg *config.Config) (*gorm.DB, error) {
 		return nil, err
 	}
 
+	// Add GIN index for JSONB fields
+	db.Exec("CREATE INDEX IF NOT EXISTS idx_form_states_answers ON form_states USING GIN (answers)")
+
+	// For text stored as JSON, we need to cast to jsonb first
+	db.Exec("CREATE INDEX IF NOT EXISTS idx_user_notification_prefs ON users ((notification_preferences::jsonb)) WHERE notification_preferences IS NOT NULL")
+
+	// Add composite indexes for common query patterns
+	db.Exec("CREATE INDEX IF NOT EXISTS idx_metrics_query ON assessment_metrics(assessment_id, question_id, metric_key)")
+	db.Exec("CREATE INDEX IF NOT EXISTS idx_question_response_query ON question_responses(assessment_id, question_id, value_type)")
+	db.Exec("CREATE INDEX IF NOT EXISTS idx_timeline_query ON assessments(user_email, submitted_at)")
+
+	// Standard indexes
 	db.Exec("CREATE INDEX IF NOT EXISTS idx_assessments_user_email ON assessments(user_email)")
 	db.Exec("CREATE INDEX IF NOT EXISTS idx_assessments_device_id ON assessments(device_id)")
 	db.Exec("CREATE INDEX IF NOT EXISTS idx_assessments_submitted_at ON assessments(submitted_at)")
@@ -118,13 +130,27 @@ func setupDatabase(cfg *config.Config) (*gorm.DB, error) {
 	}
 
 	// Set max open connections based on your expected load
-	sqlDB.SetMaxOpenConns(25)
+	sqlDB.SetMaxOpenConns(50)
 	// Set max idle connections to reduce connection churn
-	sqlDB.SetMaxIdleConns(10)
+	sqlDB.SetMaxIdleConns(25)
 	// Set connection max lifetime to clean up inactive connections
-	sqlDB.SetConnMaxLifetime(time.Hour)
+	sqlDB.SetConnMaxLifetime(30 * time.Minute)
 
 	dbLogger.Info("Database initialized")
 
 	return db, nil
+}
+
+func (r *Repository) WithTransaction(fn func(tx *gorm.DB) error) error {
+	tx := r.db.Begin()
+	if tx.Error != nil {
+		return tx.Error
+	}
+
+	if err := fn(tx); err != nil {
+		tx.Rollback()
+		return err
+	}
+
+	return tx.Commit().Error
 }

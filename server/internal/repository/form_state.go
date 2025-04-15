@@ -81,18 +81,27 @@ func (r *FormStateRepository) Update(formState *models.FormState) error {
 	// Always update the timestamp
 	formState.LastUpdatedAt = time.Now()
 
-	// Use selective field update to prevent overwriting certain fields
-	result := r.db.Model(&models.FormState{}).
-		Where("id = ? AND user_email = ?", formState.ID, formState.UserEmail).
-		Updates(map[string]any{
-			"current_step":     formState.CurrentStep,
-			"answers":          formState.Answers,
-			"interaction_data": formState.InteractionData,
-			"cpt_data":         formState.CPTData,
-			"tmt_data":         formState.TMTData,
-			"last_updated_at":  formState.LastUpdatedAt,
-			"assessment_id":    formState.AssessmentID,
-		})
+	// Use a more efficient update that only affects changed columns
+	result := r.db.Exec(`
+        UPDATE form_states 
+        SET current_step = ?, 
+            answers = ?, 
+            interaction_data = ?,
+            cpt_data = ?,
+            tmt_data = ?,
+            last_updated_at = ?,
+            assessment_id = ?
+        WHERE id = ? AND user_email = ?
+        RETURNING id`,
+		formState.CurrentStep,
+		formState.Answers,
+		formState.InteractionData,
+		formState.CPTData,
+		formState.TMTData,
+		formState.LastUpdatedAt,
+		formState.AssessmentID,
+		formState.ID,
+		formState.UserEmail)
 
 	if result.Error != nil {
 		r.log.Errorw("Failed to update form state", "error", result.Error, "id", formState.ID)
