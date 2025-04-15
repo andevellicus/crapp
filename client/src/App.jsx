@@ -1,5 +1,6 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { HelmetProvider } from 'react-helmet-async';
 
 // Context providers
 import { AuthProvider } from './context/AuthContext';
@@ -26,58 +27,60 @@ import NotFound from './components/pages/NotFound';
 
 const App = () => {
   return (
-    <BrowserRouter>
-      <AuthProvider>
-        <NotificationProvider>
-          <div className="app">
-            <div className="container">
-              <Header />
-              <Message />
-              <Routes>
-                {/* Public routes */}
-                <Route path="/login" element={<Login />} />
-                <Route path="/register" element={<Register />} />
-                <Route path="/forgot-password" element={<ForgotPassword />} />
-                <Route path="/reset-password" element={<ResetPassword />} />
-                
-                {/* Protected routes */}
-                <Route path="/" element={
-                  <ProtectedRoute>
-                    <Form />
-                  </ProtectedRoute>
-                } />
-                <Route path="/profile" element={
-                  <ProtectedRoute>
-                    <Profile />
-                  </ProtectedRoute>
-                } />
-                <Route path="/devices" element={
-                  <ProtectedRoute>
-                    <Devices />
-                  </ProtectedRoute>
-                } />
+    <HelmetProvider>
+      <BrowserRouter>
+        <AuthProvider>
+          <NotificationProvider>
+            <div className="app">
+              <div className="container">
+                <Header />
+                <Message />
+                <Routes>
+                  {/* Public routes */}
+                  <Route path="/login" element={<Login />} />
+                  <Route path="/register" element={<Register />} />
+                  <Route path="/forgot-password" element={<ForgotPassword />} />
+                  <Route path="/reset-password" element={<ResetPassword />} />
+                  
+                  {/* Protected routes */}
+                  <Route path="/" element={
+                    <ProtectedRoute>
+                      <Form />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/profile" element={
+                    <ProtectedRoute>
+                      <Profile />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/devices" element={
+                    <ProtectedRoute>
+                      <Devices />
+                    </ProtectedRoute>
+                  } />
 
-                {/* Admin routes */}
-                <Route path="/admin/users" element={
-                  <AdminRoute>
-                    <AdminUsers />
-                  </AdminRoute>
-                } />
-                <Route path="/admin/charts" element={
-                  <AdminRoute>
-                    <AdminUserCharts />
-                  </AdminRoute>
-                } />
-                
-                {/* Catch-all route */}
-                <Route path="*" element={<NotFound />} />
-              </Routes>
-              <Footer />
+                  {/* Admin routes */}
+                  <Route path="/admin/users" element={
+                    <AdminRoute>
+                      <AdminUsers />
+                    </AdminRoute>
+                  } />
+                  <Route path="/admin/charts" element={
+                    <AdminRoute>
+                      <AdminUserCharts />
+                    </AdminRoute>
+                  } />
+                  
+                  {/* Catch-all route */}
+                  <Route path="*" element={<NotFound />} />
+                </Routes>
+                <Footer />
+              </div>
             </div>
-          </div>
-        </NotificationProvider>
-      </AuthProvider>
-    </BrowserRouter>
+          </NotificationProvider>
+        </AuthProvider>
+      </BrowserRouter>
+    </HelmetProvider>
   );
 };
 

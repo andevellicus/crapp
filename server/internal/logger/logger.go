@@ -3,11 +3,13 @@ package logger
 import (
 	"log"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
+	"gopkg.in/natefinch/lumberjack.v2"
 	"gorm.io/gorm"
 	gormlogger "gorm.io/gorm/logger"
 )
@@ -35,23 +37,27 @@ func (l *GormLogAdapter) Printf(format string, args ...any) {
 	l.ZapLogger.Sugar().Infof(format, args...)
 }
 
-// InitLogger initializes the Zap logger
-func InitLogger(logFile string, development bool) error {
-	// Configure console encoder
-	consoleEncoder := zapcore.NewConsoleEncoder(zapcore.EncoderConfig{
-		TimeKey:        "ts",
-		LevelKey:       "level",
-		NameKey:        "logger",
-		CallerKey:      "caller",
-		FunctionKey:    zapcore.OmitKey,
-		MessageKey:     "msg",
-		StacktraceKey:  "stacktrace",
-		LineEnding:     zapcore.DefaultLineEnding,
-		EncodeLevel:    zapcore.CapitalColorLevelEncoder,
-		EncodeTime:     zapcore.ISO8601TimeEncoder,
-		EncodeDuration: zapcore.StringDurationEncoder,
-		EncodeCaller:   zapcore.ShortCallerEncoder,
-	})
+// LogConfig holds additional logging configuration
+type LogConfig struct {
+	// Maximum size of log files before rotation in MB
+	MaxSize int
+	// Maximum number of old log files to retain
+	MaxBackups int
+	// Maximum age of old log files in days
+	MaxAge int
+	// Whether to compress old log files
+	Compress bool
+}
+
+// InitLogger initializes the Zap logger with partitioning and rotation
+func InitLogger(logDir string, development bool, logConfig *LogConfig) error {
+	// Create logs directory if it doesn't exist
+	if err := os.MkdirAll(logDir, 0755); err != nil {
+		return err
+	}
+
+	// Get current timestamp for log filenames
+	timestamp := time.Now().Format("2006-01-02")
 
 	// Configure JSON encoder for file output
 	jsonEncoder := zapcore.NewJSONEncoder(zapcore.EncoderConfig{
@@ -69,32 +75,78 @@ func InitLogger(logFile string, development bool) error {
 		EncodeCaller:   zapcore.ShortCallerEncoder,
 	})
 
-	// Create stdout core
+	// Configure console encoder for stdout
+	consoleEncoder := zapcore.NewConsoleEncoder(zapcore.EncoderConfig{
+		TimeKey:        "ts",
+		LevelKey:       "level",
+		NameKey:        "logger",
+		CallerKey:      "caller",
+		FunctionKey:    zapcore.OmitKey,
+		MessageKey:     "msg",
+		StacktraceKey:  "stacktrace",
+		LineEnding:     zapcore.DefaultLineEnding,
+		EncodeLevel:    zapcore.CapitalColorLevelEncoder,
+		EncodeTime:     zapcore.ISO8601TimeEncoder,
+		EncodeDuration: zapcore.StringDurationEncoder,
+		EncodeCaller:   zapcore.ShortCallerEncoder,
+	})
+
+	// Set default log rotation config if not provided
+	if logConfig == nil {
+		logConfig = &LogConfig{
+			MaxSize:    100, // 100 MB
+			MaxBackups: 10,
+			MaxAge:     30, // 30 days
+			Compress:   true,
+		}
+	}
+
+	// Create stdout core for terminal output
 	stdoutCore := zapcore.NewCore(
 		consoleEncoder,
 		zapcore.AddSync(os.Stdout),
 		zapcore.InfoLevel,
 	)
 
-	var cores []zapcore.Core
-	cores = append(cores, stdoutCore)
+	// Create file cores for different log levels
+	errorCore := zapcore.NewCore(
+		jsonEncoder,
+		zapcore.AddSync(&lumberjack.Logger{
+			Filename:   filepath.Join(logDir, timestamp+".error.log"),
+			MaxSize:    logConfig.MaxSize,
+			MaxBackups: logConfig.MaxBackups,
+			MaxAge:     logConfig.MaxAge,
+			Compress:   logConfig.Compress,
+		}),
+		zapcore.ErrorLevel,
+	)
 
-	// If log file is specified, create file core
-	if logFile != "" {
-		// Open log file
-		file, err := os.OpenFile(logFile, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
-		if err == nil {
-			fileCore := zapcore.NewCore(
-				jsonEncoder,
-				zapcore.AddSync(file),
-				zapcore.InfoLevel,
-			)
-			cores = append(cores, fileCore)
-		}
-	}
+	warnCore := zapcore.NewCore(
+		jsonEncoder,
+		zapcore.AddSync(&lumberjack.Logger{
+			Filename:   filepath.Join(logDir, timestamp+".warn.log"),
+			MaxSize:    logConfig.MaxSize,
+			MaxBackups: logConfig.MaxBackups,
+			MaxAge:     logConfig.MaxAge,
+			Compress:   logConfig.Compress,
+		}),
+		zapcore.WarnLevel,
+	)
+
+	infoCore := zapcore.NewCore(
+		jsonEncoder,
+		zapcore.AddSync(&lumberjack.Logger{
+			Filename:   filepath.Join(logDir, timestamp+".info.log"),
+			MaxSize:    logConfig.MaxSize,
+			MaxBackups: logConfig.MaxBackups,
+			MaxAge:     logConfig.MaxAge,
+			Compress:   logConfig.Compress,
+		}),
+		zapcore.InfoLevel,
+	)
 
 	// Create logger with multiple cores
-	core := zapcore.NewTee(cores...)
+	core := zapcore.NewTee(stdoutCore, errorCore, warnCore, infoCore)
 
 	// Create logger
 	Log = zap.New(core, zap.AddCaller(), zap.AddStacktrace(zapcore.ErrorLevel))

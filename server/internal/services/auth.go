@@ -74,7 +74,7 @@ func (s *AuthService) Authenticate(email, password string, deviceInfo map[string
 	}
 	// User does not exist
 	if !exists {
-		return nil, nil, nil, err
+		return nil, nil, nil, fmt.Errorf("user not found")
 	}
 
 	// Get user
@@ -86,7 +86,7 @@ func (s *AuthService) Authenticate(email, password string, deviceInfo map[string
 	// Verify password
 	err = bcrypt.CompareHashAndPassword(user.Password, []byte(password))
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, nil, nil, fmt.Errorf("invalid password")
 	}
 
 	// Register device
@@ -117,7 +117,7 @@ func (s *AuthService) GenerateTokenPair(email string, isAdmin bool, deviceID str
 	// Generate access token
 	accessToken, err := s.generateAccessToken(email, isAdmin, tokenID)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to generate access token: %w", err)
 	}
 
 	// Generate refresh token
@@ -134,7 +134,7 @@ func (s *AuthService) GenerateTokenPair(email string, isAdmin bool, deviceID str
 	}
 
 	if err = s.repo.RefreshTokens.Create(refreshTokenModel); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to store new refresh token: %w", err)
 	}
 
 	return &TokenPair{
@@ -149,6 +149,9 @@ func (s *AuthService) generateAccessToken(email string, isAdmin bool, tokenID st
 	// Add more claims for security
 	expirationTime := time.Now().Add(s.tokenTTL)
 	notBeforeTime := time.Now().Add(s.JWTConfig.NotBefore)
+	if s.JWTConfig.NotBefore > 0 {
+		notBeforeTime = time.Now().Add(s.JWTConfig.NotBefore)
+	}
 
 	claims := &CustomClaims{
 		Email:   email,
@@ -167,41 +170,60 @@ func (s *AuthService) generateAccessToken(email string, isAdmin bool, tokenID st
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 	tokenString, err := token.SignedString([]byte(s.JWTConfig.Secret))
+	if err != nil {
+		return "", fmt.Errorf("failed to sign access token: %w", err)
+	}
 
 	return tokenString, err
 }
 
 // RefreshToken generates a new access token using a refresh token
 func (s *AuthService) RefreshToken(refreshToken string, deviceID string) (*TokenPair, error) {
-	// Validate the refresh token
-	storedToken, err := s.repo.RefreshTokens.Get(refreshToken)
+	// 1. Validate the existing refresh token
+	storedToken, err := s.repo.RefreshTokens.GetByTokenID(refreshToken)
 	if err != nil {
-		return nil, fmt.Errorf("invalid refresh token")
+		// Handles not found or already revoked
+		return nil, fmt.Errorf("invalid refresh token: %w", err)
 	}
 
-	// Check if token is expired
+	// 2. Check if token is expired
 	if storedToken.ExpiresAt.Before(time.Now()) {
-		// Delete expired token
-		s.repo.RefreshTokens.Delete(refreshToken)
+		// Optionally delete expired token here or rely on scheduler
+		// s.repo.RefreshTokens.Delete(refreshToken) // Or mark as expired
 		return nil, fmt.Errorf("refresh token expired")
 	}
 
-	// Check if token belongs to this device
+	// 3. Check if token belongs to this device
 	if storedToken.DeviceID != deviceID {
 		return nil, fmt.Errorf("invalid device for refresh token")
 	}
 
-	// Get user
+	// 4. Get user associated with the token
 	user, err := s.repo.Users.GetByEmail(storedToken.UserEmail)
 	if err != nil {
-		return nil, err
+		// User associated with token not found
+		return nil, fmt.Errorf("user not found for refresh token: %w", err)
 	}
 
-	// Invalidate old refresh token
-	s.repo.RefreshTokens.Delete(refreshToken)
+	// 5. Generate NEW token pair FIRST
+	newTokenPair, err := s.GenerateTokenPair(user.Email, user.IsAdmin, deviceID)
+	if err != nil {
+		// Failed to generate/store new tokens, return error WITHOUT revoking old one
+		return nil, fmt.Errorf("failed to generate new token pair: %w", err)
+	}
 
-	// Generate new token pair
-	return s.GenerateTokenPair(user.Email, user.IsAdmin, deviceID)
+	// 6. Successfully generated new pair, NOW revoke the OLD refresh token
+	// It's okay if revocation fails, the old token will expire eventually.
+	// The user has the new valid token pair.
+	err = s.repo.RefreshTokens.Delete(refreshToken) // Marks the old token as revoked
+	if err != nil {
+		// Log this failure but don't fail the refresh operation
+		// s.log.Warnw("Failed to revoke old refresh token after successful refresh", "error", err, "old_token", refreshToken)
+		fmt.Printf("Warning: Failed to revoke old refresh token %s after successful refresh: %v\n", refreshToken, err)
+	}
+
+	// 7. Return the NEW token pair
+	return newTokenPair, nil
 }
 
 // ValidateToken verifies a token and returns claims
@@ -221,7 +243,7 @@ func (s *AuthService) ValidateToken(tokenString string) (*CustomClaims, error) {
 	})
 
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("token parsing failed: %w", err)
 	}
 
 	// Check if the token is valid
@@ -235,9 +257,15 @@ func (s *AuthService) ValidateToken(tokenString string) (*CustomClaims, error) {
 		return nil, fmt.Errorf("invalid claims")
 	}
 
-	// Check if token has been revoked
+	// Check if token has been revoked in the database
 	isRevoked, err := s.repo.RevokedTokens.IsTokenRevoked(claims.TokenID)
-	if err != nil || isRevoked {
+	if err != nil {
+		// Log DB error but treat as potentially revoked for security
+		// s.log.Errorw("Failed to check token revocation status", "error", err, "token_id", claims.TokenID)
+		fmt.Printf("Error checking token revocation for %s: %v\n", claims.TokenID, err)
+		return nil, fmt.Errorf("failed to verify token status")
+	}
+	if isRevoked {
 		return nil, fmt.Errorf("token has been revoked")
 	}
 
@@ -246,7 +274,28 @@ func (s *AuthService) ValidateToken(tokenString string) (*CustomClaims, error) {
 
 // RevokeToken invalidates a token by its ID
 func (s *AuthService) RevokeToken(tokenID string) error {
-	return s.repo.RevokedTokens.RevokeToken(tokenID)
+	// Find the refresh token associated with this access token ID to get user email
+	// Note: This assumes a 1:1 link between access token ID and a refresh token record.
+	// If multiple refresh tokens could share a TokenID, this needs adjustment.
+	refreshToken, err := s.repo.RefreshTokens.GetByTokenID(tokenID)
+	if err != nil {
+		// s.log.Warnw("Could not find refresh token for token ID to revoke", "token_id", tokenID, "error", err)
+		// Still attempt to add to revoked tokens table directly
+		fmt.Printf("Warning: Could not find refresh token for token ID %s to revoke: %v\n", tokenID, err)
+	}
+
+	userEmail := ""
+	if refreshToken != nil {
+		userEmail = refreshToken.UserEmail
+		// Also revoke the specific refresh token itself
+		if err := s.repo.RefreshTokens.Delete(refreshToken.Token); err != nil {
+			// s.log.Warnw("Failed to revoke associated refresh token during token revocation", "error", err, "refresh_token", refreshToken.Token)
+			fmt.Printf("Warning: Failed to revoke associated refresh token %s: %v\n", refreshToken.Token, err)
+		}
+	}
+
+	// Add the access token's ID to the revoked list
+	return s.repo.RevokedTokens.RevokeToken(tokenID, userEmail) // Pass userEmail if available
 }
 
 // RevokeAllUserTokens invalidates all tokens for a user

@@ -92,26 +92,19 @@ func (r *AssessmentRepository) GetMetricsCorrelation(userID, symptomKey, metricK
 			am.metric_value
 		FROM 
 			assessments a
-		JOIN question_responses qr ON a.id = qr.assessment_id
-		JOIN assessment_metrics am ON a.id = am.assessment_id AND am.question_id = qr.question_id
+			JOIN question_responses qr ON a.id = qr.assessment_id
+			JOIN assessment_metrics am ON a.id = am.assessment_id AND am.question_id = qr.question_id
 		WHERE 
 			a.user_email = $1
 			AND qr.question_id = $2
 			AND am.metric_key = $3
     `
 
-	err := r.db.Raw(query, userID, symptomKey, metricKey, symptomKey).Scan(&result).Error
+	err := r.db.Raw(query, userID, symptomKey, metricKey).Scan(&result).Error
 	if err != nil {
 		r.log.Errorw("Error in correlation query", "error", err)
 		return nil, fmt.Errorf("database error: %w", err)
 	}
-
-	r.log.Infow("Retrieved correlation data",
-		"user_id", userID,
-		"symptom", symptomKey,
-		"metric", metricKey,
-		"points_count", len(result))
-
 	return &result, nil
 }
 
@@ -128,28 +121,19 @@ func (r *AssessmentRepository) GetMetricsTimeline(userID, symptomKey, metricKey 
         FROM 
             assessments a
             JOIN question_responses qr ON a.id = qr.assessment_id
-            JOIN assessment_metrics am ON a.id = am.assessment_id
+            JOIN assessment_metrics am ON a.id = am.assessment_id AND am.question_id = qr.question_id
         WHERE 
             a.user_email = $1
             AND qr.question_id = $2
             AND am.metric_key = $3
-            AND am.question_id = $4
-        ORDER BY a.submitted_at ASC
+        ORDER BY am.created_at ASC
     `
 
-	err := r.db.Raw(query, userID, symptomKey, metricKey, symptomKey).Scan(&result).Error
+	err := r.db.Raw(query, userID, symptomKey, metricKey).Scan(&result).Error
 	if err != nil {
 		r.log.Errorw("Error in timeline query", "error", err)
 		return nil, fmt.Errorf("database error: %w", err)
 	}
-
-	// Log the results for debugging
-	r.log.Infow("Retrieved timeline data",
-		"user_id", userID,
-		"symptom", symptomKey,
-		"metric", metricKey,
-		"points_count", len(result))
-
 	return result, nil
 }
 

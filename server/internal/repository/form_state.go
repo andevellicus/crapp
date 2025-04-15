@@ -81,22 +81,44 @@ func (r *FormStateRepository) Update(formState *models.FormState) error {
 	// Always update the timestamp
 	formState.LastUpdatedAt = time.Now()
 
-	// Use selective field update to prevent overwriting certain fields
-	result := r.db.Model(&models.FormState{}).
-		Where("id = ? AND user_email = ?", formState.ID, formState.UserEmail).
-		Updates(map[string]any{
-			"current_step":     formState.CurrentStep,
-			"answers":          formState.Answers,
-			"interaction_data": formState.InteractionData,
-			"cpt_data":         formState.CPTData,
-			"tmt_data":         formState.TMTData,
-			"last_updated_at":  formState.LastUpdatedAt,
-			"assessment_id":    formState.AssessmentID,
-		})
+	// First update essential fields (faster)
+	result := r.db.Exec(`
+        UPDATE form_states 
+        SET current_step = ?,
+			answers = ?,
+            last_updated_at = ?,
+			assessment_id = ?
+        WHERE id = ? AND user_email = ?`,
+		formState.CurrentStep,
+		formState.Answers,
+		formState.LastUpdatedAt,
+		formState.AssessmentID,
+		formState.ID,
+		formState.UserEmail)
 
 	if result.Error != nil {
 		r.log.Errorw("Failed to update form state", "error", result.Error, "id", formState.ID)
 		return fmt.Errorf("failed to update form state: %w", result.Error)
+	}
+
+	// Then update large JSON data separately (if they exist)
+	if len(formState.InteractionData) > 0 || len(formState.CPTData) > 0 || len(formState.TMTData) > 0 {
+		result = r.db.Exec(`
+            UPDATE form_states 
+            SET interaction_data = ?,
+                cpt_data = ?,
+                tmt_data = ?
+            WHERE id = ? AND user_email = ?`,
+			formState.InteractionData,
+			formState.CPTData,
+			formState.TMTData,
+			formState.ID,
+			formState.UserEmail)
+
+		if result.Error != nil {
+			r.log.Errorw("Failed to update form state JSON data", "error", result.Error, "id", formState.ID)
+			return fmt.Errorf("failed to update form state JSON data: %w", result.Error)
+		}
 	}
 
 	if result.RowsAffected == 0 {

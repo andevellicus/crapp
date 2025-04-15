@@ -1,17 +1,21 @@
-import { useNavigate } from 'react-router-dom';
+import React, { useState } from 'react';
+import { useNavigate, Link } from 'react-router-dom';
+import { Helmet } from 'react-helmet-async';
 import { useAuth } from '../../context/AuthContext';
+import TermsModal from '../common/TermsModal';
 
 export default function Register() {
-    const [formData, setFormData] = React.useState({
+    const [formData, setFormData] = useState({
       email: '',
       first_name: '',
       last_name: '',
       password: '',
       confirm_password: ''
     });
-    const [error, setError] = React.useState('');
-    const [isLoading, setIsLoading] = React.useState(false);
-    const [termsAccepted, setTermsAccepted] = React.useState(false);
+    const [error, setError] = useState('');
+    const [isLoading, setIsLoading] = useState(false);
+    const [termsAccepted, setTermsAccepted] = useState(false);
+    const [showTermsModal, setShowTermsModal] = useState(false);
     const navigate = useNavigate();
     
     const { login } = useAuth();
@@ -26,6 +30,20 @@ export default function Register() {
     
     const handleTermsChange = (e) => {
       setTermsAccepted(e.target.checked);
+    };
+    
+    const openTermsModal = (e) => {
+      e.preventDefault();
+      setShowTermsModal(true);
+    };
+    
+    const closeTermsModal = () => {
+      setShowTermsModal(false);
+    };
+    
+    const acceptTerms = () => {
+      setTermsAccepted(true);
+      setShowTermsModal(false);
     };
     
     const validateForm = () => {
@@ -131,109 +149,124 @@ export default function Register() {
     };
     
     return (
-      <div className="auth-container">
-        <h3>Create an Account</h3>
+      <>
+        <Helmet>
+          <title>Register - CRAPP</title>
+          <meta name="description" content="Create an account for CRAPP - Cognitive Reporting Application" />
+        </Helmet>
         
-        {error && (
-          <div className="message error" style={{ display: 'block' }}>
-            {error}
-          </div>
-        )}
-        
-        <form className="auth-form" onSubmit={handleSubmit}>
-          <div className="form-group">
-            <label htmlFor="email">Email Address</label>
-            <input
-              type="email"
-              id="email"
-              name="email"
-              value={formData.email}
-              onChange={handleChange}
-              required
-              autoComplete="email"
-            />
-          </div>
+        <div className="auth-container">
+          <h3>Create an Account</h3>
           
-          <div className="form-row">
+          {error && (
+            <div className="message error" style={{ display: 'block' }}>
+              {error}
+            </div>
+          )}
+          
+          <form className="auth-form" onSubmit={handleSubmit}>
             <div className="form-group">
-              <label htmlFor="first_name">First Name</label>
+              <label htmlFor="email">Email Address</label>
               <input
-                type="text"
-                id="first_name"
-                name="first_name"
-                value={formData.first_name}
+                type="email"
+                id="email"
+                name="email"
+                value={formData.email}
                 onChange={handleChange}
                 required
-                autoComplete="given-name"
+                autoComplete="email"
               />
             </div>
             
+            <div className="form-row">
+              <div className="form-group">
+                <label htmlFor="first_name">First Name</label>
+                <input
+                  type="text"
+                  id="first_name"
+                  name="first_name"
+                  value={formData.first_name}
+                  onChange={handleChange}
+                  required
+                  autoComplete="given-name"
+                />
+              </div>
+              
+              <div className="form-group">
+                <label htmlFor="last_name">Last Name</label>
+                <input
+                  type="text"
+                  id="last_name"
+                  name="last_name"
+                  value={formData.last_name}
+                  onChange={handleChange}
+                  required
+                  autoComplete="family-name"
+                />
+              </div>
+            </div>
+            
             <div className="form-group">
-              <label htmlFor="last_name">Last Name</label>
+              <label htmlFor="password">Password</label>
               <input
-                type="text"
-                id="last_name"
-                name="last_name"
-                value={formData.last_name}
+                type="password"
+                id="password"
+                name="password"
+                value={formData.password}
                 onChange={handleChange}
                 required
-                autoComplete="family-name"
+                autoComplete="new-password"
+                minLength="8"
+                pattern="(?=.*\d)(?=.*[a-z])(?=.*[A-Z]).{8,}"
+              />
+              <div className="password-requirements">
+                Passwords must be at least 8 characters long and include uppercase letters, 
+                lowercase letters, and numbers.
+              </div>
+            </div>
+            
+            <div className="form-group">
+              <label htmlFor="confirm_password">Confirm Password</label>
+              <input
+                type="password"
+                id="confirm_password"
+                name="confirm_password"
+                value={formData.confirm_password}
+                onChange={handleChange}
+                required
+                autoComplete="new-password"
               />
             </div>
-          </div>
-          
-          <div className="form-group">
-            <label htmlFor="password">Password</label>
-            <input
-              type="password"
-              id="password"
-              name="password"
-              value={formData.password}
-              onChange={handleChange}
-              required
-              autoComplete="new-password"
-              minLength="8"
-              pattern="(?=.*\d)(?=.*[a-z])(?=.*[A-Z]).{8,}"
-            />
-            <div className="password-requirements">
-              Passwords must be at least 8 characters long and include uppercase letters, 
-              lowercase letters, and numbers.
+            
+            <div className="form-group checkbox-group">
+              <input
+                type="checkbox"
+                id="terms"
+                name="terms"
+                checked={termsAccepted}
+                onChange={handleTermsChange}
+                required
+              />
+              <label htmlFor="terms">
+                I agree to the <a href="#" onClick={openTermsModal}>Terms and Conditions</a>
+              </label>
             </div>
-          </div>
+            
+            <button type="submit" className="submit-button" disabled={isLoading}>
+              {isLoading ? 'Creating Account...' : 'Create Account'}
+            </button>
+          </form>
           
-          <div className="form-group">
-            <label htmlFor="confirm_password">Confirm Password</label>
-            <input
-              type="password"
-              id="confirm_password"
-              name="confirm_password"
-              value={formData.confirm_password}
-              onChange={handleChange}
-              required
-              autoComplete="new-password"
-            />
+          <div className="auth-links">
+            <Link to="/login">Already have an account? Login</Link>
           </div>
-          
-          <div className="form-group checkbox-group">
-            <input
-              type="checkbox"
-              id="terms"
-              name="terms"
-              checked={termsAccepted}
-              onChange={handleTermsChange}
-              required
-            />
-            <label htmlFor="terms">I agree to the <a href="/terms" target="_blank">Terms and Conditions</a></label>
-          </div>
-          
-          <button type="submit" className="submit-button" disabled={isLoading}>
-            {isLoading ? 'Creating Account...' : 'Create Account'}
-          </button>
-        </form>
-        
-        <div className="auth-links">
-          <a href="/login">Already have an account? Login</a>
         </div>
-      </div>
+        
+        {/* Terms Modal */}
+        <TermsModal 
+          isOpen={showTermsModal} 
+          onClose={acceptTerms} 
+        />
+      </>
     );
   }

@@ -43,9 +43,13 @@ type ServerConfig struct {
 
 // LoggingConfig contains logging settings
 type LoggingConfig struct {
-	Directory string
-	Level     string
-	Format    string
+	Directory  string
+	Level      string
+	Format     string
+	MaxSize    int  `mapstructure:"max_size"`    // Maximum size in MB before rotation
+	MaxBackups int  `mapstructure:"max_backups"` // Maximum number of old log files to retain
+	MaxAge     int  `mapstructure:"max_age"`     // Maximum age in days
+	Compress   bool `mapstructure:"compress"`    // Whether to compress old log files
 }
 
 // JWTConfig contains JWT settings and Secret
@@ -200,6 +204,10 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault("logging.directory", "logs")
 	v.SetDefault("logging.level", "info")
 	v.SetDefault("logging.format", "json")
+	v.SetDefault("logging.max_size", 100)   // 100 MB
+	v.SetDefault("logging.max_backups", 10) // Keep 10 backups
+	v.SetDefault("logging.max_age", 30)     // 30 days
+	v.SetDefault("logging.compress", true)  // Compress old logs
 
 	// JWT defaults
 	v.SetDefault("jwt.secret", "your-256-bit-secret") // Default, should be overridden
@@ -251,10 +259,4 @@ func (c *Config) IsProduction() bool {
 // GetServerAddress returns the full server address with host and port
 func (c *Config) GetServerAddress() string {
 	return fmt.Sprintf("%s:%d", c.Server.Host, c.Server.Port)
-}
-
-// GetLogFilePath returns the log file path with timestamp
-func (c *Config) GetLogFilePath() string {
-	timestamp := time.Now().Format("2006-01-02_15-04-05")
-	return fmt.Sprintf("%s/crapp_%s.log", c.Logging.Directory, timestamp)
 }

@@ -27,16 +27,8 @@ type Question struct {
 	MaxLength      int              `yaml:"max_length,omitempty" json:"max_length,omitempty"`
 	Pattern        string           `yaml:"pattern,omitempty" json:"pattern,omitempty"`
 	PatternMessage string           `yaml:"pattern_message,omitempty" json:"pattern_message,omitempty"`
-	Scale          *Scale           `yaml:"scale,omitempty" json:"scale,omitempty"`
 	Options        []QuestionOption `yaml:"options,omitempty" json:"options,omitempty"`
 	Default        string           `yaml:"default_option,omitempty" json:"default_option,omitempty"`
-}
-
-// Scale represents a numeric scale for a question
-type Scale struct {
-	Min  int `yaml:"min" json:"min"`
-	Max  int `yaml:"max" json:"max"`
-	Step int `yaml:"step" json:"step"`
 }
 
 // Reminder represents reminder settings
@@ -75,8 +67,8 @@ func NewQuestionLoader(yamlPath string) (*QuestionLoader, error) {
 				loader.Config.Questions[i].MetricsType = "keyboard"
 			} else if loader.Config.Questions[i].Type == "cpt" {
 				loader.Config.Questions[i].MetricsType = "cpt"
-			} else if loader.Config.Questions[i].Type == "trail" {
-				loader.Config.Questions[i].MetricsType = "trail"
+			} else if loader.Config.Questions[i].Type == "tmt" {
+				loader.Config.Questions[i].MetricsType = "tmt"
 			} else {
 				loader.Config.Questions[i].MetricsType = "mouse"
 			}
