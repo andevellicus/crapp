@@ -10,6 +10,8 @@ import { NotificationProvider } from './context/NotificationContext';
 import Header from './components/layout/Header';
 import Footer from './components/layout/Footer';
 import Message from './components/layout/Message';
+import ProtectedRouteLayout from './components/layout/ProtectedRouteLayout';
+import AdminRouteLayout from './components/layout/AdminRouteLayout'; 
 
 // Page components
 import Form from './components/pages/Form';
@@ -17,8 +19,6 @@ import Login from './components/auth/Login';
 import Register from './components/auth/Register';
 import ForgotPassword from './components/auth/ForgotPassword';
 import ResetPassword from './components/auth/ResetPassword';
-import ProtectedRoute from './components/auth/ProtectedRoute';
-import AdminRoute from './components/admin/AdminRoute';
 import Profile from './components/pages/Profile';
 import Devices from './components/pages/Devices';
 import AdminUsers from './components/admin/AdminUsers';
@@ -44,36 +44,20 @@ const App = () => {
                   <Route path="/register" element={<Register />} />
                   <Route path="/forgot-password" element={<ForgotPassword />} />
                   <Route path="/reset-password" element={<ResetPassword />} />
-                  
+
                   {/* Protected routes */}
-                  <Route path="/" element={
-                    <ProtectedRoute>
-                      <Form />
-                    </ProtectedRoute>
-                  } />
-                  <Route path="/profile" element={
-                    <ProtectedRoute>
-                      <Profile />
-                    </ProtectedRoute>
-                  } />
-                  <Route path="/devices" element={
-                    <ProtectedRoute>
-                      <Devices />
-                    </ProtectedRoute>
-                  } />
+                  <Route element={<ProtectedRouteLayout />}>
+                    <Route path="/" element={<Form />} />
+                    <Route path="/profile" element={<Profile />} />
+                    <Route path="/devices" element={<Devices />} />
+                  </Route>
 
                   {/* Admin routes */}
-                  <Route path="/admin/users" element={
-                    <AdminRoute>
-                      <AdminUsers />
-                    </AdminRoute>
-                  } />
-                  <Route path="/admin/charts" element={
-                    <AdminRoute>
-                      <AdminUserCharts />
-                    </AdminRoute>
-                  } />
-                  
+                  <Route element={<AdminRouteLayout />}>
+                    <Route path="/admin/users" element={<AdminUsers />} />
+                    <Route path="/admin/charts" element={<AdminUserCharts />} />
+                  </Route>
+
                   {/* Catch-all route */}
                   <Route path="*" element={<NotFound />} />
                 </Routes>

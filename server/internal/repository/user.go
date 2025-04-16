@@ -124,11 +124,61 @@ func (r *UserRepository) LastLoginNow(email string) error {
 func (r *UserRepository) Delete(email string) error {
 	// Start a transaction
 	tx := r.db.Begin()
+	if tx.Error != nil {
+		return fmt.Errorf("failed to begin transaction: %w", tx.Error)
+	}
 
-	// Delete form states
-	if err := tx.Delete(&models.FormState{}, "user_email = ?", email).Error; err != nil {
+	// Find assessment IDs for the user first
+	var assessmentIDs []uint
+	if err := tx.Model(&models.Assessment{}).Where("user_email = ?", email).Pluck("id", &assessmentIDs).Error; err != nil {
 		tx.Rollback()
-		return fmt.Errorf("error deleting form states: %w", err)
+		return fmt.Errorf("error finding assessments for user %s: %w", email, err)
+	}
+
+	// Only proceed if there are assessments to deal with
+	if len(assessmentIDs) > 0 {
+		// Delete assessment_metrics first
+		if err := tx.Where("assessment_id IN (?)", assessmentIDs).Delete(&models.AssessmentMetric{}).Error; err != nil {
+			tx.Rollback()
+			return fmt.Errorf("error deleting assessment metrics: %w", err)
+		}
+
+		// Delete question responses next
+		if err := tx.Where("assessment_id IN (?)", assessmentIDs).Delete(&models.QuestionResponse{}).Error; err != nil {
+			tx.Rollback()
+			return fmt.Errorf("error deleting question responses: %w", err)
+		}
+
+		// Delete CPT results linked to these assessments
+		if err := tx.Where("assessment_id IN (?)", assessmentIDs).Delete(&models.CPTResult{}).Error; err != nil {
+			tx.Rollback()
+			return fmt.Errorf("error deleting assessment CPT results: %w", err)
+		}
+
+		// Delete TMT results linked to these assessments
+		if err := tx.Where("assessment_id IN (?)", assessmentIDs).Delete(&models.TMTResult{}).Error; err != nil {
+			tx.Rollback()
+			return fmt.Errorf("error deleting assessment TMT results: %w", err)
+		}
+
+		// Delete form states
+		if err := tx.Delete(&models.FormState{}, "user_email = ?", email).Error; err != nil {
+			tx.Rollback()
+			return fmt.Errorf("error deleting form states: %w", err)
+		}
+
+		// --- Now delete the assessments themselves ---
+		if err := tx.Where("id IN (?)", assessmentIDs).Delete(&models.Assessment{}).Error; err != nil {
+			tx.Rollback()
+			return fmt.Errorf("error deleting assessments for user %s: %w", email, err)
+		}
+	} else {
+		// If there were no assessments, still need to delete any dangling form states
+		// (e.g., states that were started but never submitted/linked)
+		if err := tx.Where("user_email = ? AND assessment_id IS NULL", email).Delete(&models.FormState{}).Error; err != nil {
+			tx.Rollback()
+			return fmt.Errorf("error deleting dangling form states: %w", err)
+		}
 	}
 
 	// Delete refresh tokens
@@ -153,40 +203,6 @@ func (r *UserRepository) Delete(email string) error {
 	if err := tx.Delete(&models.Device{}, "user_email = ?", email).Error; err != nil {
 		tx.Rollback()
 		return fmt.Errorf("error deleting devices: %w", err)
-	}
-
-	// Delete CPT results
-	if err := tx.Delete(&models.CPTResult{}, "user_email = ?", email).Error; err != nil {
-		tx.Rollback()
-		return fmt.Errorf("error deleting cpt results: %w", err)
-	}
-
-	// Delete TMT results
-	if err := tx.Delete(&models.TMTResult{}, "user_email = ?", email).Error; err != nil {
-		tx.Rollback()
-		return fmt.Errorf("error deleting cpt results: %w", err)
-	}
-
-	// Delete assessment_metrics
-	if err := tx.Where("assessment_id IN (?)",
-		tx.Table("assessments").Select("id").Where("user_email = ?", email)).
-		Delete(&models.AssessmentMetric{}).Error; err != nil {
-		tx.Rollback()
-		return fmt.Errorf("error deleting assessment metrics: %w", err)
-	}
-
-	// Delete assessments
-	if err := tx.Delete(&models.Assessment{}, "user_email = ?", email).Error; err != nil {
-		tx.Rollback()
-		return fmt.Errorf("error deleting assessments: %w", err)
-	}
-
-	// Delete question responses
-	if err := tx.Where("assessment_id IN (?)",
-		tx.Table("assessments").Select("id").Where("user_email = ?", email)).
-		Delete(&models.QuestionResponse{}).Error; err != nil {
-		tx.Rollback()
-		return fmt.Errorf("error deleting question responses: %w", err)
 	}
 
 	// Finally, delete the user

@@ -2,6 +2,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useNotifications } from '../../context/NotificationContext';
 import api from '../../services/api';
+import Modal from '../common/Modal';
 
 export default function Profile() {
   // Section refs for scrolling
@@ -102,6 +103,7 @@ export default function Profile() {
   React.useEffect(() => {
     if (user) {
       setFormData({
+        ...prevFormData,
         first_name: user.first_name || '',
         last_name: user.last_name || '',
         email: user.email || ''
@@ -627,50 +629,50 @@ export default function Profile() {
         </form>
       </div>
       
-      {/* Delete Account Modal */}
-      {showDeleteModal && (
-        <div className="modal show">
-          <div className="modal-content">
-            <div className="modal-header">
-              <h4>Delete Account</h4>
-              <button className="close-modal" onClick={closeDeleteModal}>&times;</button>
-            </div>
-            <div className="modal-body">
-              <p className="warning-text">This action CANNOT be undone. All your data will be permanently deleted.</p>
-              <p>Please type "DELETE" to confirm:</p>
-              <div className="form-group">
-                <input
-                  type="text"
-                  value={deleteConfirmation}
-                  onChange={handleDeleteConfirmationChange}
-                  autoComplete="off"
-                />
-              </div>
-              <div className="form-group">
-                <label>Enter your password:</label>
-                <input
-                  type="password"
-                  value={deletePassword}
-                  onChange={handleDeletePasswordChange}
-                />
-              </div>
-              <div className="form-actions">
-                <button type="button" className="cancel-button" onClick={closeDeleteModal}>
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  onClick={handleDeleteAccount}
-                  className="delete-button"
-                  disabled={deleteConfirmation !== 'DELETE' || !deletePassword}
-                >
-                  Delete Account
-                </button>
-              </div>
-            </div>
-          </div>
+      {/* Delete Account Modal using the reusable component */}
+      <Modal
+        isOpen={showDeleteModal}
+        onClose={closeDeleteModal}
+        title="Delete Account"
+        footer={
+          <> {/* Use Fragment shorthand for multiple elements */}
+            <button type="button" className="cancel-button" onClick={closeDeleteModal}>
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={handleDeleteAccount}
+              className="delete-button" // Use specific class for delete button
+              disabled={deleteConfirmation !== 'DELETE' || !deletePassword || isSaving}
+            >
+              {isSaving ? 'Deleting...' : 'Delete Account'}
+            </button>
+          </>
+        }
+      >
+        {/* Content for the modal body */}
+        <p className="warning-text">This action CANNOT be undone. All your data will be permanently deleted.</p>
+        <div className="form-group">
+          <label htmlFor="delete-confirm">Please type "DELETE" to confirm:</label>
+          <input
+            type="text"
+            id="delete-confirm" // Add id for label association
+            value={deleteConfirmation}
+            onChange={handleDeleteConfirmationChange}
+            autoComplete="off"
+          />
         </div>
-      )}
+        <div className="form-group">
+          <label htmlFor="delete-password">Enter your password:</label>
+          <input
+            type="password"
+            id="delete-password" // Add id for label association
+            value={deletePassword}
+            onChange={handleDeletePasswordChange}
+          />
+        </div>
+        {/* You could add specific modal error messages here if needed */}
+      </Modal>
     </div>
   );
 }

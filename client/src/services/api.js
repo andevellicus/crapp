@@ -81,19 +81,6 @@ const getCookie = (name) => {
   return null;
 };
 
-const clearAuthAndRedirect = () => {
-  localStorage.removeItem('auth_token');
-  localStorage.removeItem('refresh_token');
-  localStorage.removeItem('user_info');
-  localStorage.removeItem('device_id');
-  
-  // Add a message to display after redirect
-  sessionStorage.setItem('auth_message', 'Your session has expired. Please log in again.');
-  
-  // Redirect to login page
-  window.location.href = '/login';
-};
-
 // Handle API responses
 const handleResponse = async (response) => {
   // Extract the response data

@@ -15,7 +15,7 @@ RUN chmod 644 /etc/nginx/certs/server.crt && \
     chmod 600 /etc/nginx/certs/server.key
 
 # Expose ports
-EXPOSE 5000 443
+EXPOSE 80 443
 
 # Start nginx
 CMD ["nginx", "-g", "daemon off;"]

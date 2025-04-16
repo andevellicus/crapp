@@ -8,10 +8,10 @@ services:
     restart: unless-stopped
     depends_on:
       - db
-    #expose:
-    #  - ${SERVER_PORT}
-    ports:
-      - "${SERVER_PORT}:${SERVER_PORT}" # Internal port where app listens
+    expose:
+      - ${SERVER_PORT}
+    #ports:
+    #  - "${SERVER_PORT}:${SERVER_PORT}" # Internal port where app listens
     environment:
       # Place app-specific environment variables here
       CRAPP_DATABASE_URL: "postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}?sslmode=require"
@@ -51,7 +51,7 @@ services:
     container_name: crapp-nginx
     restart: unless-stopped
     ports:
-      - "${SERVER_PORT}:${SERVER_PORT}" # Change to 80:80 when ready
+      - "80:80"
       - "443:443"
     volumes:
       - ./nginx.conf:/etc/nginx/nginx.conf:ro
