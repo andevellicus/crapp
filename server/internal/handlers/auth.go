@@ -107,6 +107,7 @@ func (h *AuthHandler) Login(c *gin.Context) {
 	user, device, tokenPair, err := h.authService.Authenticate(req.Email, req.Password, req.DeviceInfo)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid email or password"})
+		h.log.Errorw("Error during authentication", "email", req.Email)
 		return
 	}
 	if user == nil {

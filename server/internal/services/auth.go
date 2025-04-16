@@ -83,6 +83,11 @@ func (s *AuthService) Authenticate(email, password string, deviceInfo map[string
 		return nil, nil, nil, err
 	}
 
+	if user.Password == nil {
+		// Return a generic error to avoid exposing account state
+		return nil, nil, nil, fmt.Errorf("attempted login for user with nil password hash")
+	}
+
 	// Verify password
 	err = bcrypt.CompareHashAndPassword(user.Password, []byte(password))
 	if err != nil {
