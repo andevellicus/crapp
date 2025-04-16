@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import api from '../services/api';
+import { useAuth } from './AuthContext';
 
 const NotificationContext = createContext();
 
@@ -11,27 +12,39 @@ export function NotificationProvider({ children }) {
   });
   const [pushSupported, setPushSupported] = useState(false);
   const [loading, setLoading] = useState(true);
+
+  // Get authentication status and loading state from AuthContext
+  const { isAuthenticated, loading: authLoading } = useAuth();
   
   useEffect(() => {
-    // Check if push notifications are supported
-    const isPushSupported = 'Notification' in window && 
-                           'serviceWorker' in navigator && 
+    // Check if push notifications are supported (can run regardless of auth status)
+    const isPushSupported = 'Notification' in window &&
+                           'serviceWorker' in navigator &&
                            'PushManager' in window;
-    
     setPushSupported(isPushSupported);
-    
-    // Load notification preferences if user is logged in
-    const token = localStorage.getItem('auth_token');
-    if (token) {
-      fetchPreferences();
-    } else {
-      setLoading(false);
+
+    // Wait until AuthContext has determined the authentication status
+    if (!authLoading) {
+      if (isAuthenticated) {
+        // If authenticated, fetch preferences
+        fetchPreferences();
+      } else {
+        // If not authenticated, we're done loading for this context
+        setLoading(false);
+        // Optionally reset preferences to default if user logs out
+        setPreferences({
+          pushEnabled: false,
+          emailEnabled: false,
+          reminderTimes: ['20:00']
+        });
+      }
     }
-  }, []);
+    // Dependency array now includes auth state
+  }, [isAuthenticated, authLoading]);
   
   const fetchPreferences = async () => {
+    setLoading(true);
     try {
-      setLoading(true);
       const data = await api.get('/api/push/preferences');
       
       setPreferences({
@@ -41,6 +54,8 @@ export function NotificationProvider({ children }) {
       });
     } catch (error) {
       console.error('Error loading notification preferences:', error);
+      // Set default preferences
+      setPreferences({ pushEnabled: false, emailEnabled: false, reminderTimes: ['20:00'] });
     } finally {
       setLoading(false);
     }
@@ -48,12 +63,17 @@ export function NotificationProvider({ children }) {
   
   const savePreferences = async (newPreferences) => {
     try {
+      // Make sure user is still authenticated before saving
+      if (!isAuthenticated) {
+         console.warn("Attempted to save preferences while not authenticated.");
+         return false;
+      }
       await api.put('/api/push/preferences', {
         push_enabled: newPreferences.pushEnabled,
         email_enabled: newPreferences.emailEnabled,
         reminder_times: newPreferences.reminderTimes
       });
-      
+
       setPreferences(newPreferences);
       return true;
     } catch (error) {
@@ -70,6 +90,11 @@ export function NotificationProvider({ children }) {
     try {
       const permission = await Notification.requestPermission();
       if (permission === 'granted') {
+        if (!isAuthenticated) {
+          console.warn("Attempted to request push permission while not authenticated.");
+          return false;
+        }  
+
         // Get service worker registration
         const registration = await navigator.serviceWorker.ready;
         

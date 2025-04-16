@@ -75,7 +75,6 @@ func (s *ReminderScheduler) Start() error {
 		}
 		timeIndex++
 	}
-	s.log.Infof("Scheduled %d reminders", len(allTimes))
 	return nil
 }
 
@@ -154,8 +153,6 @@ func (s *ReminderScheduler) scheduleReminderDaily(timeStr string, reminderIndex 
 
 	// Store timer
 	s.jobs[key] = timer
-
-	s.log.Infof("Scheduled reminder for %s (in %v)", timeStr, duration)
 	return nil
 }
 

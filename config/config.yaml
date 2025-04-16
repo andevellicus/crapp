@@ -22,7 +22,7 @@ logging:
 
 reminders:
   frequency: daily
-  times: [20:00]  # 8pm
+  times: [21:00]  # 8pm
   cutoff_time: 10:00  # Can submit yesterday's data until 10am
 
 jwt:

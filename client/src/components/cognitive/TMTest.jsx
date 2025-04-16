@@ -10,7 +10,6 @@ const TMTest = ({ onTestEnd, onTestStart, settings, questionId }) => {
     includePartB: true, // Whether to include part B (alternating numbers and letters)
     partATimeLimit: 60000, // Time limit for Part A (configurable)
     partBTimeLimit: 120000, // Time limit for Part B (configurable)
-    minDistance: 60 // Minimum distance between circles
   };
 
   // Merge settings

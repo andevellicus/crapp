@@ -102,13 +102,16 @@ export default function Profile() {
   // Load user data on component mount
   React.useEffect(() => {
     if (user) {
-      setFormData({
-        ...prevFormData,
-        first_name: user.first_name || '',
+      // Pass a function that receives the previous state (let's call it 'prevState')
+      // and returns the new state object.
+      setFormData(prevState => ({
+        ...prevState, // Spread the previous state first
+        first_name: user.first_name || '', // Then overwrite specific fields
         last_name: user.last_name || '',
         email: user.email || ''
-      });
-      // No need to check for push support and fetch preferences here anymore
+        // The password fields from 'prevState' are automatically included
+        // because we spread it first.
+      }));
     }
     setIsLoading(false);
   }, [user]);
