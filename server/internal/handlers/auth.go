@@ -85,42 +85,18 @@ func (h *AuthHandler) Register(c *gin.Context) {
 		return
 	}
 
-	// Extract device info
-	userAgent := c.GetHeader("User-Agent")
-	deviceInfo := map[string]any{
-		"user_agent": userAgent,
-		"ip":         c.ClientIP(),
-	}
-
-	// Use Authenticate to handle device registration and token generation
-	authenticatedUser, device, tokenPair, err := h.authService.Authenticate(req.Email, req.Password, deviceInfo)
-	if err != nil {
-		h.log.Errorw("Error authenticating new user", "error", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error authenticating user"})
-		return
-	}
-	// Set cookie for server-side auth
-	if tokenPair != nil {
-		c.SetCookie("auth_token", tokenPair.AccessToken, tokenPair.ExpiresIn, "/", "", true, true)
-	}
-
 	if emailService, exists := c.Get("emailService"); exists && emailService != nil {
-		go emailService.(*services.EmailService).SendWelcomeEmail(authenticatedUser.Email, authenticatedUser.FirstName)
+		go emailService.(*services.EmailService).SendWelcomeEmail(newUser.Email, newUser.FirstName)
 	}
 
 	// Return response with tokens
 	c.JSON(http.StatusCreated, gin.H{
-		"message": "Account created successfully",
+		"message": "Account created successfully. Please log in.",
 		"user": gin.H{
-			"email":      authenticatedUser.Email,
-			"first_name": authenticatedUser.FirstName,
-			"last_name":  authenticatedUser.LastName,
+			"email":      newUser.Email,
+			"first_name": newUser.FirstName,
+			"last_name":  newUser.LastName,
 		},
-		"device_id":     device.ID,
-		"access_token":  tokenPair.AccessToken,
-		"refresh_token": tokenPair.RefreshToken,
-		"expires_in":    tokenPair.ExpiresIn,
-		"token_type":    "Bearer",
 	})
 }
 

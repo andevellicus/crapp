@@ -120,26 +120,12 @@ export default function Register() {
           const errorData = await response.json();
           throw new Error(errorData.error || 'Registration failed');
         }
-        
-        const data = await response.json();
-        
-        // Get device info for login
-        const deviceInfo = {
-          user_agent: navigator.userAgent,
-          screen_width: window.screen.width,
-          screen_height: window.screen.height,
-          device_name: navigator.userAgentData?.platform || navigator.userAgent.match(/\(([^)]+)\)/)?.[1] || 'Unknown Device',
-          device_type: /Mobi|Android/i.test(navigator.userAgent) ? 'mobile' : 'desktop'
-        };
-        
-        // Auto login after registration
-        await login(formData.email, formData.password, deviceInfo);
-        
+               
         // Show success message
-        window.showMessage && window.showMessage('Registration successful! Redirecting...', 'success');
+        window.showMessage && window.showMessage('Registration successful! Please log in.', 'success');
         
-        // Redirect to home page
-        navigate('/');
+        // Redirect to login
+        navigate('/login');
         
       } catch (error) {
         setError(error.message || 'Registration failed. Please try again.');
