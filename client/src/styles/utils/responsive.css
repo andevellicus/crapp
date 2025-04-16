@@ -156,7 +156,7 @@
       border-width: 0 3px 3px 0; /* Checkmark thickness */
       transform: rotate(45deg) translate(-50%, -50%);
       position: absolute;
-      left: 50%;
+      left: 45%;
       top: 45%; /* Fine-tune position */
       opacity: 0; /* Hide by default */
       transition: opacity 0.1s ease-in-out;
