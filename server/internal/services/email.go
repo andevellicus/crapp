@@ -199,7 +199,7 @@ func (s *EmailService) loadEmailTemplates() {
 }
 
 // renderTemplate renders an email template with the provided data
-func (s *EmailService) renderTemplate(templateName string, data interface{}) (string, error) {
+func (s *EmailService) renderTemplate(templateName string, data any) (string, error) {
 	tmpl, exists := s.templates[templateName]
 	if !exists {
 		return "", fmt.Errorf("template %s not found", templateName)
@@ -211,7 +211,7 @@ func (s *EmailService) renderTemplate(templateName string, data interface{}) (st
 	}
 
 	// Load CSS file for inlining
-	cssFile := filepath.Join("client", "src", "styles", "email", "email.css")
+	cssFile := filepath.Join("client", "dist", "css", "email.css")
 	cssContent, err := os.ReadFile(cssFile)
 	if err != nil {
 		s.log.Warnw("Failed to read email CSS file", "error", err)

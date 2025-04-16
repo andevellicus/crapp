@@ -9,8 +9,10 @@ WORKDIR /app
 COPY client/package.json client/package-lock.json* ./
 RUN npm ci
 
-# Copy source files
-COPY client/ ./
+# Copy source files and webpack config
+COPY client/src ./src
+COPY client/public ./public
+COPY client/webpack.config.js ./webpack.config.js
 
 # Build the client
 RUN npm run build

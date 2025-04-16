@@ -64,6 +64,10 @@ module.exports = (env, argv) => {
             globOptions: {
               ignore: ['**/index.html']
             }
+          },
+          {
+            from: path.resolve(__dirname, 'src/styles/email/email.css'),
+            to: path.resolve(__dirname, 'dist/css/email.css'),
           }
         ]
       })
