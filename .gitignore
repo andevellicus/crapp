@@ -29,7 +29,6 @@ Thumbs.db
 # React
 dist
 node_modules
-package-lock.json
 
 # ENV files
 .env
