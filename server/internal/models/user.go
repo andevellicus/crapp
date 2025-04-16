@@ -15,7 +15,7 @@ type User struct {
 	CreatedAt               time.Time `json:"created_at"`
 	LastLogin               time.Time `json:"last_login"`
 	PushSubscription        string    `json:"push_subscription,omitempty" gorm:"type:text"`
-	NotificationPreferences string    `json:"notification_preferences,omitempty" gorm:"type:text"`
+	NotificationPreferences string    `json:"notification_preferences,omitempty" gorm:"type:jsonb"`
 	LastAssessmentDate      time.Time `json:"last_assessment_date,omitempty"`
 
 	// Relationships

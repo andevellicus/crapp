@@ -88,7 +88,7 @@ func (h *AuthHandler) Register(c *gin.Context) {
 	}
 
 	// Create user
-	user := models.User{
+	newUser := &models.User{
 		Email:     req.Email,
 		Password:  hashedPassword,
 		FirstName: req.FirstName,
@@ -99,7 +99,7 @@ func (h *AuthHandler) Register(c *gin.Context) {
 	}
 
 	// Save user to database
-	if err := h.repo.Users.Create(&user); err != nil {
+	if err := h.repo.Users.Create(newUser); err != nil {
 		h.log.Errorw("Error creating user", "error", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error creating user"})
 		return
@@ -112,36 +112,29 @@ func (h *AuthHandler) Register(c *gin.Context) {
 		"ip":         c.ClientIP(),
 	}
 
-	// Register device
-	device, err := h.repo.Devices.RegisterDevice(user.Email, deviceInfo)
+	// Use Authenticate to handle device registration and token generation
+	authenticatedUser, device, tokenPair, err := h.authService.Authenticate(req.Email, req.Password, deviceInfo)
 	if err != nil {
-		h.log.Errorw("Error registering device", "error", err)
+		h.log.Errorw("Error authenticating new user", "error", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error authenticating user"})
 		return
 	}
-
-	// Generate token pair
-	tokenPair, err := h.authService.GenerateTokenPair(user.Email, user.IsAdmin, device.ID)
-	if err != nil {
-		h.log.Errorw("Error generating token pair", "error", err)
-		return
-	}
-
 	// Set cookie for server-side auth
 	if tokenPair != nil {
 		c.SetCookie("auth_token", tokenPair.AccessToken, tokenPair.ExpiresIn, "/", "", true, true)
 	}
 
 	if emailService, exists := c.Get("emailService"); exists && emailService != nil {
-		go emailService.(*services.EmailService).SendWelcomeEmail(user.Email, user.FirstName)
+		go emailService.(*services.EmailService).SendWelcomeEmail(authenticatedUser.Email, authenticatedUser.FirstName)
 	}
 
 	// Return response with tokens
 	c.JSON(http.StatusCreated, gin.H{
 		"message": "Account created successfully",
 		"user": gin.H{
-			"email":      user.Email,
-			"first_name": user.FirstName,
-			"last_name":  user.LastName,
+			"email":      authenticatedUser.Email,
+			"first_name": authenticatedUser.FirstName,
+			"last_name":  authenticatedUser.LastName,
 		},
 		"device_id":     device.ID,
 		"access_token":  tokenPair.AccessToken,

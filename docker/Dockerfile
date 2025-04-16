@@ -62,7 +62,6 @@ RUN mkdir -p /app/logs /app/certs
 COPY --from=client-builder /app/dist/ /app/client/dist/
 COPY client/public/templates/ /app/client/public/templates/
 COPY client/public/icons/ /app/client/public/icons/
-COPY client/public/css/ /app/client/public/css/
 COPY client/public/manifest.json /app/client/public/manifest.json
 COPY client/public/service-worker.js /app/client/public/service-worker.js
 

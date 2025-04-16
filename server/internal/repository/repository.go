@@ -105,9 +105,9 @@ func setupDatabase(cfg *config.Config) (*gorm.DB, error) {
 	db.Exec("CREATE INDEX IF NOT EXISTS idx_form_states_answers ON form_states USING GIN (answers)")
 
 	// For text stored as JSON, we need to cast to jsonb first
-	db.Exec("CREATE INDEX IF NOT EXISTS idx_user_notification_prefs ON users ((notification_preferences::jsonb)) WHERE notification_preferences IS NOT NULL")
 	db.Exec("CREATE INDEX IF NOT EXISTS idx_user_notification_email ON users((notification_preferences->>'email_enabled')) WHERE notification_preferences IS NOT NULL")
 	db.Exec("CREATE INDEX IF NOT EXISTS idx_user_notification_push ON users((notification_preferences->>'push_enabled')) WHERE notification_preferences IS NOT NULL")
+	db.Exec("CREATE INDEX IF NOT EXISTS idx_user_notification_gin ON users USING GIN (notification_preferences) WHERE notification_preferences IS NOT NULL")
 
 	// Add composite indexes for common query patterns
 	db.Exec("CREATE INDEX IF NOT EXISTS idx_metrics_query ON assessment_metrics(assessment_id, question_id, metric_key)")

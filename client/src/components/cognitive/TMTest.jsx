@@ -61,11 +61,15 @@ const TMTest = ({ onTestEnd, onTestStart, settings, questionId }) => {
       const windowHeight = window.innerHeight;
       
       // Calculate optimal size (smaller on mobile)
-      const maxWidth = isMobileDevice() ? Math.min(containerWidth - 20, 320) : Math.min(containerWidth - 40, 800);
+      const maxWidth = isMobileDevice() 
+        ? Math.min(containerWidth - 20, 320) 
+        : Math.min(containerWidth - 40, 800);
       
       // Maintain aspect ratio
       const aspectRatio = 3/4; // height/width ratio
-      const height = Math.min(maxWidth * aspectRatio, windowHeight * 0.5);
+      const height = isMobileDevice() 
+        ? Math.min(maxWidth, windowHeight) 
+        : Math.min(maxWidth * aspectRatio, windowHeight * 0.5);
       
       // Set size and mark as fixed
       setCanvasSize({ 
@@ -124,7 +128,11 @@ const TMTest = ({ onTestEnd, onTestStart, settings, questionId }) => {
   // Generate test items (circles with numbers/letters)
   const generateItems = () => {
     const newItems = [];
-    const padding = 50; // Padding from edges
+    const radius = isMobileDevice ? 15 : 20;
+    const minDistance = radius * 3; // Minimum distance between circles (3x radius)
+    const padding = minDistance; // Padding from edges
+    const maxAttempts = 100; // Maximum attempts to find a non-overlapping position
+
     // Determine number of items based on part and settings
     let numItems;
     if (currentPart === 'Practice') {
@@ -134,8 +142,6 @@ const TMTest = ({ onTestEnd, onTestStart, settings, questionId }) => {
     } else {
       numItems = testSettings.partBItems; // Use configurable setting
     }
-    const minDistance = 60; // Minimum distance between circles (2x radius + some extra space)
-    const maxAttempts = 100; // Maximum attempts to find a non-overlapping position
     
     for (let i = 1; i <= numItems; i++) {
       let label;
@@ -222,7 +228,7 @@ const TMTest = ({ onTestEnd, onTestStart, settings, questionId }) => {
         label,
         x,
         y,
-        radius: 20,
+        radius: radius,
         connected: false
       });
     }

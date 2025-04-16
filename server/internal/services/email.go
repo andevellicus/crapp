@@ -211,7 +211,7 @@ func (s *EmailService) renderTemplate(templateName string, data interface{}) (st
 	}
 
 	// Load CSS file for inlining
-	cssFile := filepath.Join("client", "public", "css", "email.css")
+	cssFile := filepath.Join("client", "src", "styles", "email", "email.css")
 	cssContent, err := os.ReadFile(cssFile)
 	if err != nil {
 		s.log.Warnw("Failed to read email CSS file", "error", err)
