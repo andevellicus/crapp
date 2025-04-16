@@ -110,7 +110,6 @@ func main() {
 	formHandler := handlers.NewFormHandler(repo, log, questionLoader)
 	// Create admin handler
 	adminHandler := handlers.NewAdminHandler(repo, log, pushService, emailService)
-
 	// Initialize Push handler
 	pushHandler := handlers.NewPushHandler(repo, log, pushService, reminderScheduler)
 

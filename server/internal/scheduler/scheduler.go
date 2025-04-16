@@ -87,8 +87,6 @@ func (s *ReminderScheduler) Stop() {
 		timer.Stop()
 		delete(s.jobs, key)
 	}
-
-	s.log.Info("Stopped all reminders")
 }
 
 // UpdateSchedules refreshes all scheduled reminders
