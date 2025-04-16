@@ -126,6 +126,57 @@
       position: relative;
       z-index: 1;
     }
+
+    input[type="checkbox"] {
+      background-color: var(--form-bg); /* Or your desired background */
+      border: 1px solid var(--border-color);
+      padding: 0; /* Reset padding */
+      border-radius: var(--border-radius);
+      display: inline-block;
+      position: relative;
+      cursor: pointer;
+  
+      /* Match sizes from form.css mobile rules if desired */
+      width: 22px;
+      height: 22px;
+      min-width: 22px;
+      min-height: 22px;
+      margin-right: var(--spacing-sm); /* Adjust spacing */
+      flex-shrink: 0; /* Prevent shrinking in flex containers */
+      vertical-align: middle; /* Align with text */
+    }
+  
+    /* Style for the custom checkmark using ::after */
+    input[type="checkbox"]::after {
+      content: '';
+      display: block;
+      width: 5px;  /* Adjust size of checkmark */
+      height: 10px; /* Adjust size of checkmark */
+      border: solid white; /* Checkmark color */
+      border-width: 0 3px 3px 0; /* Checkmark thickness */
+      transform: rotate(45deg) translate(-50%, -50%);
+      position: absolute;
+      left: 50%;
+      top: 45%; /* Fine-tune position */
+      opacity: 0; /* Hide by default */
+      transition: opacity 0.1s ease-in-out;
+    }
+  
+    /* Show the checkmark when the input is checked */
+    input[type="checkbox"]:checked {
+      background-color: var(--primary-color); /* Checked background color */
+      border-color: var(--primary-color);
+    }
+  
+    input[type="checkbox"]:checked::after {
+      opacity: 1; /* Show checkmark */
+    }
+  
+    /* Optional: Focus styles (if needed within this block) */
+    input[type="checkbox"]:focus {
+      outline: none;
+      box-shadow: 0 0 0 2px rgba(74, 111, 165, 0.2); /* Example focus ring */
+    }
   }
   
   /* High DPI screens adjustments */
