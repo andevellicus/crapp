@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { AuthProvider, useAuth } from '../../context/AuthContext';
+import { useAuth } from '../../context/AuthContext';
 import CPTest from '../cognitive/CPTest';
 import TMTest from '../cognitive/TMTest';
 import api from '../../services/api';
@@ -288,25 +288,7 @@ export default function Form() {
     } finally {
       setIsSubmitting(false);
     }
-  };
-  
-  // Show message
-  const showMessage = (message, type) => {
-    const messageDiv = document.getElementById('message');
-    if (!messageDiv) return;
-    
-    messageDiv.textContent = message;
-    messageDiv.className = `message ${type}`;
-    messageDiv.style.display = 'block';
-    
-    // Auto-hide success messages
-    if (type === 'success') {
-      setTimeout(() => {
-        messageDiv.style.display = 'none';
-      }, 5000);
-    }
-  };
-  
+  }; 
 
   // Reset form
   const resetForm = () => {

@@ -49,40 +49,6 @@ func AuthMiddleware(authService *services.AuthService) gin.HandlerFunc {
 	}
 }
 
-// AuthRedirectMiddleware redirects logged out users to login page
-// This is useful for index page, where we want logged out users to be redirected
-func AuthRedirectMiddleware(authService *services.AuthService) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		// Check for auth token in cookie
-		token, err := c.Cookie("auth_token")
-
-		// If no token is found, redirect to login
-		if err != nil || token == "" {
-			c.Redirect(http.StatusFound, "/login")
-			c.Abort()
-			return
-		}
-
-		// Validate token
-		claims, err := authService.ValidateToken(token)
-		if err != nil || claims == nil {
-			// Clear invalid token cookie
-			c.SetCookie("auth_token", "", -1, "/", "", true, true)
-
-			c.Redirect(http.StatusFound, "/login")
-			c.Abort()
-			return
-		}
-
-		// If token is valid, set user info in context
-		c.Set("userEmail", claims.Email)
-		c.Set("isAdmin", claims.IsAdmin)
-		c.Set("tokenID", claims.TokenID) // Store token ID for revocation
-
-		c.Next()
-	}
-}
-
 // AdminMiddleware ensures the user is an admin
 func AdminMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {

@@ -8,14 +8,6 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-// UserUpdateRequest represents a user profile update request
-type UserUpdateRequest struct {
-	FirstName       string `json:"first_name"`
-	LastName        string `json:"last_name"`
-	CurrentPassword string `json:"current_password,omitempty"`
-	NewPassword     string `json:"new_password,omitempty"`
-}
-
 // GetCurrentUser returns the current user's information
 func (h *AuthHandler) GetCurrentUser(c *gin.Context) {
 	// Get user email from context (set by auth middleware)

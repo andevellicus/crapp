@@ -21,26 +21,6 @@ type AuthHandler struct {
 	authService *services.AuthService
 }
 
-// RegisterRequest represents a user registration request
-type RegisterRequest struct {
-	Email     string `json:"email" binding:"required,email"`
-	Password  string `json:"password" binding:"required,min=8"`
-	FirstName string `json:"first_name"`
-	LastName  string `json:"last_name"`
-}
-
-// LoginRequest represents a user login request
-type LoginRequest struct {
-	Email      string         `json:"email" binding:"required,email"`
-	Password   string         `json:"password" binding:"required"`
-	DeviceInfo map[string]any `json:"device_info"`
-}
-
-// RefreshTokenRequest represents a request to refresh an access token
-type RefreshTokenRequest struct {
-	RefreshToken string `json:"refresh_token" binding:"required"`
-}
-
 // AuthResponse represents the response for login/register
 type AuthResponse struct {
 	Token        string      `json:"token"`

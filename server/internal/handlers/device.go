@@ -7,25 +7,6 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// RegisterDeviceRequest represents a device registration request
-type RegisterDeviceRequest struct {
-	DeviceName string         `json:"device_name"`
-	DeviceType string         `json:"device_type"`
-	UserAgent  string         `json:"user_agent"`
-	OS         string         `json:"os"`
-	ScreenSize map[string]any `json:"screen_size"`
-}
-
-// RenameDeviceRequest represents a device rename request
-type RenameDeviceRequest struct {
-	DeviceName string `json:"device_name" binding:"required"`
-}
-
-// DeleteDeviceRequest represents a device deletion request
-type DeleteDeviceRequest struct {
-	DeviceID string `json:"device_id" binding:"required"`
-}
-
 // GetUserDevices returns all devices for the authenticated user
 func (h *AuthHandler) GetUserDevices(c *gin.Context) {
 	// Get user email from context

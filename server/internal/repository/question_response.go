@@ -82,24 +82,3 @@ func (r *QuestionResponseRepository) GetByAssessment(assessmentID uint) ([]model
 	}
 	return responses, nil
 }
-
-// GetByQuestionAndUser gets all responses to a specific question by a user
-func (r *QuestionResponseRepository) GetByQuestionAndUser(questionID, userEmail string) ([]models.QuestionResponse, error) {
-	var responses []models.QuestionResponse
-
-	// Join with assessment table to filter by user email
-	err := r.db.Joins("JOIN assessments ON question_responses.assessment_id = assessments.id").
-		Where("question_responses.question_id = ? AND assessments.user_email = ?",
-			questionID, userEmail).
-		Find(&responses).Error
-
-	if err != nil {
-		r.log.Errorw("Error retrieving question responses",
-			"error", err,
-			"question_id", questionID,
-			"user_email", userEmail)
-		return nil, err
-	}
-
-	return responses, nil
-}
