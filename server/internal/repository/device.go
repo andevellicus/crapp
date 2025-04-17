@@ -150,6 +150,11 @@ func (r *DeviceRepository) GetUserDevices(userEmail string) ([]models.Device, er
 func (r *DeviceRepository) RegisterDevice(userEmail string, deviceInfo map[string]any) (*models.Device, error) {
 	// Generate device ID if not provided
 	var deviceID string
+
+	if deviceInfo == nil {
+		deviceInfo = make(map[string]any)
+	}
+
 	// Check if an ID is already provided
 	if id, ok := deviceInfo["id"].(string); ok && id != "" {
 		deviceID = id
@@ -169,19 +174,21 @@ func (r *DeviceRepository) RegisterDevice(userEmail string, deviceInfo map[strin
 	browser, _ := deviceInfo["user_agent"].(string)
 	os, _ := deviceInfo["os"].(string)
 
-	if os == "" {
-		userAgent := strings.ToLower(deviceInfo["user_agent"].(string))
+	if os == "" && deviceInfo["user_agent"] != nil {
+		if userAgent, ok := deviceInfo["user_agent"].(string); ok && userAgent != "" {
+			userAgentLower := strings.ToLower(userAgent)
 
-		if strings.Contains(userAgent, "windows") {
-			os = "Windows"
-		} else if strings.Contains(userAgent, "mac") || strings.Contains(userAgent, "darwin") {
-			os = "macOS"
-		} else if strings.Contains(userAgent, "linux") {
-			os = "Linux"
-		} else if strings.Contains(userAgent, "android") {
-			os = "Android"
-		} else if strings.Contains(userAgent, "ios") || strings.Contains(userAgent, "iphone") || strings.Contains(userAgent, "ipad") {
-			os = "iOS"
+			if strings.Contains(userAgentLower, "windows") {
+				os = "Windows"
+			} else if strings.Contains(userAgentLower, "mac") || strings.Contains(userAgentLower, "darwin") {
+				os = "macOS"
+			} else if strings.Contains(userAgentLower, "linux") {
+				os = "Linux"
+			} else if strings.Contains(userAgentLower, "android") {
+				os = "Android"
+			} else if strings.Contains(userAgentLower, "ios") || strings.Contains(userAgentLower, "iphone") || strings.Contains(userAgentLower, "ipad") {
+				os = "iOS"
+			}
 		}
 	}
 
