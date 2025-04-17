@@ -128,7 +128,7 @@
     }
 
     input[type="checkbox"] {
-      background-color: var(--form-bg); /* Or your desired background */
+      background-color: var(--form-bg);
       border: 1px solid var(--border-color);
       padding: 0; /* Reset padding */
       border-radius: var(--border-radius);
@@ -156,7 +156,7 @@
       border-width: 0 3px 3px 0; /* Checkmark thickness */
       transform: rotate(45deg) translate(-50%, -50%);
       position: absolute;
-      left: 45%;
+      left: 25%;
       top: 45%; /* Fine-tune position */
       opacity: 0; /* Hide by default */
       transition: opacity 0.1s ease-in-out;

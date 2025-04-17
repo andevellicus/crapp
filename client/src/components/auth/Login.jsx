@@ -97,6 +97,7 @@ const Login = () => {
       
       // If login succeeds, the useEffect will handle redirection
     } catch (error) {
+      console.error('Login API Error Details:', error); 
       // Handle login error
       if (error.data?.details) {
         // Field-specific errors
