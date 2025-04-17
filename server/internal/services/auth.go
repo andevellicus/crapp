@@ -266,7 +266,6 @@ func (s *AuthService) ValidateToken(tokenString string) (*CustomClaims, error) {
 	isRevoked, err := s.repo.RevokedTokens.IsTokenRevoked(claims.TokenID)
 	if err != nil {
 		// Log DB error but treat as potentially revoked for security
-		// s.log.Errorw("Failed to check token revocation status", "error", err, "token_id", claims.TokenID)
 		fmt.Printf("Error checking token revocation for %s: %v\n", claims.TokenID, err)
 		return nil, fmt.Errorf("failed to verify token status")
 	}
