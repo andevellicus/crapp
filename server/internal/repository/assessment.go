@@ -2,6 +2,7 @@ package repository
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/andevellicus/crapp/internal/models"
@@ -39,25 +40,26 @@ func NewAssessmentRepository(db *gorm.DB, log *zap.SugaredLogger, userRepo *User
 }
 
 // CreateAssessment creates a new assessment with structured data
-func (r *AssessmentRepository) Create(userEmail string, deviceID string) (uint, error) {
+func (r *AssessmentRepository) Create(email string, deviceID string) (uint, error) {
+	normalizedEmail := strings.ToLower(email)
 	log := r.log.With(
 		"operation", "CreateAssessment",
-		"userEmail", userEmail,
+		"userEmail", normalizedEmail,
 		"deviceID", deviceID,
 	)
 
 	// Check if user exists using the User repository
-	exists, err := r.userRepo.UserExists(userEmail)
+	exists, err := r.userRepo.UserExists(normalizedEmail)
 	if err != nil {
 		return 0, fmt.Errorf("error checking user: %w", err)
 	}
 	if !exists {
-		return 0, fmt.Errorf("user not found: %s", userEmail)
+		return 0, fmt.Errorf("user not found: %s", normalizedEmail)
 	}
 
 	// Check if device exists and belongs to user
 	var device models.Device
-	result := r.db.Where("id = ? AND user_email = ?", deviceID, userEmail).First(&device)
+	result := r.db.Where("id = ? AND LOWER(user_email) = ?", deviceID, normalizedEmail).First(&device)
 	if result.Error != nil {
 		log.Errorw("Database error finding device", "error", result.Error)
 		return 0, fmt.Errorf("device not found or doesn't belong to user: %w", result.Error)
@@ -68,7 +70,7 @@ func (r *AssessmentRepository) Create(userEmail string, deviceID string) (uint, 
 	r.db.Save(&device)
 
 	assessment := &models.Assessment{
-		UserEmail:   userEmail,
+		UserEmail:   normalizedEmail,
 		DeviceID:    deviceID,
 		SubmittedAt: time.Now(),
 	}
@@ -94,7 +96,7 @@ func (r *AssessmentRepository) GetMetricsCorrelation(userID, symptomKey, metricK
 			JOIN question_responses qr ON a.id = qr.assessment_id
 			JOIN assessment_metrics am ON a.id = am.assessment_id AND am.question_id = qr.question_id
 		WHERE 
-			a.user_email = $1
+			LOWER(a.user_email) = $1
 			AND qr.question_id = $2
 			AND am.metric_key = $3
     `
@@ -122,7 +124,7 @@ func (r *AssessmentRepository) GetMetricsTimeline(userID, symptomKey, metricKey 
             JOIN question_responses qr ON a.id = qr.assessment_id
             JOIN assessment_metrics am ON a.id = am.assessment_id AND am.question_id = qr.question_id
         WHERE 
-            a.user_email = $1
+            LOWER(a.user_email) = $1
             AND qr.question_id = $2
             AND am.metric_key = $3
         ORDER BY am.created_at ASC

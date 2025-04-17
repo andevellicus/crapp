@@ -4,6 +4,7 @@ package services
 import (
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/andevellicus/crapp/internal/config"
@@ -68,7 +69,8 @@ func (s *AuthService) GetCookieConfig() CookieConfig {
 
 // Authenticate validates credentials and returns user with session
 func (s *AuthService) Authenticate(email, password string, deviceInfo map[string]any) (*models.User, *models.Device, *TokenPair, error) {
-	exists, err := s.repo.Users.UserExists(email)
+	normalizedEmail := strings.ToLower(email)
+	exists, err := s.repo.Users.UserExists(normalizedEmail)
 	if err != nil {
 		return nil, nil, nil, err
 	}
@@ -78,7 +80,7 @@ func (s *AuthService) Authenticate(email, password string, deviceInfo map[string
 	}
 
 	// Get user
-	user, err := s.repo.Users.GetByEmail(email)
+	user, err := s.repo.Users.GetByEmail(normalizedEmail)
 	if err != nil {
 		return nil, nil, nil, err
 	}
@@ -95,19 +97,19 @@ func (s *AuthService) Authenticate(email, password string, deviceInfo map[string
 	}
 
 	// Register device
-	device, err := s.repo.Devices.RegisterDevice(email, deviceInfo)
+	device, err := s.repo.Devices.RegisterDevice(normalizedEmail, deviceInfo)
 	if err != nil {
 		return nil, nil, nil, err
 	}
 
 	// Generate token pair
-	tokenPair, err := s.GenerateTokenPair(email, user.IsAdmin, device.ID)
+	tokenPair, err := s.GenerateTokenPair(normalizedEmail, user.IsAdmin, device.ID)
 	if err != nil {
 		return nil, nil, nil, err
 	}
 
 	// Update last login time
-	if err := s.repo.Users.LastLoginNow(email); err != nil {
+	if err := s.repo.Users.LastLoginNow(normalizedEmail); err != nil {
 		return nil, nil, nil, err
 	}
 
@@ -116,11 +118,12 @@ func (s *AuthService) Authenticate(email, password string, deviceInfo map[string
 
 // GenerateTokenPair creates a new JWT access token and refresh token
 func (s *AuthService) GenerateTokenPair(email string, isAdmin bool, deviceID string) (*TokenPair, error) {
+	normalizedEmail := strings.ToLower(email)
 	// Create a token ID (jti)
 	tokenID := uuid.New().String()
 
 	// Generate access token
-	accessToken, err := s.generateAccessToken(email, isAdmin, tokenID)
+	accessToken, err := s.generateAccessToken(normalizedEmail, isAdmin, tokenID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate access token: %w", err)
 	}
@@ -131,7 +134,7 @@ func (s *AuthService) GenerateTokenPair(email string, isAdmin bool, deviceID str
 	// Store refresh token in database
 	refreshTokenModel := &models.RefreshToken{
 		Token:     refreshToken,
-		UserEmail: email,
+		UserEmail: normalizedEmail,
 		DeviceID:  deviceID,
 		TokenID:   tokenID,
 		ExpiresAt: time.Now().Add(s.refreshTokenTTL),

@@ -511,7 +511,7 @@ func (h *FormHandler) SubmitForm(c *gin.Context) {
 
 		// Set last assessment completed time to now
 		if err := tx.Model(&models.User{}).
-			Where("email = ?", userEmail.(string)).
+			Where("LOWER(email) = ?", userEmail.(string)).
 			Update("last_assessment_date", time.Now()).Error; err != nil {
 			return err
 		}

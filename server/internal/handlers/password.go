@@ -3,6 +3,7 @@ package handlers
 
 import (
 	"net/http"
+	"strings"
 
 	"github.com/andevellicus/crapp/internal/services"
 	"github.com/andevellicus/crapp/internal/validation"
@@ -13,11 +14,12 @@ import (
 func (h *AuthHandler) ForgotPassword(c *gin.Context) {
 	req := c.MustGet("validatedRequest").(*validation.ForgotPasswordRequest)
 
+	email := strings.ToLower(req.Email)
 	// Generate reset token
-	token, err := h.authService.GeneratePasswordResetToken(req.Email)
+	token, err := h.authService.GeneratePasswordResetToken(email)
 	if err != nil {
 		// Don't expose whether the email exists or not for security
-		h.log.Warnw("Failed to generate reset token", "error", err, "email", req.Email)
+		h.log.Warnw("Failed to generate reset token", "error", err, "email", email)
 		c.JSON(http.StatusOK, gin.H{"message": "If your email is registered, you will receive a password reset link"})
 		return
 	}
@@ -25,13 +27,13 @@ func (h *AuthHandler) ForgotPassword(c *gin.Context) {
 	// Send email
 	emailService, exists := c.Get("emailService")
 	if !exists || emailService == nil {
-		h.log.Errorw("Email service not available", "email", req.Email)
+		h.log.Errorw("Email service not available", "email", email)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Email service not available"})
 		return
 	}
 
-	if err := emailService.(*services.EmailService).SendPasswordResetEmail(req.Email, token); err != nil {
-		h.log.Errorw("Failed to send password reset email", "error", err, "email", req.Email)
+	if err := emailService.(*services.EmailService).SendPasswordResetEmail(email, token); err != nil {
+		h.log.Errorw("Failed to send password reset email", "error", err, "email", email)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to send reset email"})
 		return
 	}

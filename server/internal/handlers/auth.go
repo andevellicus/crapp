@@ -3,6 +3,7 @@ package handlers
 
 import (
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/andevellicus/crapp/internal/models"
@@ -46,8 +47,10 @@ func (h *AuthHandler) Register(c *gin.Context) {
 	// Get validated data from context
 	req := c.MustGet("validatedRequest").(*validation.RegisterRequest)
 
+	email := strings.ToLower(req.Email)
+
 	// Check if user already exists
-	exists, err := h.repo.Users.UserExists(req.Email)
+	exists, err := h.repo.Users.UserExists(email)
 	if err != nil {
 		h.log.Errorw("Error checking user existence", "error", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal server error"})
@@ -69,7 +72,7 @@ func (h *AuthHandler) Register(c *gin.Context) {
 
 	// Create user
 	newUser := &models.User{
-		Email:     req.Email,
+		Email:     email,
 		Password:  hashedPassword,
 		FirstName: req.FirstName,
 		LastName:  req.LastName,
@@ -104,14 +107,24 @@ func (h *AuthHandler) Register(c *gin.Context) {
 func (h *AuthHandler) Login(c *gin.Context) {
 	req := c.MustGet("validatedRequest").(*validation.LoginRequest)
 
-	user, device, tokenPair, err := h.authService.Authenticate(req.Email, req.Password, req.DeviceInfo)
+	email := strings.ToLower(req.Email)
+
+	user, device, tokenPair, err := h.authService.Authenticate(email, req.Password, req.DeviceInfo)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid email or password"})
-		h.log.Warnw("Error during authentication", "error", err, "email", req.Email)
+		h.log.Warnw("Error during authentication", "error", err, "email", email)
 		return
 	}
 	if user == nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "User does not exist"})
+		return
+	}
+	if device == nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Error registering device"})
+		return
+	}
+	if tokenPair == nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Error generating token pair"})
 		return
 	}
 

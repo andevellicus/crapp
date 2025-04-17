@@ -3,6 +3,7 @@ package repository
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/andevellicus/crapp/internal/config"
@@ -79,7 +80,7 @@ func (r *UserRepository) UpdateUserName(user *models.User) error {
 
 	// Perform update, excluding password field
 	result := r.db.Model(&models.User{}).
-		Where("email = ?", user.Email).
+		Where("LOWER(email) = ?", user.Email).
 		Updates(map[string]any{
 			"first_name": user.FirstName,
 			"last_name":  user.LastName,
@@ -94,13 +95,14 @@ func (r *UserRepository) UpdateUserName(user *models.User) error {
 }
 
 func (r *UserRepository) LastAssessmentNow(email string) error {
+	normalizedEmail := strings.ToLower(email)
 	result := r.db.Model(&models.User{}).
-		Where("email = ?", email).
+		Where("LOWER(email) = ?", normalizedEmail).
 		Updates(map[string]any{
 			"last_assessment_date": time.Now(),
 		})
 	if result.Error != nil {
-		r.log.Errorw("Database error updating last assessment date", "email", email, "error", result.Error)
+		r.log.Errorw("Database error updating last assessment date", "email", normalizedEmail, "error", result.Error)
 		return fmt.Errorf("failed to update user: %w", result.Error)
 	}
 
@@ -108,13 +110,14 @@ func (r *UserRepository) LastAssessmentNow(email string) error {
 }
 
 func (r *UserRepository) LastLoginNow(email string) error {
+	normalizedEmail := strings.ToLower(email)
 	result := r.db.Model(&models.User{}).
-		Where("email = ?", email).
+		Where("LOWER(email) = ?", normalizedEmail).
 		Updates(map[string]any{
 			"last_login": time.Now(),
 		})
 	if result.Error != nil {
-		r.log.Errorw("Database error updating last login date", "email", email, "error", result.Error)
+		r.log.Errorw("Database error updating last login date", "email", normalizedEmail, "error", result.Error)
 		return fmt.Errorf("failed to update user: %w", result.Error)
 	}
 
@@ -130,7 +133,7 @@ func (r *UserRepository) Delete(email string) error {
 
 	// Find assessment IDs for the user first
 	var assessmentIDs []uint
-	if err := tx.Model(&models.Assessment{}).Where("user_email = ?", email).Pluck("id", &assessmentIDs).Error; err != nil {
+	if err := tx.Model(&models.Assessment{}).Where("LOWER(user_email) = ?", email).Pluck("id", &assessmentIDs).Error; err != nil {
 		tx.Rollback()
 		return fmt.Errorf("error finding assessments for user %s: %w", email, err)
 	}
@@ -162,7 +165,7 @@ func (r *UserRepository) Delete(email string) error {
 		}
 
 		// Delete form states
-		if err := tx.Delete(&models.FormState{}, "user_email = ?", email).Error; err != nil {
+		if err := tx.Delete(&models.FormState{}, "LOWER(user_email)  = ?", email).Error; err != nil {
 			tx.Rollback()
 			return fmt.Errorf("error deleting form states: %w", err)
 		}
@@ -175,38 +178,38 @@ func (r *UserRepository) Delete(email string) error {
 	} else {
 		// If there were no assessments, still need to delete any dangling form states
 		// (e.g., states that were started but never submitted/linked)
-		if err := tx.Where("user_email = ? AND assessment_id IS NULL", email).Delete(&models.FormState{}).Error; err != nil {
+		if err := tx.Where("LOWER(user_email)  = ? AND assessment_id IS NULL", email).Delete(&models.FormState{}).Error; err != nil {
 			tx.Rollback()
 			return fmt.Errorf("error deleting dangling form states: %w", err)
 		}
 	}
 
 	// Delete refresh tokens
-	if err := tx.Delete(&models.RefreshToken{}, "user_email = ?", email).Error; err != nil {
+	if err := tx.Delete(&models.RefreshToken{}, "LOWER(user_email)  = ?", email).Error; err != nil {
 		tx.Rollback()
 		return fmt.Errorf("error deleting refresh tokens: %w", err)
 	}
 
 	// Delete revoked tokens
-	if err := tx.Delete(&models.RevokedToken{}, "user_email = ?", email).Error; err != nil {
+	if err := tx.Delete(&models.RevokedToken{}, "LOWER(user_email)  = ?", email).Error; err != nil {
 		tx.Rollback()
 		return fmt.Errorf("error deleting revoked tokens: %w", err)
 	}
 
 	// Delete password reset tokens
-	if err := tx.Delete(&models.PasswordResetToken{}, "user_email = ?", email).Error; err != nil {
+	if err := tx.Delete(&models.PasswordResetToken{}, "LOWER(user_email)  = ?", email).Error; err != nil {
 		tx.Rollback()
 		return fmt.Errorf("error deleting password reset tokens: %w", err)
 	}
 
 	// Delete devices
-	if err := tx.Delete(&models.Device{}, "user_email = ?", email).Error; err != nil {
+	if err := tx.Delete(&models.Device{}, "LOWER(user_email)  = ?", email).Error; err != nil {
 		tx.Rollback()
 		return fmt.Errorf("error deleting devices: %w", err)
 	}
 
 	// Finally, delete the user
-	if err := tx.Delete(&models.User{}, "email = ?", email).Error; err != nil {
+	if err := tx.Delete(&models.User{}, "LOWER(user_email)  = ?", email).Error; err != nil {
 		tx.Rollback()
 		return fmt.Errorf("error deleting user: %w", err)
 	}
@@ -221,13 +224,15 @@ func (r *UserRepository) GetByEmail(email string) (*models.User, error) {
 		return nil, fmt.Errorf("email cannot be empty")
 	}
 
+	normalizedEmail := strings.ToLower(email)
+
 	var user models.User
-	result := r.getUserStmt.Where("email = ?", email).First(&user)
+	result := r.getUserStmt.Where("LOWER(email) = ?", normalizedEmail).First(&user)
 	if result.Error != nil {
 		if result.Error == gorm.ErrRecordNotFound {
 			return nil, nil
 		}
-		r.log.Errorw("Database error getting user by email", "email", email, "error", result.Error)
+		r.log.Errorw("Database error getting user by email", "email", normalizedEmail, "error", result.Error)
 		return nil, result.Error
 	}
 	return &user, nil
@@ -235,10 +240,12 @@ func (r *UserRepository) GetByEmail(email string) (*models.User, error) {
 
 // UserExists checks if a user with the given email exists
 func (r *UserRepository) UserExists(email string) (bool, error) {
+	normalizedEmail := strings.ToLower(email)
+
 	var count int64
-	result := r.db.Model(&models.User{}).Where("email = ?", email).Count(&count)
+	result := r.db.Model(&models.User{}).Where("LOWER(email) = ?", normalizedEmail).Count(&count)
 	if result.Error != nil {
-		r.log.Errorw("Database error checking user existence", "email", email, "error", result.Error)
+		r.log.Errorw("Database error checking user existence", "email", normalizedEmail, "error", result.Error)
 		return false, result.Error
 	}
 	return count > 0, nil
@@ -246,33 +253,36 @@ func (r *UserRepository) UserExists(email string) (bool, error) {
 
 // UpdatePassword updates a user's password
 func (r *UserRepository) UpdatePassword(email string, hashedPassword []byte) error {
+	normalizedEmail := strings.ToLower(email)
 	result := r.db.Model(&models.User{}).
-		Where("email = ?", email).
+		Where("LOWER(email) = ?", normalizedEmail).
 		Update("password", hashedPassword)
 	if result.Error != nil {
-		r.log.Errorw("Database error updating user password", "email", email, "error", result.Error)
+		r.log.Errorw("Database error updating user password", "email", normalizedEmail, "error", result.Error)
 		return result.Error
 	}
 	return nil
 }
 
 // Check if user has already completed assessment for today
-func (r *UserRepository) HasCompletedAssessment(userEmail string) (bool, error) {
+func (r *UserRepository) HasCompletedAssessment(email string) (bool, error) {
+	normalizedEmail := strings.ToLower(email)
 	var count int64
 	today := time.Now().Truncate(24 * time.Hour).Format("2006-01-02") // Start of today
 
 	err := r.db.Model(&models.User{}).
-		Where("email = ? AND last_assessment_date >= ?", userEmail, today).
+		Where("LOWER(email) = ? AND last_assessment_date >= ?", normalizedEmail, today).
 		Count(&count).Error
 
 	return count > 0, err
 }
 
 // SavePushSubscription saves a push subscription for a user
-func (r *UserRepository) SavePushSubscription(userEmail string, subscription string) error {
+func (r *UserRepository) SavePushSubscription(email string, subscription string) error {
+	normalizedEmail := strings.ToLower(email)
 	// Update user record with push subscription
 	var user models.User
-	if err := r.db.Where("email = ?", userEmail).First(&user).Error; err != nil {
+	if err := r.db.Where("LOWER(email) = ?", normalizedEmail).First(&user).Error; err != nil {
 		return err
 	}
 
@@ -285,7 +295,8 @@ func (r *UserRepository) SavePushSubscription(userEmail string, subscription str
 }
 
 // SaveNotificationPreferences saves a user's complete notification preferences
-func (r *UserRepository) SaveNotificationPreferences(userEmail string, preferences *UserNotificationPreferences) error {
+func (r *UserRepository) SaveNotificationPreferences(email string, preferences *UserNotificationPreferences) error {
+	normalizedEmail := strings.ToLower(email)
 	// Convert preferences to JSON
 	preferencesJSON, err := json.Marshal(preferences)
 	if err != nil {
@@ -293,13 +304,13 @@ func (r *UserRepository) SaveNotificationPreferences(userEmail string, preferenc
 	}
 
 	result := r.db.Model(&models.User{}).
-		Where("email = ?", userEmail).
+		Where("LOWER(email) = ?", normalizedEmail).
 		Update("notification_preferences", string(preferencesJSON))
 
 	if result.Error != nil {
 		r.log.Errorw("Failed to update notification preferences",
 			"error", result.Error,
-			"email", userEmail)
+			"email", normalizedEmail)
 		return result.Error
 	}
 
@@ -307,9 +318,10 @@ func (r *UserRepository) SaveNotificationPreferences(userEmail string, preferenc
 }
 
 // GetPushSubscription gets a user's push subscription
-func (r *UserRepository) GetPushSubscription(userEmail string) (string, error) {
+func (r *UserRepository) GetPushSubscription(email string) (string, error) {
+	normalizedEmail := strings.ToLower(email)
 	var user models.User
-	if err := r.db.Where("email = ?", userEmail).First(&user).Error; err != nil {
+	if err := r.db.Where("LOWER(email) = ?", normalizedEmail).First(&user).Error; err != nil {
 		return "", err
 	}
 
@@ -317,9 +329,10 @@ func (r *UserRepository) GetPushSubscription(userEmail string) (string, error) {
 }
 
 // GetPushPreferences gets a user's push notification preferences
-func (r *UserRepository) GetNotificationPreferences(userEmail string) (*UserNotificationPreferences, error) {
+func (r *UserRepository) GetNotificationPreferences(email string) (*UserNotificationPreferences, error) {
+	normalizedEmail := strings.ToLower(email)
 	var user models.User
-	if err := r.db.Where("email = ?", userEmail).First(&user).Error; err != nil {
+	if err := r.db.Where("LOWER(email) = ?", normalizedEmail).First(&user).Error; err != nil {
 		return nil, err
 	}
 
@@ -349,7 +362,7 @@ func (r *UserRepository) SearchUsers(query string, skip, limit int) (*[]models.U
 	if query != "" {
 		query = "%" + query + "%"
 		// Add query hints for search queries
-		r.db = r.db.Exec("/*+ IndexScan(users idx_users_email) */ SELECT * FROM users WHERE email ILIKE ? OR first_name ILIKE ? OR last_name ILIKE ?",
+		r.db = r.db.Exec("/*+ IndexScan(users idx_users_email) */ SELECT * FROM users WHERE LOWER(email) ILIKE ? OR first_name ILIKE ? OR last_name ILIKE ?",
 			query, query, query)
 	}
 

@@ -3,6 +3,7 @@ package repository
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/andevellicus/crapp/internal/models"
@@ -25,11 +26,12 @@ func NewFormStateRepository(db *gorm.DB, log *zap.SugaredLogger) *FormStateRepos
 }
 
 // CreateFormState creates a new form session for a user
-func (r *FormStateRepository) Create(userEmail string, questionOrder []int) (*models.FormState, error) {
+func (r *FormStateRepository) Create(email string, questionOrder []int) (*models.FormState, error) {
+	normalizedEmail := strings.ToLower(email)
 	questionOrderBytes, _ := json.Marshal(questionOrder)
 	formState := &models.FormState{
 		ID:            uuid.New().String(),
-		UserEmail:     userEmail,
+		UserEmail:     normalizedEmail,
 		CurrentStep:   0,
 		Answers:       models.JSON{},
 		QuestionOrder: string(questionOrderBytes),
@@ -65,7 +67,9 @@ func (r *FormStateRepository) GetByID(stateID string) (*models.FormState, error)
 
 // UpdateFormState updates a user's form state
 func (r *FormStateRepository) Update(formState *models.FormState) error {
-
+	if formState == nil {
+		return fmt.Errorf("form state is null")
+	}
 	// Parse question order
 	var questionOrder []int
 	if err := json.Unmarshal([]byte(formState.QuestionOrder), &questionOrder); err != nil {
@@ -88,7 +92,7 @@ func (r *FormStateRepository) Update(formState *models.FormState) error {
 			answers = ?,
             last_updated_at = ?,
 			assessment_id = ?
-        WHERE id = ? AND user_email = ?`,
+        WHERE id = ? AND LOWER(user_email) = ?`,
 		formState.CurrentStep,
 		formState.Answers,
 		formState.LastUpdatedAt,
@@ -108,7 +112,7 @@ func (r *FormStateRepository) Update(formState *models.FormState) error {
             SET interaction_data = ?,
                 cpt_data = ?,
                 tmt_data = ?
-            WHERE id = ? AND user_email = ?`,
+            WHERE id = ? AND LOWER(user_email) = ?`,
 			formState.InteractionData,
 			formState.CPTData,
 			formState.TMTData,
@@ -138,10 +142,11 @@ func (r *FormStateRepository) Delete(id string) error {
 }
 
 // GetUserActiveFormState gets a user's most recent active form state
-func (r *FormStateRepository) GetUserActiveFormState(userEmail string) (*models.FormState, error) {
+func (r *FormStateRepository) GetUserActiveFormState(email string) (*models.FormState, error) {
 	var formState models.FormState
 
-	err := r.db.Where("user_email = ? AND assessment_id IS NULL", userEmail).
+	normalizedEmail := strings.ToLower(email)
+	err := r.db.Where("LOWER(user_email) = ? AND assessment_id IS NULL", normalizedEmail).
 		Order("last_updated_at DESC").
 		First(&formState).Error
 

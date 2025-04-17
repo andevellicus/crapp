@@ -4,6 +4,7 @@ package handlers
 import (
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/andevellicus/crapp/internal/repository"
 	"github.com/andevellicus/crapp/internal/services"
@@ -45,19 +46,20 @@ func (h *AdminHandler) SendReminder(c *gin.Context) {
 	}
 
 	req := c.MustGet("validatedRequest").(*validation.AdminReminderRequest)
+	normalizedEmail := strings.ToLower(req.Email)
 
 	// Get user
-	user, err := h.repo.Users.GetByEmail(req.Email)
+	user, err := h.repo.Users.GetByEmail(normalizedEmail)
 	if err != nil {
-		h.log.Errorw("Error getting user for reminder", "error", err, "email", req.Email)
+		h.log.Errorw("Error getting user for reminder", "error", err, "email", normalizedEmail)
 		c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
 		return
 	}
 
 	// Get notification preferences
-	prefs, err := h.repo.Users.GetNotificationPreferences(req.Email)
+	prefs, err := h.repo.Users.GetNotificationPreferences(normalizedEmail)
 	if err != nil {
-		h.log.Warnw("Error getting notification preferences", "error", err, "email", req.Email)
+		h.log.Warnw("Error getting notification preferences", "error", err, "email", normalizedEmail)
 		// Continue anyway since this is an admin-initiated reminder
 	}
 
@@ -71,11 +73,11 @@ func (h *AdminHandler) SendReminder(c *gin.Context) {
 		if h.emailService != nil {
 			err = h.emailService.SendReminderEmail(user.Email, user.FirstName)
 			if err != nil {
-				h.log.Warnw("Failed to send email reminder", "error", err, "email", req.Email)
+				h.log.Warnw("Failed to send email reminder", "error", err, "email", normalizedEmail)
 				errorMsg = "Failed to send email reminder: " + err.Error()
 			} else {
 				success = true
-				h.log.Infow("Sent admin-initiated email reminder", "email", req.Email)
+				h.log.Infow("Sent admin-initiated email reminder", "email", normalizedEmail)
 			}
 		} else {
 			errorMsg = "Email service not available"
@@ -93,11 +95,11 @@ func (h *AdminHandler) SendReminder(c *gin.Context) {
 				"This is a reminder to complete your daily symptom assessment.",
 			)
 			if err != nil {
-				h.log.Errorw("Failed to send push reminder", "error", err, "email", req.Email)
+				h.log.Errorw("Failed to send push reminder", "error", err, "email", normalizedEmail)
 				errorMsg = "Failed to send push reminder: " + err.Error()
 			} else {
 				success = true
-				h.log.Infow("Sent admin-initiated push reminder", "email", req.Email)
+				h.log.Infow("Sent admin-initiated push reminder", "email", normalizedEmail)
 			}
 		} else {
 			c.JSON(http.StatusForbidden, gin.H{

@@ -115,6 +115,7 @@ func setupDatabase(cfg *config.Config) (*gorm.DB, error) {
 	db.Exec("CREATE INDEX IF NOT EXISTS idx_timeline_query ON assessments(user_email, submitted_at)")
 	db.Exec("CREATE INDEX IF NOT EXISTS idx_active_form_states ON form_states(user_email) WHERE assessment_id IS NULL")
 	db.Exec("CREATE INDEX IF NOT EXISTS idx_active_assessments ON assessments(user_email, submitted_at DESC)")
+	db.Exec("CREATE INDEX IF NOT EXISTS idx_users_lower_email ON users (LOWER(email));")
 
 	// Standard indexes
 	db.Exec("CREATE INDEX IF NOT EXISTS idx_assessments_user_email ON assessments(user_email)")

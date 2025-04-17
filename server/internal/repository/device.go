@@ -136,9 +136,10 @@ func (r *DeviceRepository) Delete(id string) error {
 }
 
 // GetUserDevices retrieves all devices for a user
-func (r *DeviceRepository) GetUserDevices(userEmail string) ([]models.Device, error) {
-	var devices []models.Device
-	result := r.db.Where("user_email = ?", userEmail).Find(&devices)
+func (r *DeviceRepository) GetUserDevices(email string) ([]models.Device, error) {
+	normalizedEmail := strings.ToLower(email)
+	devices := []models.Device{}
+	result := r.db.Where("LOWER(user_email) = ?", normalizedEmail).Find(&devices)
 	if result.Error != nil {
 		r.log.Errorw("Database error retrieving user devices", "error", result.Error)
 		return nil, result.Error
@@ -147,9 +148,11 @@ func (r *DeviceRepository) GetUserDevices(userEmail string) ([]models.Device, er
 }
 
 // RegisterDevice registers a new device or updates an existing one
-func (r *DeviceRepository) RegisterDevice(userEmail string, deviceInfo map[string]any) (*models.Device, error) {
+func (r *DeviceRepository) RegisterDevice(email string, deviceInfo map[string]any) (*models.Device, error) {
+	normalizedEmail := strings.ToLower(email)
+
 	// Generate device ID if not provided
-	var deviceID string
+	deviceID := ""
 
 	if deviceInfo == nil {
 		deviceInfo = make(map[string]any)
@@ -195,7 +198,7 @@ func (r *DeviceRepository) RegisterDevice(userEmail string, deviceInfo map[strin
 	// Create or update device
 	device := &models.Device{
 		ID:         deviceID,
-		UserEmail:  userEmail,
+		UserEmail:  normalizedEmail,
 		DeviceName: deviceName,
 		DeviceType: deviceType,
 		Browser:    browser,
@@ -228,10 +231,11 @@ func (r *DeviceRepository) RegisterDevice(userEmail string, deviceInfo map[strin
 }
 
 // UpdateDeviceName updates a device's name
-func (r *DeviceRepository) UpdateDeviceName(deviceID string, userEmail string, newName string) error {
+func (r *DeviceRepository) UpdateDeviceName(deviceID string, email string, newName string) error {
+	normalizedEmail := strings.ToLower(email)
 	// Verify the device belongs to the user
 	var device models.Device
-	if err := r.db.Where("id = ? AND user_email = ?", deviceID, userEmail).First(&device).Error; err != nil {
+	if err := r.db.Where("id = ? AND LOWER(user_email) = ?", deviceID, normalizedEmail).First(&device).Error; err != nil {
 		r.log.Errorw("Database error finding device for rename", "error", err)
 		return err
 	}

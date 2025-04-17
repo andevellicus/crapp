@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"strings"
 
 	webpush "github.com/SherClockHolmes/webpush-go"
 	"github.com/andevellicus/crapp/internal/repository"
@@ -40,9 +41,10 @@ func (s *PushService) SaveSubscription(userEmail string, subscription string) er
 }
 
 // SendNotification sends a push notification to a user
-func (s *PushService) SendNotification(userEmail string, title, body string) error {
+func (s *PushService) SendNotification(email string, title, body string) error {
+	normalizedEmail := strings.ToLower(email)
 	// Get user's subscription
-	sub, err := s.repo.Users.GetPushSubscription(userEmail)
+	sub, err := s.repo.Users.GetPushSubscription(normalizedEmail)
 	if err != nil {
 		return err
 	}

@@ -3,6 +3,7 @@ package repository
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/andevellicus/crapp/internal/models"
@@ -49,11 +50,12 @@ func (r *RefreshTokenRepository) GetByTokenID(tokenID string) (*models.RefreshTo
 }
 
 // GetAllActiveForUser retrieves all non-revoked refresh tokens for a user
-func (r *RefreshTokenRepository) GetAllActiveForUser(userEmail string) ([]models.RefreshToken, error) {
+func (r *RefreshTokenRepository) GetAllActiveForUser(email string) ([]models.RefreshToken, error) {
+	normalizedEmail := strings.ToLower(email)
 	var tokens []models.RefreshToken
-	err := r.db.Where("user_email = ? AND revoked_at IS NULL", userEmail).Find(&tokens).Error
+	err := r.db.Where("LOWER(user_email) = ? AND revoked_at IS NULL", normalizedEmail).Find(&tokens).Error
 	if err != nil {
-		r.log.Errorw("Database error getting all active refresh tokens for user", "user_email", userEmail, "error", err)
+		r.log.Errorw("Database error getting all active refresh tokens for user", "user_email", normalizedEmail, "error", err)
 		return nil, err
 	}
 	return tokens, nil
@@ -96,7 +98,8 @@ func (r *RevokedTokenRepository) IsTokenRevoked(tokenID string) (bool, error) {
 	return count > 0, err
 }
 
-func (r *RevokedTokenRepository) RevokeToken(tokenID string, userEmail string) error {
+func (r *RevokedTokenRepository) RevokeToken(tokenID string, email string) error {
+	normalizedEmail := strings.ToLower(email)
 	// Check if token is already revoked
 	var count int64
 	r.db.Model(&models.RevokedToken{}).Where("token_id = ?", tokenID).Count(&count)
@@ -107,7 +110,7 @@ func (r *RevokedTokenRepository) RevokeToken(tokenID string, userEmail string) e
 	// Add to revoked tokens
 	revokedToken := models.RevokedToken{
 		TokenID:   tokenID,
-		UserEmail: userEmail, // Store the user email
+		UserEmail: normalizedEmail, // Store the user email
 		RevokedAt: time.Now(),
 		ExpiresAt: time.Now().Add(48 * time.Hour), // Keep record longer (e.g., 48 hours)
 	}
@@ -121,10 +124,11 @@ func (r *RevokedTokenRepository) RevokeToken(tokenID string, userEmail string) e
 
 // RevokeAllUserTokens revokes all tokens for a user
 func (r *RevokedTokenRepository) RevokeAllUserTokens(email string) error {
+	normalizedEmail := strings.ToLower(email)
 	// Revoke all refresh tokens
 	now := time.Now()
 	if err := r.db.Model(&models.RefreshToken{}).
-		Where("user_email = ? AND revoked_at IS NULL", email).
+		Where("LOWER(user_email) = ? AND revoked_at IS NULL", normalizedEmail).
 		Update("revoked_at", &now).
 		Error; err != nil {
 		return err
@@ -132,13 +136,13 @@ func (r *RevokedTokenRepository) RevokeAllUserTokens(email string) error {
 
 	// Get all active refresh tokens to find token IDs
 	var tokens []models.RefreshToken
-	if err := r.db.Where("user_email = ? AND revoked_at IS NULL", email).Find(&tokens).Error; err != nil {
+	if err := r.db.Where("LOWER(user_email) = ? AND revoked_at IS NULL", normalizedEmail).Find(&tokens).Error; err != nil {
 		return err
 	}
 
 	// Add all token IDs to revoked tokens
 	for _, token := range tokens {
-		r.RevokeToken(token.TokenID, email)
+		r.RevokeToken(token.TokenID, normalizedEmail)
 	}
 
 	return nil
@@ -161,23 +165,24 @@ func NewPasswordTokenRepository(db *gorm.DB, log *zap.SugaredLogger, userRepo *U
 }
 
 // Specialized methods
-func (r *PasswordTokenRepository) Create(userEmail string, expiresInMinutes int) (*models.PasswordResetToken, error) {
+func (r *PasswordTokenRepository) Create(email string, expiresInMinutes int) (*models.PasswordResetToken, error) {
+	normalizedEmail := strings.ToLower(email)
 	// Check if user exists using the User repository
-	exists, err := r.userRepo.UserExists(userEmail)
+	exists, err := r.userRepo.UserExists(normalizedEmail)
 	if err != nil {
 		return nil, fmt.Errorf("error checking user: %w", err)
 	}
 
 	if !exists {
-		return nil, fmt.Errorf("user not found: %s", userEmail)
+		return nil, fmt.Errorf("user not found: %s", normalizedEmail)
 	}
 
 	// Generate a new token
-	tokenStr := generateUniqueToken() // You'll need to implement this or use uuid package
+	tokenStr := generateUniqueToken()
 
 	// Expire old tokens for this user
 	if err := r.db.Model(&models.PasswordResetToken{}).
-		Where("user_email = ? AND used_at IS NULL", userEmail).
+		Where("LOWER(user_email) = ? AND used_at IS NULL", normalizedEmail).
 		Update("used_at", time.Now()).Error; err != nil {
 		r.log.Warnw("Failed to expire old password reset tokens", "error", err)
 	}
@@ -185,7 +190,7 @@ func (r *PasswordTokenRepository) Create(userEmail string, expiresInMinutes int)
 	// Create new token
 	token := &models.PasswordResetToken{
 		Token:     tokenStr,
-		UserEmail: userEmail,
+		UserEmail: normalizedEmail,
 		ExpiresAt: time.Now().Add(time.Duration(expiresInMinutes) * time.Minute),
 		CreatedAt: time.Now(),
 	}

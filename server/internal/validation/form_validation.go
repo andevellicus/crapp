@@ -213,6 +213,14 @@ func (v *FormValidator) validateTextAnswer(question *utils.Question, answer any)
 		return errors
 	}
 
+	if question == nil {
+		errors = append(errors, ValidationError{
+			Field:   "Question",
+			Message: "Question is nil!",
+		})
+		return errors
+	}
+
 	// Check max length
 	if question.MaxLength > 0 && len(str) > question.MaxLength {
 		errors = append(errors, ValidationError{
