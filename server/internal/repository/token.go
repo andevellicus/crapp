@@ -49,6 +49,27 @@ func (r *RefreshTokenRepository) GetByTokenID(tokenID string) (*models.RefreshTo
 	return &token, nil
 }
 
+// GetByRefreshTokenString retrieves a refresh token by its actual token string (primary key)
+func (r *RefreshTokenRepository) GetByRefreshTokenString(tokenString string) (*models.RefreshToken, error) {
+	var token models.RefreshToken
+	// Query using the 'token' column, which is the primary key
+	err := r.db.Where("token = ? AND revoked_at IS NULL", tokenString).First(&token).Error
+	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return nil, fmt.Errorf("refresh token not found: %s", tokenString) // Specific error
+		}
+		r.log.Errorw("Database error getting refresh token by string", "token", tokenString, "error", err)
+		return nil, err
+	}
+	// Check expiry here as well for an early exit
+	if token.ExpiresAt.Before(time.Now()) {
+		// Optionally delete the expired token now
+		// r.db.Delete(&token)
+		return nil, fmt.Errorf("refresh token expired")
+	}
+	return &token, nil
+}
+
 // GetAllActiveForUser retrieves all non-revoked refresh tokens for a user
 func (r *RefreshTokenRepository) GetAllActiveForUser(email string) ([]models.RefreshToken, error) {
 	normalizedEmail := strings.ToLower(email)

@@ -70,14 +70,6 @@ func (s *AuthService) GetCookieConfig() CookieConfig {
 // Authenticate validates credentials and returns user with session
 func (s *AuthService) Authenticate(email, password string, deviceInfo map[string]any) (*models.User, *models.Device, *TokenPair, error) {
 	normalizedEmail := strings.ToLower(email)
-	exists, err := s.repo.Users.UserExists(normalizedEmail)
-	if err != nil {
-		return nil, nil, nil, err
-	}
-	// User does not exist
-	if !exists {
-		return nil, nil, nil, fmt.Errorf("user %s not found", normalizedEmail)
-	}
 
 	// Get user
 	user, err := s.repo.Users.GetByEmail(normalizedEmail)
@@ -85,7 +77,8 @@ func (s *AuthService) Authenticate(email, password string, deviceInfo map[string
 		return nil, nil, nil, err
 	}
 	if user == nil {
-		return nil, nil, nil, fmt.Errorf("GetByEmail failed")
+		// User does not exist
+		return nil, nil, nil, fmt.Errorf("GetByEmail for user %s failed - user does not exist", normalizedEmail)
 	}
 
 	if user.Password == nil {
@@ -190,40 +183,33 @@ func (s *AuthService) generateAccessToken(email string, isAdmin bool, tokenID st
 
 // RefreshToken generates a new access token using a refresh token
 func (s *AuthService) RefreshToken(refreshToken string, deviceID string) (*TokenPair, error) {
-	// 1. Validate the existing refresh token
-	storedToken, err := s.repo.RefreshTokens.GetByTokenID(refreshToken)
+	// 1. Validate the existing refresh token BY STRING
+	storedToken, err := s.repo.RefreshTokens.GetByRefreshTokenString(refreshToken)
 	if err != nil {
 		// Handles not found or already revoked
 		return nil, fmt.Errorf("invalid refresh token: %w", err)
 	}
 
-	// 2. Check if token is expired
-	if storedToken.ExpiresAt.Before(time.Now()) {
-		// Optionally delete expired token here or rely on scheduler
-		// s.repo.RefreshTokens.Delete(refreshToken) // Or mark as expired
-		return nil, fmt.Errorf("refresh token expired")
-	}
-
-	// 3. Check if token belongs to this device
+	// 2. Check if token belongs to this device
 	if storedToken.DeviceID != deviceID {
 		return nil, fmt.Errorf("invalid device for refresh token")
 	}
 
-	// 4. Get user associated with the token
+	// 3. Get user associated with the token
 	user, err := s.repo.Users.GetByEmail(storedToken.UserEmail)
 	if err != nil {
 		// User associated with token not found
 		return nil, fmt.Errorf("user not found for refresh token: %w", err)
 	}
 
-	// 5. Generate NEW token pair FIRST
+	// 4. Generate NEW token pair FIRST
 	newTokenPair, err := s.GenerateTokenPair(user.Email, user.IsAdmin, deviceID)
 	if err != nil {
 		// Failed to generate/store new tokens, return error WITHOUT revoking old one
 		return nil, fmt.Errorf("failed to generate new token pair: %w", err)
 	}
 
-	// 6. Successfully generated new pair, NOW revoke the OLD refresh token
+	// 5. Successfully generated new pair, NOW revoke the OLD refresh token
 	// It's okay if revocation fails, the old token will expire eventually.
 	// The user has the new valid token pair.
 	err = s.repo.RefreshTokens.Delete(refreshToken) // Marks the old token as revoked
