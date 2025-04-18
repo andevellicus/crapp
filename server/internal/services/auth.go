@@ -84,6 +84,9 @@ func (s *AuthService) Authenticate(email, password string, deviceInfo map[string
 	if err != nil {
 		return nil, nil, nil, err
 	}
+	if user == nil {
+		return nil, nil, nil, fmt.Errorf("GetByEmail failed")
+	}
 
 	if user.Password == nil {
 		// Return a generic error to avoid exposing account state
