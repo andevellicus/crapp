@@ -182,7 +182,7 @@ func main() {
 	{
 		auth.POST("/register", middleware.ValidateRequest(validation.RegisterRequest{}), authHandler.Register)
 		auth.POST("/login", middleware.ValidateRequest(validation.LoginRequest{}), authHandler.Login)
-		auth.POST("/refresh", middleware.ValidateRequest(validation.RefreshTokenRequest{}), authHandler.RefreshToken)
+		auth.POST("/refresh", authHandler.RefreshToken)
 		auth.POST("/logout", middleware.AuthMiddleware(authService), authHandler.Logout)
 		// Password reset API endpoints
 		auth.POST("/forgot-password", middleware.ValidateRequest(validation.ForgotPasswordRequest{}), authHandler.ForgotPassword)
