@@ -78,7 +78,7 @@ func (s *AuthService) Authenticate(email, password string, deviceInfo map[string
 	}
 	if user == nil {
 		// User does not exist
-		return nil, nil, nil, fmt.Errorf("GetByEmail for user %s failed - user does not exist", normalizedEmail)
+		return nil, nil, nil, fmt.Errorf("authenitcate: GetByEmail for user %s failed - user does not exist", normalizedEmail)
 	}
 
 	if user.Password == nil {
@@ -197,7 +197,7 @@ func (s *AuthService) RefreshToken(refreshToken string, deviceID string) (*Token
 
 	// 3. Get user associated with the token
 	user, err := s.repo.Users.GetByEmail(storedToken.UserEmail)
-	if err != nil {
+	if err != nil || user == nil {
 		// User associated with token not found
 		return nil, fmt.Errorf("user not found for refresh token: %w", err)
 	}
@@ -301,14 +301,15 @@ func (s *AuthService) RevokeAllUserTokens(email string) error {
 
 // GeneratePasswordResetToken creates a token for password reset
 func (s *AuthService) GeneratePasswordResetToken(email string) (string, error) {
+	normalizedEmail := strings.ToLower(email)
 	// Check if user exists
-	_, err := s.repo.Users.GetByEmail(email)
-	if err != nil {
+	user, err := s.repo.Users.GetByEmail(normalizedEmail)
+	if err != nil || user == nil {
 		return "", fmt.Errorf("user not found: %w", err)
 	}
 
 	// Create a reset token (valid for 30 minutes)
-	token, err := s.repo.PasswordResetTokens.Create(email, 30)
+	token, err := s.repo.PasswordResetTokens.Create(normalizedEmail, 30)
 	if err != nil {
 		return "", fmt.Errorf("failed to create reset token: %w", err)
 	}

@@ -50,7 +50,7 @@ func (h *AdminHandler) SendReminder(c *gin.Context) {
 
 	// Get user
 	user, err := h.repo.Users.GetByEmail(normalizedEmail)
-	if err != nil {
+	if err != nil || user == nil {
 		h.log.Errorw("Error getting user for reminder", "error", err, "email", normalizedEmail)
 		c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
 		return

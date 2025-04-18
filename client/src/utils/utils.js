@@ -57,3 +57,27 @@ export const urlBase64ToUint8Array = (base64String) => {
     return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || 
       (window.innerWidth <= 768);
   };
+
+/**
+ * Helper to get cookie value by name
+ * @param {string} name - The name of the cookie.
+ * @returns {string|null} The cookie value or null if not found.
+ */
+export const getCookie = (name) => { // Added export
+  if (typeof document === 'undefined') { // Add check for server-side rendering if applicable
+      return null;
+  }
+  const value = `; ${document.cookie}`;
+  const parts = value.split(`; ${name}=`);
+  if (parts.length === 2) {
+    // Decode the cookie value in case it contains special characters
+    try {
+        return decodeURIComponent(parts.pop().split(';').shift());
+    } catch (e) {
+        console.error("Error decoding cookie", name, e);
+        // Fallback to raw value if decoding fails
+         return parts.pop().split(';').shift();
+    }
+  }
+  return null;
+};

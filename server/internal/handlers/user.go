@@ -19,7 +19,7 @@ func (h *AuthHandler) GetCurrentUser(c *gin.Context) {
 
 	// Get user from database
 	user, err := h.repo.Users.GetByEmail(userEmail.(string))
-	if err != nil {
+	if err != nil || user == nil {
 		h.log.Errorw("Error retrieving user", "error", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error retrieving user information"})
 		return
@@ -44,7 +44,7 @@ func (h *AuthHandler) UpdateUser(c *gin.Context) {
 
 	// Get current user
 	user, err := h.repo.Users.GetByEmail(userEmail.(string))
-	if err != nil {
+	if err != nil || user == nil {
 		h.log.Errorw("Error retrieving user for update", "error", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error retrieving user"})
 		return
@@ -120,14 +120,8 @@ func (h *AuthHandler) DeleteAccount(c *gin.Context) {
 
 	// Get user from database
 	user, err := h.repo.Users.GetByEmail(userEmail.(string))
-	if err != nil {
+	if err != nil || user == nil {
 		h.log.Errorw("Error retrieving user for deletion", "error", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error retrieving user"})
-		return
-	}
-
-	if user == nil {
-		h.log.Errorw("Error retrieving user for deletion -- user is nil!", "error", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error retrieving user"})
 		return
 	}

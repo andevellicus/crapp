@@ -1,3 +1,5 @@
+import { getCookie } from '../utils/utils';
+
 // Base API configurations
 const API_BASE = '';
 
@@ -71,14 +73,6 @@ const apiRequest = async (url, options = {}) => {
     console.error('API request failed:', error);
     throw error;
   }
-};
-
-// Helper to get cookie value
-const getCookie = (name) => {
-  const value = `; ${document.cookie}`;
-  const parts = value.split(`; ${name}=`);
-  if (parts.length === 2) return parts.pop().split(';').shift();
-  return null;
 };
 
 // Handle API responses

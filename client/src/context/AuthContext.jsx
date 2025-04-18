@@ -1,5 +1,6 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { getCookie } from '../utils/utils';
 
 const AuthContext = createContext();
 
@@ -10,6 +11,16 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const navigate = useNavigate();
+  const inactivityTimerRef = useRef(null);
+  const INACTIVITY_TIMEOUT = 20 * 60 * 1000; // 20 minutes in milliseconds
+
+  // Clear authentication data 
+  const clearAuthData = useCallback(() => {
+    setUser(null);
+    setIsAuthenticated(false);
+    // No need to clear deviceId from state if it's read from cookie on auth check
+    clearTimeout(inactivityTimerRef.current); // Clear inactivity timer on logout
+  }, []); // No dependencies needed if it only uses setters and refs
   
   // Check authentication status on mount
   useEffect(() => {
@@ -24,10 +35,10 @@ export function AuthProvider({ children }) {
       }
     
       try {
-        // Verify authentication by making a request to the user endpoint
-        // Cookies will be sent automatically
+        // Use the apiRequest wrapper from api.js which handles 401s and refresh
+        // Note: api.js will hard redirect on failed refresh during this check
         const response = await fetch('/api/user', {
-          credentials: 'include' // Important: include cookies in request
+          credentials: 'include'
         });
 
         if (response.ok) {
@@ -51,57 +62,14 @@ export function AuthProvider({ children }) {
       }
     };
 
+    // Run only once on mount; subsequent auth checks rely on api.js or inactivity timer
     checkAuth();
   }, []);
-
-  useEffect(() => {
-    // Function to periodically check auth status
-    const checkAuthStatus = async () => {
-      try {
-        // Simple endpoint to check if current session is valid
-        const response = await fetch('/api/user', {
-          credentials: 'include'
-        });
-        
-        if (!response.ok) {
-          // If auth fails, try refresh
-          const refreshed = await refreshToken();
-          if (!refreshed) {
-            clearAuthData();
-            navigate('/login');
-          }
-        }
-      } catch (error) {
-        console.error('Auth status check failed:', error);
-        clearAuthData(); 
-        navigate('/login');
-      }
-    };
-    
-    // If user is authenticated and no monitor exists, set it up
-    if (isAuthenticated && !tokenMonitorId) {
-      // Check auth every minute
-      const intervalId = setInterval(checkAuthStatus, 60000);
-      setTokenMonitorId(intervalId);
-    } 
-    // If user is NOT authenticated but monitor exists, clear it
-    else if (!isAuthenticated && tokenMonitorId) {
-      clearInterval(tokenMonitorId);
-      setTokenMonitorId(null);
-    }
-    
-    // Clean up on unmount
-    return () => {
-      if (tokenMonitorId) {
-        clearInterval(tokenMonitorId);
-        setTokenMonitorId(null);
-      }
-    };
-  }, [isAuthenticated, navigate]);
 
   // Login function
   const login = async (email, password, deviceInfo = {}) => {
     setError(null);
+    setLoading(true); // Indicate loading during login
     
     try {     
       // Get device ID from cookie if available and not already provided
@@ -112,7 +80,7 @@ export function AuthProvider({ children }) {
 
       const response = await fetch('/api/auth/login', {
         method: 'POST',
-        credentials: 'include', // Important: include cookies in response
+        credentials: 'include',
         headers: {
           'Content-Type': 'application/json'
         },
@@ -130,76 +98,85 @@ export function AuthProvider({ children }) {
       setUser(data.user);
       setIsAuthenticated(true);
       setDeviceId(data.device_id);
-
+      resetInactivityTimer(); // Start inactivity timer after login
       return data;
     } catch (error) {
       setError(error.message || 'Login failed');
+      clearAuthData(); // Ensure clean state on failed login
       throw error;
+    } finally {
+      setLoading(false);
     }
   };
 
-  // Logout function
-  const logout = async () => {
+  // Logout function (now also clears inactivity timer)
+  const logout = useCallback(async () => {
+    // Clear timer immediately
+    if (inactivityTimerRef.current) {
+        clearTimeout(inactivityTimerRef.current);
+        inactivityTimerRef.current = null;
+    }
     try {
-      // Add proper Content-Type header even with empty body
       await fetch('/api/auth/logout', {
         method: 'POST',
         credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json' // Important!
-        },
-        body: JSON.stringify({}) // Empty object as JSON
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({}) 
       });
     } catch (error) {
-      console.error('Logout error:', error);
+      console.error('Logout API call error:', error);
     } finally {
-      // Clear the token monitor interval BEFORE clearing auth data
-      if (tokenMonitorId) {
-        clearInterval(tokenMonitorId);
-        setTokenMonitorId(null);
-      }
       clearAuthData();
       navigate('/login');
     }
-  };
+  }, [navigate, clearAuthData]);
 
-  // Check for existing device ID in cookies
-  const getCookie = (name) => {
-    const value = `; ${document.cookie}`;
-    const parts = value.split(`; ${name}=`);
-    if (parts.length === 2) return parts.pop().split(';').shift();
-    return null;
-  };
-
-  // Refresh token function
-  const refreshToken = async () => {
-    try {
-      // No need to send the token in the request body since it's in cookies
-      const response = await fetch('/api/auth/refresh', {
-        method: 'POST',
-        credentials: 'include', 
-        headers: {
-          'Content-Type': 'application/json'
-        }
-      });
-  
-      if (!response.ok) {
-        throw new Error('Failed to refresh token backend');
-      }
-
-      // Server sets the new cookies, no need to manually store them
-      return true;
-    } catch (error) {
-      console.error('Token refresh failed:', error);
-      return false;
+  // Inactivity Timer Logic
+  const resetInactivityTimer = useCallback(() => {
+    // Clear existing timer
+    if (inactivityTimerRef.current) {
+      clearTimeout(inactivityTimerRef.current);
     }
-  };
+    // Set a new timer only if authenticated
+    if (isAuthenticated) {
+        inactivityTimerRef.current = setTimeout(() => {
+            console.log('Inactivity timeout reached. Logging out.');
+            logout(); // Call logout when timer expires
+        }, INACTIVITY_TIMEOUT);
+    }
+  }, [logout, isAuthenticated, INACTIVITY_TIMEOUT]);
 
-  // Clear authentication data - now just clears state
-  const clearAuthData = () => {
-    setUser(null);
-    setIsAuthenticated(false);
-  };
+  useEffect(() => {
+    // Only run the inactivity logic if the user is authenticated
+    if (isAuthenticated) {
+      // List of events that indicate user activity
+      const activityEvents = ['mousemove', 'keydown', 'click', 'scroll', 'touchstart'];
+      
+      // Add event listeners to reset the timer on activity
+      activityEvents.forEach(event => {
+        window.addEventListener(event, resetInactivityTimer);
+      });
+
+      // Initial timer start
+      resetInactivityTimer();
+
+      // Cleanup function: remove event listeners and clear timer on unmount or when auth changes
+      return () => {
+        activityEvents.forEach(event => {
+          window.removeEventListener(event, resetInactivityTimer);
+        });
+        if (inactivityTimerRef.current) {
+          clearTimeout(inactivityTimerRef.current);
+        }
+      };
+    } else {
+        // If not authenticated, ensure timer is cleared
+         if (inactivityTimerRef.current) {
+            clearTimeout(inactivityTimerRef.current);
+            inactivityTimerRef.current = null;
+        }
+    }
+  }, [isAuthenticated, resetInactivityTimer]);  
 
   return (
     <AuthContext.Provider value={{
