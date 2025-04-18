@@ -78,7 +78,7 @@ func (s *AuthService) Authenticate(email, password string, deviceInfo map[string
 	}
 	if user == nil {
 		// User does not exist
-		return nil, nil, nil, fmt.Errorf("authenitcate: GetByEmail for user %s failed - user does not exist", normalizedEmail)
+		return nil, nil, nil, fmt.Errorf("authenticate: GetByEmail for user %s failed - user does not exist", normalizedEmail)
 	}
 
 	if user.Password == nil {

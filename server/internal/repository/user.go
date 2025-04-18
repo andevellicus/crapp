@@ -2,6 +2,7 @@ package repository
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -229,11 +230,27 @@ func (r *UserRepository) GetByEmail(email string) (*models.User, error) {
 	var user models.User
 	result := r.getUserStmt.Where("LOWER(email) = ?", normalizedEmail).First(&user)
 	if result.Error != nil {
-		if result.Error == gorm.ErrRecordNotFound {
-			return nil, nil
+		// ---> Log the raw error FIRST <---
+		r.log.Warnw("Raw database error during GetByEmail query",
+			"email", normalizedEmail,
+			"error_type", fmt.Sprintf("%T", result.Error),
+			"error", result.Error)
+
+		// Use errors.Is for more reliable error checking
+		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+			r.log.Infow("User specifically not found via GetByEmail", "email", normalizedEmail)
+			// ---> Return a specific "not found" error <---
+			return nil, fmt.Errorf("user %s not found", normalizedEmail)
 		}
-		r.log.Errorw("Database error getting user by email", "email", normalizedEmail, "error", result.Error)
-		return nil, result.Error
+		// Add a check for RowsAffected as a safeguard (optional but good practice)
+		if result.RowsAffected == 0 {
+			r.log.Warnw("GetByEmail query succeeded without error but RowsAffected is 0", "email", normalizedEmail)
+			return nil, fmt.Errorf("user %s not found (RowsAffected=0)", normalizedEmail)
+		}
+
+		// Log other errors more severely
+		r.log.Errorw("Unexpected database error getting user by email", "email", normalizedEmail, "error", result.Error)
+		return nil, result.Error // Return the original DB error for other cases
 	}
 	return &user, nil
 }
