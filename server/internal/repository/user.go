@@ -359,19 +359,26 @@ func (r *UserRepository) SearchUsers(query string, skip, limit int) (*[]models.U
 	var users []models.User
 	var total int64
 
+	// Start with the base model query
+	queryBuilder := r.db.Model(&models.User{}) // Use a separate variable for the query builder
+
+	// Apply the search filter if a query is provided
 	if query != "" {
-		query = "%" + query + "%"
-		// Add query hints for search queries
-		r.db = r.db.Exec("/*+ IndexScan(users idx_users_email) */ SELECT * FROM users WHERE LOWER(email) ILIKE ? OR first_name ILIKE ? OR last_name ILIKE ?",
-			query, query, query)
+		searchQuery := "%" + strings.ToLower(query) + "%" // Use ToLower here
+		// Apply the WHERE clause for searching email, first name, or last name (case-insensitive)
+		queryBuilder = queryBuilder.Where("LOWER(email) LIKE ? OR LOWER(first_name) LIKE ? OR LOWER(last_name) LIKE ?", searchQuery, searchQuery, searchQuery)
 	}
 
-	if err := r.db.Model(&models.User{}).Count(&total).Error; err != nil {
+	// Count the total matching users *after* applying the filter
+	if err := queryBuilder.Count(&total).Error; err != nil {
+		r.log.Errorw("Database error counting users", "error", err, "query", query)
 		return nil, 0, err
 	}
 
-	result := r.db.Order("email").Offset(skip).Limit(limit).Find(&users)
+	// Retrieve the paginated users *after* applying the filter and ordering
+	result := queryBuilder.Order("email").Offset(skip).Limit(limit).Find(&users)
 	if result.Error != nil {
+		r.log.Errorw("Database error searching users", "error", result.Error, "query", query)
 		return nil, 0, result.Error
 	}
 

@@ -76,7 +76,7 @@ func (s *AuthService) Authenticate(email, password string, deviceInfo map[string
 	}
 	// User does not exist
 	if !exists {
-		return nil, nil, nil, fmt.Errorf("user not found")
+		return nil, nil, nil, fmt.Errorf("user %s not found", normalizedEmail)
 	}
 
 	// Get user
