@@ -10,8 +10,7 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const navigate = useNavigate();
-  const [tokenMonitorId, setTokenMonitorId] = useState(null);
-
+  
   // Check authentication status on mount
   useEffect(() => {
     const checkAuth = async () => {
@@ -74,6 +73,8 @@ export function AuthProvider({ children }) {
         }
       } catch (error) {
         console.error('Auth status check failed:', error);
+        clearAuthData(); 
+        navigate('/login');
       }
     };
     
@@ -176,21 +177,20 @@ export function AuthProvider({ children }) {
       // No need to send the token in the request body since it's in cookies
       const response = await fetch('/api/auth/refresh', {
         method: 'POST',
-        credentials: 'include', // Important: include cookies
+        credentials: 'include', 
         headers: {
           'Content-Type': 'application/json'
         }
       });
   
       if (!response.ok) {
-        throw new Error('Failed to refresh token');
+        throw new Error('Failed to refresh token backend');
       }
-  
+
       // Server sets the new cookies, no need to manually store them
       return true;
     } catch (error) {
       console.error('Token refresh failed:', error);
-      clearAuthData(); // Just clear state, no localStorage to clear
       return false;
     }
   };
