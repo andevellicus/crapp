@@ -228,7 +228,7 @@ func (r *UserRepository) GetByEmail(email string) (*models.User, error) {
 	normalizedEmail := strings.ToLower(email)
 
 	var user models.User
-	result := r.getUserStmt.Where("LOWER(email) = ?", normalizedEmail).First(&user)
+	result := r.db.Model(&models.User{}).Where("LOWER(email) = ?", normalizedEmail).First(&user)
 	if result.Error != nil {
 		// ---> Log the raw error FIRST <---
 		r.log.Warnw("Raw database error during GetByEmail query",
