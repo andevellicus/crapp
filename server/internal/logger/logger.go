@@ -196,8 +196,6 @@ func SetUpGormConfig(dbLogger *zap.Logger, logLevel string) *gorm.Config {
 		level = gormlogger.Error
 	}
 
-	level = gormlogger.Info // TODO remove this
-
 	return &gorm.Config{
 		Logger: gormlogger.New(
 			&GormLogAdapter{ZapLogger: dbLogger},

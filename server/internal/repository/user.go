@@ -17,8 +17,6 @@ type UserRepository struct {
 	db  *gorm.DB
 	log *zap.SugaredLogger
 	cfg *config.Config
-
-	getUserStmt *gorm.DB
 }
 
 // UserNotificationPreferences represents a user's complete notification preferences
@@ -36,10 +34,9 @@ type UserNotificationPreferences struct {
 // NewUserRepository creates a new user repository
 func NewUserRepository(db *gorm.DB, log *zap.SugaredLogger, cfg *config.Config) *UserRepository {
 	return &UserRepository{
-		db:          db,
-		log:         log.Named("user-repo"),
-		cfg:         cfg,
-		getUserStmt: db.Model(&models.User{}),
+		db:  db,
+		log: log.Named("user-repo"),
+		cfg: cfg,
 	}
 }
 
@@ -230,7 +227,7 @@ func (r *UserRepository) GetByEmail(email string) (*models.User, error) {
 	var user models.User
 	result := r.db.Model(&models.User{}).Where("LOWER(email) = ?", normalizedEmail).First(&user)
 	if result.Error != nil {
-		// ---> Log the raw error FIRST <---
+		// Log the raw error FIRST
 		r.log.Warnw("Raw database error during GetByEmail query",
 			"email", normalizedEmail,
 			"error_type", fmt.Sprintf("%T", result.Error),
@@ -239,7 +236,7 @@ func (r *UserRepository) GetByEmail(email string) (*models.User, error) {
 		// Use errors.Is for more reliable error checking
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			r.log.Infow("User specifically not found via GetByEmail", "email", normalizedEmail)
-			// ---> Return a specific "not found" error <---
+			// Return a specific "not found" error
 			return nil, fmt.Errorf("user %s not found", normalizedEmail)
 		}
 		// Add a check for RowsAffected as a safeguard (optional but good practice)
