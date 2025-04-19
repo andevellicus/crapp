@@ -189,6 +189,7 @@ export default function CPTest({ onTestEnd, onTestStart, settings, questionId  }
 
   // Handle tap/touch events (mobile)
   const handleTap = useCallback(() => {
+    event.preventDefault();
     if (!isRunningRef.current || !currentStimulusRef.current) return;
     // Process the response
     processResponse();
@@ -273,7 +274,7 @@ export default function CPTest({ onTestEnd, onTestStart, settings, questionId  }
       {/* Make stimulus container touchable for mobile */}
       <div 
         className="cpt-stimulus-container"
-        onClick={isMobile ? handleTap : undefined}
+        onTouchStart={isMobile ? handleTap : undefined}
         style={{ cursor: isMobile ? 'pointer' : 'default' }}
       >
         <div id="cpt-stimulus">
@@ -294,7 +295,7 @@ export default function CPTest({ onTestEnd, onTestStart, settings, questionId  }
         <button 
           type="button"
           className="mobile-tap-button" 
-          onClick={handleTap}
+          onTouchStart={handleTap}
           style={{
             marginTop: '20px',
             padding: '15px 30px',
