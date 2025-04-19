@@ -13,6 +13,15 @@ type Assessment struct {
 	UserEmail   string    `json:"user_email" gorm:"index"`
 	DeviceID    string    `json:"device_id" gorm:"index"`
 	SubmittedAt time.Time `json:"submitted_at" gorm:"default:CURRENT_TIMESTAMP"`
+
+	// --- Location Fields for PostgreSQL ---
+	// Store permission status ('granted', 'denied', 'prompt', 'unavailable', 'unknown')
+	LocationPermission string `json:"location_permission" gorm:"type:varchar(20);not null"` // Added not null constraint
+	// Use pointers for nullable float fields, map to double precision for accuracy
+	Latitude  *float64 `json:"latitude" gorm:"type:double precision"`
+	Longitude *float64 `json:"longitude" gorm:"type:double precision"`
+	// Use pointer for nullable string field
+	LocationError *string `json:"location_error" gorm:"type:text"`
 }
 
 // QuestionResponse represents a response to a specific question

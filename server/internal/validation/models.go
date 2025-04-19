@@ -55,6 +55,16 @@ type SaveAnswerRequest struct {
 	TMTData         json.RawMessage `json:"tmt_data,omitempty"`
 }
 
+type SubmitFormRequest struct {
+	InteractionData    json.RawMessage `json:"interaction_data"`
+	CPTData            json.RawMessage `json:"cpt_data"`
+	TMTData            json.RawMessage `json:"tmt_data"`
+	LocationPermission string          `json:"location_permission"` // e.g., 'granted', 'denied', 'prompt', 'unavailable'
+	Latitude           *float64        `json:"latitude"`            // Use pointer for nullability
+	Longitude          *float64        `json:"longitude"`           // Use pointer for nullability
+	LocationError      *string         `json:"location_error"`      // Optional error message from frontend
+}
+
 // Push validation models
 type PushSubscriptionRequest struct {
 	Endpoint string `json:"endpoint" validate:"required"`

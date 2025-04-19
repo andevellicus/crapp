@@ -2,6 +2,7 @@
 package handlers
 
 import (
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -278,6 +279,24 @@ func (h *FormHandler) SaveAnswer(c *gin.Context) {
 func (h *FormHandler) SubmitForm(c *gin.Context) {
 	stateId := c.Param("stateId")
 
+	var req validation.SubmitFormRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		h.log.Warnw("Invalid submit request body", "error", err, "stateId", stateId)
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body: " + err.Error()})
+		return
+	}
+	// Basic validation (might add more specific checks)
+	validPermissions := map[string]bool{"prompt": true, "granted": true, "denied": true, "unavailable": true}
+	if _, ok := validPermissions[req.LocationPermission]; !ok {
+		req.LocationPermission = "unknown" // Default or handle error
+		h.log.Warnw("Invalid location_permission value received", "value", req.LocationPermission)
+	}
+	if req.LocationPermission == "granted" && (req.Latitude == nil || req.Longitude == nil) {
+		h.log.Warnw("Location permission granted but coordinates missing", "stateId", stateId)
+		// Decide how to handle: maybe set permission to 'error' or proceed?
+		// For now, we proceed but log the warning.
+	}
+
 	// Get form state
 	formState, err := h.repo.FormStates.GetByID(stateId)
 	if err != nil {
@@ -302,12 +321,28 @@ func (h *FormHandler) SubmitForm(c *gin.Context) {
 	// Use a transaction for the entire submission process
 	var assessmentID uint
 	err = h.repo.WithTransaction(func(tx *gorm.DB) error {
+		// Use sql.NullFloat64 and sql.NullString for nullable fields
+		var lat sql.NullFloat64
+		var lon sql.NullFloat64
+		var locErr sql.NullString
+
+		if req.Latitude != nil {
+			lat = sql.NullFloat64{Float64: *req.Latitude, Valid: true}
+		}
+		if req.Longitude != nil {
+			lon = sql.NullFloat64{Float64: *req.Longitude, Valid: true}
+		}
+		if req.LocationError != nil {
+			locErr = sql.NullString{String: *req.LocationError, Valid: true}
+		}
+
 		// Create assessment using direct SQL for better performance
 		if err := tx.Raw(`
-            INSERT INTO assessments (user_email, device_id, submitted_at) 
-            VALUES (?, ?, ?)
+            INSERT INTO assessments (user_email, device_id, submitted_at, location_permission, latitude, longitude, location_error)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
             RETURNING id
-            `, userEmail.(string), deviceID, time.Now()).Scan(&assessmentID).Error; err != nil {
+            `, userEmail.(string), deviceID, time.Now(), req.LocationPermission, lat, lon, locErr).
+			Scan(&assessmentID).Error; err != nil {
 			return err
 		}
 

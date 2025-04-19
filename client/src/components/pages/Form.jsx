@@ -16,7 +16,13 @@ export default function Form() {
       answers: {},
       interactionData: null,
       cptResults: null,
-      tmtResults: null
+      tmtResults: null,
+      locationData: {
+        permission: 'prompt', // 'prompt', 'granted', 'denied'
+        latitude: null,
+        longitude: null,
+        error: null
+      }
   });
   const [cptResults, setCptResults] = useState(null);
   const [isComplete, setIsComplete] = useState(false);
@@ -73,6 +79,33 @@ export default function Form() {
       return () => clearInterval(trackingInterval);
     }
   }, [isAuthenticated, loading, stateId]);
+
+  const getLocationPermission = () => {
+    return new Promise((resolve) => {
+      if (!navigator.geolocation) {
+        console.warn('Geolocation is not supported by this browser.');
+        resolve({permission: 'unavailable', latitude: null, longitude: null, error: 'Geolocation unavailable'});
+        return;
+      }
+
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const { latitude, longitude } = position.coords;
+          resolve({permission: 'granted', latitude, longitude, error: null});
+        },
+        (error) => {
+          console.warn(`Geolocation error: ${error.message} (Code: ${error.code})`);
+          let permissionStatus = 'denied';
+          if (error.code === error.PERMISSION_DENIED) {
+            permissionStatus = 'denied';
+          } else if (error.code === error.POSITION_UNAVAILABLE || error.code === error.TIMEOUT) {
+            permissionStatus = 'unavailable'; // Or handle these differently if needed
+          }
+          resolve({ permission: permissionStatus, latitude: null, longitude: null, error: error.message });
+        },
+      );
+    });
+  };
   
   // Initialize form state
   const initForm = async (forceNew = false) => {
@@ -154,7 +187,30 @@ export default function Form() {
       console.error('Error loading question:', error);
     }
   };
-  
+
+  const updateQuestion = (data) => {
+    setCurrentQuestion(data.question);
+    setCurrentStep(data.current_step);
+    setTotalSteps(data.total_steps);
+    setPreviousAnswer(data.previous_answer);
+    
+    // Store previous answer in formAnswers if available
+    if (data.previous_answer && data.question) {
+      setFormData(prev => ({
+        ...prev,
+        answers: {
+          ...prev.answers,
+          [data.question.id]: data.previous_answer
+        }
+      }));
+    }
+  };
+
+    // Get answer for a question
+  const getQuestionAnswer = (questionId) => {
+    return formData.answers[questionId];
+  };
+
   // Navigate between questions
   const navigate = async (direction) => {
     // Get answer for current question
@@ -205,29 +261,6 @@ export default function Form() {
     }
   };
 
-  const updateQuestion = (data) => {
-    setCurrentQuestion(data.question);
-    setCurrentStep(data.current_step);
-    setTotalSteps(data.total_steps);
-    setPreviousAnswer(data.previous_answer);
-    
-    // Store previous answer in formAnswers if available
-    if (data.previous_answer && data.question) {
-      setFormData(prev => ({
-        ...prev,
-        answers: {
-          ...prev.answers,
-          [data.question.id]: data.previous_answer
-        }
-      }));
-    }
-  };    
-  
-  // Get answer for a question
-  const getQuestionAnswer = (questionId) => {
-      return formData.answers[questionId];
-  };
-  
   // Handle answer change
   const handleAnswerChange = (questionId, answer) => {
     setFormData(prev => ({
@@ -242,8 +275,17 @@ export default function Form() {
   // Submit form
   const submitForm = async () => {
     setIsSubmitting(true);
+    setValidationError(null);
+
+    let locationResults = {permission: 'prompt', latitude: null, longitude: null, error: null};
     
     try {
+      locationResults = await getLocationPermission();
+
+      setFormData(prev => ({
+        ...prev,
+        locationData: locationResults
+      }));
       // Get final interaction data snapshot
       let finalInteractionData = null;
       if (window.interactionTracker) {
@@ -257,7 +299,11 @@ export default function Form() {
       const data = await api.post(`/api/form/state/${stateId}/submit`, {
           interaction_data: finalInteractionData,
           cpt_data: cptResults,
-          tmt_data: formData.tmtResults
+          tmt_data: formData.tmtResults,
+          location_permission: locationResults.permission,
+          latitude: locationResults.latitude,
+          longitude: locationResults.longitude,
+          location_error: locationResults.error,
         }
       );
 
