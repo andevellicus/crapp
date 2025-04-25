@@ -268,7 +268,7 @@ export default function Profile() {
                         onClick={(e) => { e.preventDefault(); setActiveSection('danger'); }}
                         style={{ color: activeSection === 'danger' ? 'white' : 'var(--error-color)', backgroundColor: activeSection === 'danger' ? 'var(--error-color)' : undefined }} // Style danger zone link
                     >
-                        Danger Zone
+                        Delete Account
                     </a>
                 </div>
             </div>
@@ -319,10 +319,10 @@ export default function Profile() {
                       <div ref={sectionRefs.danger} data-section="danger" className="form-section danger-zone"> 
                           <h4>Delete Account</h4> 
                             <SectionMessage message={messages.danger} /> 
-                          <DangerZone
-                              onDeleteClick={handleDeleteAccountClick} 
-                              isSaving={isSaving} 
-                          />
+                            <DangerZone
+                                onDeleteClick={handleDeleteAccountClick} 
+                                isSaving={isSaving} 
+                            />
                       </div>
                     )}
 

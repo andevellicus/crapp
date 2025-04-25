@@ -530,16 +530,18 @@ func (h *FormHandler) processCPTData(assessmentID uint, userEmail, deviceID stri
 		// If these aren't set, then we haven't perfomed the test
 		if cptData.TestStartTime == 0.0 && cptData.TestEndTime == 0.0 {
 			h.log.Info("CPT data missing start or end time, skipping processing")
-		} else {
-			cptResults := metrics.CalculateCPTMetrics(&cptData)
+			return nil
 
-			// Set assessment ID and user info
-			cptResults.UserEmail = userEmail
-			cptResults.DeviceID = deviceID
-			cptResults.AssessmentID = assessmentID
+		}
+		cptResults := metrics.CalculateCPTMetrics(&cptData)
 
-			// Save CPT results using direct SQL for better performance
-			if err := tx.Exec(`
+		// Set assessment ID and user info
+		cptResults.UserEmail = userEmail
+		cptResults.DeviceID = deviceID
+		cptResults.AssessmentID = assessmentID
+
+		// Save CPT results using direct SQL for better performance
+		if err := tx.Exec(`
                         INSERT INTO cpt_results (
                             user_email, device_id, assessment_id, 
                             test_start_time, test_end_time,
@@ -548,15 +550,15 @@ func (h *FormHandler) processCPTData(assessmentID uint, userEmail, deviceID stri
                             detection_rate, omission_error_rate, commission_error_rate,
                             raw_data, created_at
                         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-				cptResults.UserEmail, cptResults.DeviceID, cptResults.AssessmentID,
-				cptResults.TestStartTime, cptResults.TestEndTime,
-				cptResults.CorrectDetections, cptResults.CommissionErrors, cptResults.OmissionErrors,
-				cptResults.AverageReactionTime, cptResults.ReactionTimeSD,
-				cptResults.DetectionRate, cptResults.OmissionErrorRate, cptResults.CommissionErrorRate,
-				cptResults.RawData, time.Now()).Error; err != nil {
-				h.log.Warnw("Error saving CPT results", "error", err)
-				return err
-			}
+			cptResults.UserEmail, cptResults.DeviceID, cptResults.AssessmentID,
+			cptResults.TestStartTime, cptResults.TestEndTime,
+			cptResults.CorrectDetections, cptResults.CommissionErrors, cptResults.OmissionErrors,
+			cptResults.AverageReactionTime, cptResults.ReactionTimeSD,
+			cptResults.DetectionRate, cptResults.OmissionErrorRate, cptResults.CommissionErrorRate,
+			cptResults.RawData, time.Now()).Error; err != nil {
+			h.log.Warnw("Error saving CPT results", "error", err)
+			return err
+
 		}
 	}
 	return nil
@@ -578,16 +580,18 @@ func (h *FormHandler) processTMTData(assessmentID uint, userEmail, deviceID stri
 		// If these aren't set, then we haven't performed the test
 		if trailData.TestStartTime == 0.0 && trailData.TestEndTime == 0.0 {
 			h.log.Info("Trail Making Test data missing start or end time, skipping processing")
-		} else {
-			tmtResults := metrics.CalculateTrailMetrics(&trailData)
+			return nil
+		}
 
-			// Set assessment ID and user info
-			tmtResults.UserEmail = userEmail
-			tmtResults.DeviceID = deviceID
-			tmtResults.AssessmentID = assessmentID
+		tmtResults := metrics.CalculateTrailMetrics(&trailData)
 
-			// Save TMT results using direct SQL for better performance
-			if err := tx.Exec(`
+		// Set assessment ID and user info
+		tmtResults.UserEmail = userEmail
+		tmtResults.DeviceID = deviceID
+		tmtResults.AssessmentID = assessmentID
+
+		// Save TMT results using direct SQL for better performance
+		if err := tx.Exec(`
                 INSERT INTO tmt_results (
                     user_email, device_id, assessment_id, 
                     test_start_time, test_end_time,
@@ -595,14 +599,14 @@ func (h *FormHandler) processTMTData(assessmentID uint, userEmail, deviceID stri
                     part_b_completion_time, part_b_errors,
                     b_to_a_ratio, raw_data, created_at
                 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-				tmtResults.UserEmail, tmtResults.DeviceID, tmtResults.AssessmentID,
-				tmtResults.TestStartTime, tmtResults.TestEndTime,
-				tmtResults.PartACompletionTime, tmtResults.PartAErrors,
-				tmtResults.PartBCompletionTime, tmtResults.PartBErrors,
-				tmtResults.BToARatio, tmtResults.RawData, time.Now()).Error; err != nil {
-				h.log.Warnw("Error saving TMT results", "error", err)
-				return err
-			}
+			tmtResults.UserEmail, tmtResults.DeviceID, tmtResults.AssessmentID,
+			tmtResults.TestStartTime, tmtResults.TestEndTime,
+			tmtResults.PartACompletionTime, tmtResults.PartAErrors,
+			tmtResults.PartBCompletionTime, tmtResults.PartBErrors,
+			tmtResults.BToARatio, tmtResults.RawData, time.Now()).Error; err != nil {
+			h.log.Warnw("Error saving TMT results", "error", err)
+			return err
+
 		}
 	}
 	return nil
@@ -618,28 +622,32 @@ func (h *FormHandler) processDigitSpanData(assessmentID uint, userEmail, deviceI
 	// Unmarshal into temporary struct to calculate metrics
 	var rawDigitSpanData metrics.DigitSpanRawData
 	if err := json.Unmarshal(decompressedData, &rawDigitSpanData); err != nil {
-		h.log.Errorw("Error unmarshalling Digit Span raw data", "error", err, "assessment_id", assessmentID)
-		// Decide if this should fail the transaction or just skip saving digit span results
-		return fmt.Errorf("failed to parse digit span data: %w", err)
+		h.log.Warnw("Error unmarshalling Digit Span raw data", "error", err, "assessment_id", assessmentID)
+	} else {
+		if rawDigitSpanData.TestStartTime == 0.0 && rawDigitSpanData.TestEndTime == 0.0 {
+			h.log.Info("Digit Span data missing start or end time, skipping processing")
+			return nil
+		}
+
+		digitSpanResult, err := metrics.CalculateDigitSpanMetrics(&rawDigitSpanData)
+		if err != nil {
+			h.log.Errorw("Error calculating Digit Span metrics", "error", err, "assessment_id", assessmentID)
+			return fmt.Errorf("failed to calculate digit span metrics: %w", err)
+		}
+		digitSpanResult.UserEmail = userEmail
+		digitSpanResult.DeviceID = deviceID
+		digitSpanResult.AssessmentID = assessmentID
+		digitSpanResult.RawData = decompressedData // Save the raw data
+		digitSpanResult.CreatedAt = time.Now()
+
+		// --- Save using the transaction ---
+		if err := tx.Create(&digitSpanResult).Error; err != nil {
+			h.log.Errorw("Error saving Digit Span result", "error", err, "assessment_id", assessmentID)
+			return fmt.Errorf("failed to save digit span result: %w", err)
+		}
+		h.log.Infow("Successfully saved Digit Span result", "result_id", digitSpanResult.ID, "assessment_id", assessmentID)
 	}
 
-	digitSpanResult, err := metrics.CalculateDigitSpanMetrics(&rawDigitSpanData)
-	if err != nil {
-		h.log.Errorw("Error calculating Digit Span metrics", "error", err, "assessment_id", assessmentID)
-		return fmt.Errorf("failed to calculate digit span metrics: %w", err)
-	}
-	digitSpanResult.UserEmail = userEmail
-	digitSpanResult.DeviceID = deviceID
-	digitSpanResult.AssessmentID = assessmentID
-	digitSpanResult.RawData = decompressedData // Save the raw data
-	digitSpanResult.CreatedAt = time.Now()
-
-	// --- Save using the transaction ---
-	if err := tx.Create(&digitSpanResult).Error; err != nil {
-		h.log.Errorw("Error saving Digit Span result", "error", err, "assessment_id", assessmentID)
-		return fmt.Errorf("failed to save digit span result: %w", err)
-	}
-	h.log.Infow("Successfully saved Digit Span result", "result_id", digitSpanResult.ID, "assessment_id", assessmentID)
 	return nil
 }
 

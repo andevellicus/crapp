@@ -312,11 +312,7 @@ const startTrial = useCallback((spanLength) => {
         const correctAttempts = attemptsData.filter(a => a.correct);
         if (correctAttempts.length > 0) {
             highestSpan = Math.max(...correctAttempts.map(a => a.span));
-        } else {
-            // If no correct attempts, find the minimum span attempted
-            highestSpan = Math.min(...attemptsData.map(a => a.span)) - 1;
-            if (highestSpan < 0) highestSpan = 0; // Cannot be less than 0
-        }
+        } 
     }
 
     return (
