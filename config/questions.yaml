@@ -182,7 +182,7 @@ questions:
         label: testDuration
       - value: 300   # How long do we keep the stimulus up
         label: stimulusDuration
-      - value: 2000
+      - value: 1000
         label: interStimulusInterval
       - value: 0.7
         label: targetProbability
