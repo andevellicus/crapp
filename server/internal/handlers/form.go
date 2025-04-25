@@ -150,7 +150,7 @@ func (h *FormHandler) GetCurrentQuestion(c *gin.Context) {
 
 	// Validate the question index
 	if questionIndex < 0 || questionIndex >= len(questions) {
-		h.log.Errorw("Invalid question index",
+		h.log.Errorw("Invalid question index", //TODO Need to reset the form state here
 			"questionIndex", questionIndex,
 			"totalQuestions", len(questions))
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Invalid question configuration"})
