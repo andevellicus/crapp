@@ -20,7 +20,6 @@ import Register from './components/auth/Register';
 import ForgotPassword from './components/auth/ForgotPassword';
 import ResetPassword from './components/auth/ResetPassword';
 import Profile from './components/pages/Profile';
-import Devices from './components/pages/Devices';
 import AdminUsers from './components/admin/AdminUsers';
 import AdminUserCharts from './components/admin/AdminUserCharts';
 import NotFound from './components/pages/NotFound';
@@ -49,7 +48,6 @@ const App = () => {
                   <Route element={<ProtectedRouteLayout />}>
                     <Route path="/" element={<Form />} />
                     <Route path="/profile" element={<Profile />} />
-                    <Route path="/devices" element={<Devices />} />
                   </Route>
 
                   {/* Admin routes */}

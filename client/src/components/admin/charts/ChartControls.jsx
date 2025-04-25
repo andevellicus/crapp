@@ -10,7 +10,7 @@ const ChartControls = ({
     return (
       <div className="controls">
         <div className="control-group">
-          <label htmlFor="symptom-select">Symptom Question:</label>
+          <label htmlFor="symptom-select">Symptom Question/Task:</label>
           <select 
             id="symptom-select"
             value={selectedSymptom}

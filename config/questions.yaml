@@ -145,7 +145,7 @@ questions:
   #   max_length: 500
 
   - id: digit_span_test
-    title: Digit Span Test (Forward)
+    title: Digit Span Test
     description: Measures short-term memory. Remember the sequence of digits shown.
     type: digit_span 
     metrics_type: digit_span 

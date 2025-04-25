@@ -54,7 +54,6 @@ const Header = () => {
               </div>
               <div className={`user-dropdown ${dropdownOpen ? 'show' : ''}`}>
                 <Link to="/profile">Profile</Link>
-                <Link to="/devices">My Devices</Link>
                 {user.is_admin && (
                   <Link to="/admin/users">Admin Dashboard</Link>
                 )}

@@ -1,681 +1,135 @@
-import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../../context/AuthContext';
-import CPTest from '../cognitive/CPTest';
-import TMTest from '../cognitive/TMTest';
-import DigitSpanTest from '../cognitive/DigitSpanTest';
-import api from '../../services/api';
+// src/components/pages/Form.jsx
+import React, { useState, useEffect } from 'react'; // Keep React and useState for answers/results
+import { useFormNavigation } from '../../hooks/useFormNavigation'; // Import the custom hook
+
+import QuestionRenderer from './QuestionRenderer'; 
+import SubmissionScreen from './SubmissionScreen'; 
+import LoadingSpinner from '../common/LoadingSpinner'; // Use a loading spinner
+import NavigationButtons from './NavigationButtons';
+
+// Interaction tracker initialization (if not handled globally or in another hook)
+import '../../interaction-tracker'; // - Ensure tracker runs
 
 export default function Form() {
-  const [stateId, setStateId] = useState(null);
-  const [currentStep, setCurrentStep] = useState(0);
-  const [totalSteps, setTotalSteps] = useState(0);
-  const [currentQuestion, setCurrentQuestion] = useState(null);
-  const [previousAnswer, setPreviousAnswer] = useState(null);
-  const [formAnswers, setFormAnswers] = useState({});
-  const [isComplete, setIsComplete] = useState(false);
-  const [validationError, setValidationError] = useState(null);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isDoingCognitiveTest, setIsDoingCognitiveTest] = useState(false);
-  const {isAuthenticated, loading } = useAuth();
-  const nav = useNavigate();
-   
+  // Use the custom hook for navigation state and handlers
+  const {
+    stateId,
+    currentStep,
+    totalSteps,
+    currentQuestion,
+    isComplete,
+    isLoading, // Use loading state from hook
+    isSubmitting,
+    validationError,
+    handleNavigate,
+    handleSubmit,
+    handleReset,
+    setValidationError // Get error setter from hook
+  } = useFormNavigation();
+
+  // State managed within Form.jsx: Answers and Cognitive Test Results
+  const [answers, setAnswers] = useState({});
+  const [cptResults, setCptResults] = useState(null);
   const [tmtResults, setTmtResults] = useState(null);
   const [digitSpanResults, setDigitSpanResults] = useState(null);
-  const [cptResults, setCptResults] = useState(null);
-  const [formData, setFormData] = useState({
-      answers: {},
-      interactionData: null,
-      locationData: {
-        permission: 'prompt', // 'prompt', 'granted', 'denied'
-        latitude: null,
-        longitude: null,
-        error: null
-      }
-  });
+  const [isDoingCognitiveTest, setIsDoingCognitiveTest] = useState(false); // Keep this local
 
-  // Initialize form on component mount
+  // Effect to reset local answers when the question changes (navigated)
+  // Or potentially fetch previous answer from the hook if needed.
   useEffect(() => {
-    // If we haven't checked auth yet, do nothing (show a loading spinner or something)
-    if (loading) return;
-
-    // Check authentication
-    if (!isAuthenticated) {
-      nav('/login');
-      return;
-    }
-    
-    // If we have a stateId, we are already in the form
-    // and don't need to initialize again
-    if (stateId) {
-      return;
-    }
-
-    // Initialize form
-    initForm();
-    
-    // Initialize and setup interaction tracking
-    if (window.interactionTracker) {
-      // Reset tracker to start fresh
-      window.interactionTracker.reset();
-      
-      // Set up interval to periodically capture interaction data
-      const trackingInterval = setInterval(() => {
-        if (window.interactionTracker) {
-          try {
-            // Get current interaction data
-            const currentData = window.interactionTracker.getData();
-            
-            // Update form data with latest interaction tracking
-            setFormData(prevData => ({
-              ...prevData,
-              interactionData: currentData
-            }));
-          } catch (err) {
-            console.error('Error capturing interaction data:', err);
-          }
+      if (currentQuestion) {
+        // Reset cognitive test state when moving to a non-test question
+        if (!['cpt', 'tmt', 'digit_span'].includes(currentQuestion.type)) {
+            setIsDoingCognitiveTest(false);
         }
-      }, 10000); // Update every 10 seconds
-      
-      // Cleanup interval on unmount
-      return () => clearInterval(trackingInterval);
-    }
-  }, [isAuthenticated, loading, stateId]);
-
-  const getLocationPermission = () => {
-    return new Promise((resolve) => {
-      if (!navigator.geolocation) {
-        console.warn('Geolocation is not supported by this browser.');
-        resolve({permission: 'unavailable', latitude: null, longitude: null, error: 'Geolocation unavailable'});
-        return;
+        // Reset specific cognitive test results when navigating away
+        // (optional, depends if you want to preserve results temporarily)
+        // setCptResults(null);
+        // setTmtResults(null);
+        // setDigitSpanResults(null);
       }
+  }, [currentQuestion]);
 
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          const { latitude, longitude } = position.coords;
-          resolve({permission: 'granted', latitude, longitude, error: null});
-        },
-        (error) => {
-          console.warn(`Geolocation error: ${error.message} (Code: ${error.code})`);
-          let permissionStatus = 'denied';
-          if (error.code === error.PERMISSION_DENIED) {
-            permissionStatus = 'denied';
-          } else if (error.code === error.POSITION_UNAVAILABLE || error.code === error.TIMEOUT) {
-            permissionStatus = 'unavailable'; // Or handle these differently if needed
-          }
-          resolve({ permission: permissionStatus, latitude: null, longitude: null, error: error.message });
-        },
-      );
-    });
-  };
-  
-  // Initialize form state
-  const initForm = async (forceNew = false) => {
-    if (forceNew) {
-      return resetFormState(true);
-    }
-    
-    try {
-      const data = await api.post('/api/form/init', { force_new: forceNew });
-      if (!data) {
-        throw new Error('Error with form init request');
-      }
-      setStateId(data.id);
-      loadCurrentQuestion(data.id);
-    } catch (error) {
-      console.error('Error initializing form:', error);
-    }
-  };
-
-  // A centralized function to reset the entire form
-  const resetFormState = async (createNewForm = true) => {
-    // First reset all local state
-    setCurrentQuestion(null);
-    setCurrentStep(0);
-    setTotalSteps(0);
-    setPreviousAnswer(null);
-    setFormAnswers({});
-    setFormData({
-      answers: {},
-      interactionData: null,
-    });
-    setCptResults(null);
-    setTmtResults(null);
-    setDigitSpanResults(null);
-    setIsComplete(false);
-    setValidationError(null);
-    
-    // Reset interaction tracker if available
-    if (window.interactionTracker) {
-      window.interactionTracker.reset();
-    }
-    
-    // If requested, create a new form on the server
-    if (createNewForm) {
-      try {
-        const data = await api.post('/api/form/init', { force_new: true });
-        if (data) {
-          setStateId(data.id);
-          return loadCurrentQuestion(data.id);
-        }
-      } catch (error) {
-        console.error('Error initializing form:', error);
-        throw error;
-      }
-    }
-  };
-  
-  // Load current question
-  const loadCurrentQuestion = async (id = stateId) => {
-    try {
-      const data = await api.get(`/api/form/state/${id}`)
-
-      if (!data) {
-        throw new Error('Error with question request')
-      }
-      
-      // Check if we're at the submission screen
-      if (data.state === 'complete') {
-        setIsComplete(true);
-        setCurrentQuestion(data.question)
-        setFormData(prev => ({
-            ...prev,
-            answers: data.answers || {}
-        }));
-      } else {
-        updateQuestion(data)
-      }
-    } catch (error) {
-      console.error('Error loading question:', error);
-      if (error.status === 515)  // Reset form state and create a new form
-        resetFormState(true);
-        // Focus on top of page
-        window.scrollTo(0, 0); {
-      };
-    }
-  };
-
-  const updateQuestion = (data) => {
-    setCurrentQuestion(data.question);
-    setCurrentStep(data.current_step);
-    setTotalSteps(data.total_steps);
-    setPreviousAnswer(data.previous_answer);
-    
-    // Store previous answer in formAnswers if available
-    if (data.previous_answer && data.question) {
-      setFormData(prev => ({
-        ...prev,
-        answers: {
-          ...prev.answers,
-          [data.question.id]: data.previous_answer
-        }
-      }));
-    }
-  };
-
-    // Get answer for a question
-  const getQuestionAnswer = (questionId) => {
-    return formData.answers[questionId];
-  };
-
-  // Navigate between questions
-  const navigate = async (direction) => {
-    // Get answer for current question
-    const answer = currentQuestion && 
-                  getQuestionAnswer(currentQuestion.id);
-    
-    // Validate if going forward
-    if (direction === 'next' && currentQuestion.required && answer == undefined) {
-      setValidationError('This question is required');
-      return;
-    }
-    
-    // Clear validation error
-    setValidationError(null);
-    
-    try {
-      // Get latest interaction data
-      let currentInteractionData = null;
-      if (window.interactionTracker) {
-        currentInteractionData = window.interactionTracker.getData();
-      }
-      
-      const data = await api.post(`/api/form/state/${stateId}/answer`, {
-          question_id: currentQuestion.id,
-          answer: answer,
-          direction: direction,
-          // Include latest data with each navigation
-          interaction_data: currentInteractionData,
-          cpt_data: cptResults,
-          tmt_data: tmtResults,
-          digit_span_data: digitSpanResults
-        }
-      )
-
-      if (!data) {
-        setValidationError(errorData.error || 'Failed to save answer');
-        throw new Error('Error with form_state answer request')
-
-      }
-      
-      // Load next question
-      loadCurrentQuestion();
-      if (isComplete && direction === 'prev') {
-        setIsComplete(false)
-      }
-    } catch (error) {
-        console.error('Error navigating:', error);
-        setValidationError('An error occurred. Please try again.');
-    }
-  };
-
-  // Handle answer change
+  // Handle answer changes locally
   const handleAnswerChange = (questionId, answer) => {
-    setFormData(prev => ({
+    setAnswers(prev => ({
       ...prev,
-      answers: {
-          ...prev.answers,
-          [questionId]: answer
-      }
+      [questionId]: answer
     }));
-  };
-  
-  // Submit form
-  const submitForm = async () => {
-    setIsSubmitting(true);
-    setValidationError(null);
-
-    let locationResults = {permission: 'prompt', latitude: null, longitude: null, error: null};
-    
-    try {
-      locationResults = await getLocationPermission();
-
-      setFormData(prev => ({
-        ...prev,
-        locationData: locationResults
-      }));
-      // Get final interaction data snapshot
-      let finalInteractionData = null;
-      if (window.interactionTracker) {
-        try {
-          finalInteractionData = window.interactionTracker.getData();
-        } catch (err) {
-          console.error('Error getting final interaction data:', err);
-        }
-      }
-      
-      const data = await api.post(`/api/form/state/${stateId}/submit`, {
-          interaction_data: finalInteractionData,
-          cpt_data: cptResults,
-          tmt_data: tmtResults,
-          digit_span_data: digitSpanResults,
-          location_permission: locationResults.permission,
-          latitude: locationResults.latitude,
-          longitude: locationResults.longitude,
-          location_error: locationResults.error,
-        }
-      );
-
-      if (!data) {
-        throw new Error('Failed to submit form');
-      }
-      
-      // Show success message
-      if (window.showMessage) {
-        window.showMessage('Your assessment has been submitted successfully!', 'success');
-      } else {
-        alert('Your assessment has been submitted successfully!');
-      }
-      
-      // Reset form state and create a new form
-      await resetFormState(true);
-      
-      // Focus on top of page
-      window.scrollTo(0, 0);
-      
-    } catch (error) {
-      console.error('Error submitting form:', error);
-      if (window.showMessage) {
-        window.showMessage('Failed to submit assessment: ' + (error.message || 'Unknown error'), 'error');
-      } else {
-        alert('Failed to submit assessment: ' + (error.message || 'Unknown error'));
-      }
-    } finally {
-      setIsSubmitting(false);
-    }
-  }; 
-
-  // Reset form
-  const resetForm = () => {
-    if (window.confirm('Are you sure you want to start over? All your current answers will be lost.')) {
-      // Show message
-      if (window.showMessage) {
-        window.showMessage('Starting a new assessment...', 'success');
-      }
-      
-      // Reset form state and create a new form
-      resetFormState(true);
-      
-      // Focus on top of page
-      window.scrollTo(0, 0);
+    // Clear validation error on change
+    if (validationError) {
+        setValidationError(null);
     }
   };
-  
-  // Render CPT test
-  const renderCPTest = (question) => {
-    // Initialize settings with default values
-    let testSettings = {
-      testDuration: 120000,
-      stimulusDuration: 250,
-      interStimulusInterval: 2000,
-      targetProbability: 0.7,
-      targets: ['X'],
-      nonTargets: ['A', 'B', 'C', 'E', 'F', 'H', 'K', 'L']
-    };
-    
-    if (question && question.options && Array.isArray(question.options)) {
-      question.options.forEach(option => {
-          if (option.label && option.value !== undefined) {
-              let value = option.value;
-              
-              if (typeof value === 'string') {
-                  if (!isNaN(value) && !isNaN(parseFloat(value))) {
-                      value = parseFloat(value);
-                  } else if (value.includes(',')) {
-                      value = value.split(',').map(item => item.trim());
-                  } else if (option.label === 'targets') {
-                      value = [value];
-                  }
-              }
-              
-              testSettings[option.label] = value;
-          }
-      });
-    }
-    
-    return (
-      <CPTest
-        settings={testSettings}
-        questionId={question.id}
-        onTestEnd={(results) => {
-          // Store CPT results
-          setCptResults(results);
-          setIsDoingCognitiveTest(false);
-        }}
-        onTestStart={() => {
-          setIsDoingCognitiveTest(true);
-        }}
-      />
-    );
+
+  // --- Prepare data for navigation/submission ---
+  const getCurrentAnswerData = () => {
+      const answer = currentQuestion ? answers[currentQuestion.id] : undefined;
+      return {
+          answer,
+          cptResults,
+          tmtResults,
+          digitSpanResults
+      };
   };
 
-  // Render Trail Making Test
-  const renderTrailTest = (question) => {
-    let testSettings = {
-      partATimeLimit: 60000,
-      partBTimeLimit: 120000,
-      partAItems: 25,
-      partBItems: 25,
-      includePartB: true,
-      minDistance: 60
-    };
-    
-    if (question && question.options && Array.isArray(question.options)) {
-      question.options.forEach(option => {
-        if (option.label && option.value !== undefined) {
-          let value = option.value;
-          
-          if (typeof value === 'string') {
-            if (!isNaN(value) && !isNaN(parseFloat(value))) {
-              value = parseFloat(value);
-            } else if (value.toLowerCase() === 'true') {
-              value = true;
-            } else if (value.toLowerCase() === 'false') {
-              value = false;
-            }
-          }
-          
-          testSettings[option.label] = value;
-        }
-      });
-    }
-    
-    return (
-      <TMTest
-        settings={testSettings}
-        questionId={question.id}
-        onTestEnd={(results) => {
-          setTmtResults(results); 
-          setIsDoingCognitiveTest(false);
-        }}
-        onTestStart={() => {
-          setIsDoingCognitiveTest(true);
-        }}
-      />
-    );
-  };
-  
-  const renderDigitSpanTest = (question) => {
-    let testSettings = {
-        initialSpan: 3,
-        maxSpan: 10,
-        displayTimePerDigit: 1000,
-        interDigitInterval: 500,
-        recallTimeout: 10000,
-        trialsPerSpan: 2,
-    };
-    
-    if (question && question.options && Array.isArray(question.options)) {
-      question.options.forEach(option => {
-        if (option.label && option.value !== undefined) {
-          let value = option.value;
-          
-          if (typeof value === 'string') {
-            if (!isNaN(value) && !isNaN(parseFloat(value))) {
-              value = parseFloat(value);
-            } else if (value.toLowerCase() === 'true') {
-              value = true;
-            } else if (value.toLowerCase() === 'false') {
-              value = false;
-            }
-          }
-          
-          testSettings[option.label] = value;
-        }
-      });
-    }
-    
-    return (
-      <DigitSpanTest
-        settings={testSettings}
-        questionId={question.id}
-        onTestEnd={(results) => {
-          setDigitSpanResults(results);
-          setIsDoingCognitiveTest(false);
-        }}
-        onTestStart={() => {
-          setIsDoingCognitiveTest(true);
-        }}
-      />
-    );
+  // --- Render Logic ---
+
+  if (isLoading && !stateId) { // Show initial loading spinner
+    return <LoadingSpinner message="Initializing assessment..." />;
   }
-  
-  // Render radio question
-  const renderRadioQuestion = (question) => {
-    const answer = getQuestionAnswer(question.id);
-    
-    return (
-      <div className="symptom-scale">
-        {question.options.map(option => (
-          <label key={option.value} className="option-label">
-            <input
-              type="radio"
-              name={question.id}
-              value={option.value}
-              checked={answer === option.value}
-              onChange={() => handleAnswerChange(question.id, option.value)}
-              required={question.required}
-            />
-            <div className="option-text">
-              <strong>{option.label}</strong>
-              {option.description && <div>{option.description}</div>}
-            </div>
-          </label>
-        ))}
-      </div>
-    );
-  };
-  
-  // Render dropdown question
-  const renderDropdownQuestion = (question) => {
-    const answer = getQuestionAnswer(question.id);
-    
-    return (
-      <select
-        name={question.id}
-        value={answer || ''}
-        onChange={(e) => handleAnswerChange(question.id, e.target.value)}
-        required={question.required}
-      >
-        {question.options.map(option => (
-          <option key={option.value} value={option.value}>
-            {option.label}
-          </option>
-        ))}
-      </select>
-    );
-  };
-  
-  // Render text question
-  const renderTextQuestion = (question) => {
-    const answer = getQuestionAnswer(question.id);
-    
-    return (
-      <textarea
-        name={question.id}
-        value={answer || ''}
-        onChange={(e) => handleAnswerChange(question.id, e.target.value)}
-        placeholder={question.placeholder}
-        maxLength={question.max_length}
-        required={question.required}
-      />
-    );
-  };
-  
-  // Render question based on type
-  const renderQuestion = (question) => {
-    switch (question.type) {
-      case 'radio':
-        return renderRadioQuestion(question);
-      case 'dropdown':
-        return renderDropdownQuestion(question);
-      case 'text':
-        return renderTextQuestion(question);
-      case 'cpt':
-        return renderCPTest(question);
-      case 'tmt':
-        return renderTrailTest(question);          
-      case 'digit_span':
-        return renderDigitSpanTest(question);
-      default:
-        return <p>Unsupported question type: {question.type}</p>;
-    }
-  };
-  
-  // Render submission screen
-  const renderSubmitScreen = () => (
-    <div>
-      <p className="completion-message">
-        You have answered all the questions. Please submit your responses.
-      </p>
-      
-      <div className="navigation-buttons">
-        <button
-          type="button"
-          className="nav-button prev-button"
-          onClick={() => navigate('prev')}
-          disabled={isSubmitting}
-        >
-          Back to Questions
-        </button>
-        
-        <button
-          type="button"
-          className="submit-button"
-          onClick={submitForm}
-          disabled={isSubmitting}
-        >
-          {isSubmitting ? 'Submitting...' : 'Submit'}
-        </button>
-      </div>
-      
-      <div>
-        <button
-          type="button"
-          className="reset-button"
-          onClick={resetForm}
-          disabled={isSubmitting}
-        >
-          Start Over
-        </button>
-      </div>
-    </div>
-  );
-  
-  // Render form
-  if (!stateId) {
-    return <div>Loading...</div>;
-  }
-  
+
   if (isComplete) {
-    return renderSubmitScreen();
+    return (
+      <SubmissionScreen
+        onSubmit={() => handleSubmit(getCurrentAnswerData())} // Pass final results
+        onBack={() => handleNavigate('prev', getCurrentAnswerData())} // Pass current data when going back
+        onReset={handleReset}
+        isSubmitting={isSubmitting}
+      />
+    );
   }
-  
-  if (!currentQuestion) {
-    return <div>Loading question...</div>;
+
+  if (!currentQuestion) { // Handle case where question isn't loaded yet after init
+     return <LoadingSpinner message="Loading question..." />;
   }
-  
+
   return (
-    <form id="symptom-form">
-    <div className="progress-indicator">
+    <form id="symptom-form" onSubmit={(e) => e.preventDefault()}> {/* Prevent default form submission */}
+      <div className="progress-indicator">
         Question {currentStep} of {totalSteps}
-    </div>
-    
-    <div className="form-group" data-question-id={currentQuestion?.id}>
-        <h3>{currentQuestion?.title}</h3>
-        
-        {currentQuestion?.description && (
-            <p>{currentQuestion.description}</p>
-        )}
-        
-        {currentQuestion && renderQuestion(currentQuestion)}
-        
-        {validationError && (
-            <div className="validation-message">{validationError}</div>
-        )}
-    </div>
-      
-    {!isDoingCognitiveTest && (
-              <div className="navigation-buttons" id="nav-buttons">
-                  {currentStep > 1 && (
-                      <button
-                          type="button"
-                          className="nav-button prev-button"
-                          onClick={() => navigate('prev')}
-                      >
-                          Previous
-                      </button>
-                  )}
-                  
-                  <button
-                      type="button"
-                      className="nav-button next-button"
-                      onClick={() => navigate('next')}
-                  >
-                      Next
-                  </button>
-              </div>
-          )}
-      </form>
+      </div>
+
+      {/* Display validation errors */}
+       {validationError && (
+            <div className="message error show" style={{marginBottom: '15px'}}>
+                {validationError}
+            </div>
+       )}
+
+       {/* Use QuestionRenderer */}
+      <QuestionRenderer
+          question={currentQuestion}
+          answer={answers[currentQuestion.id]}
+          onChange={handleAnswerChange}
+          // Pass setters and handlers for cognitive tests
+          setTmtResults={setTmtResults}
+          setCptResults={setCptResults}
+          setDigitSpanResults={setDigitSpanResults}
+          setIsDoingCognitiveTest={setIsDoingCognitiveTest} // Let renderer control this
+      />
+
+      {/* Conditionally render navigation buttons */}
+      { !isDoingCognitiveTest && (
+          <NavigationButtons
+              currentStep={currentStep}
+              totalSteps={totalSteps}
+              onPrev={() => handleNavigate('prev', getCurrentAnswerData())}
+              onNext={() => handleNavigate('next', getCurrentAnswerData())}
+              // Disable buttons while submitting or loading next question
+              disabled={isSubmitting || isLoading}
+          />
+      )}
+    </form>
   );
 }

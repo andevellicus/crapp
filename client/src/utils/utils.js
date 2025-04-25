@@ -70,13 +70,18 @@ export const getCookie = (name) => { // Added export
   const value = `; ${document.cookie}`;
   const parts = value.split(`; ${name}=`);
   if (parts.length === 2) {
+    const cookieValue = parts.pop().split(';').shift();
+
+    if (name === 'csrf_token') {
+      return cookieValue; // Return raw value for CSRF token
+    }
     // Decode the cookie value in case it contains special characters
     try {
-        return decodeURIComponent(parts.pop().split(';').shift());
+        return decodeURIComponent(cookieValue);
     } catch (e) {
         console.error("Error decoding cookie", name, e);
         // Fallback to raw value if decoding fails
-         return parts.pop().split(';').shift();
+         return cookieValue 
     }
   }
   return null;

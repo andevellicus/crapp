@@ -112,7 +112,15 @@ func (r *DeviceRepository) Delete(id string) error {
 		return fmt.Errorf("failed to update TMT results: %w", err)
 	}
 
-	// 4. Update refresh tokens
+	// 4. Update digit span results
+	if err := tx.Model(&models.DigitSpanResult{}).
+		Where("device_id = ?", id).
+		Update("device_id", nil).Error; err != nil {
+		tx.Rollback()
+		return fmt.Errorf("failed to update digit span results: %w", err)
+	}
+
+	// 5. Update refresh tokens
 	if err := tx.Delete(&models.RefreshToken{}, "device_id = ?", id).Error; err != nil {
 		tx.Rollback()
 		return fmt.Errorf("failed to delete refresh tokens: %w", err)
