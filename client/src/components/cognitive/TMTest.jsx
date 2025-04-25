@@ -516,13 +516,14 @@ const TMTest = ({ onTestEnd, onTestStart, settings, questionId }) => {
           maxWidth: '100%'     // Ensure it doesn't overflow
         }}
       />
-      
       <div className="trail-footer">
+      {/*   
         <div>Current target: <strong>{
           currentItem <= items.length ? 
             (items[currentItem-1]?.label || '') : 
             'Complete'
         }</strong></div>
+      */}
       </div>
     </div>
   );

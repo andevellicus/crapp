@@ -307,8 +307,8 @@ const startTrial = useCallback((spanLength) => {
 
   const renderResults = () => {
     // Determine the highest span achieved correctly
-    let highestSpan = testSettings.initialSpan - 1;
-    if (attemptsData.length > 0) {
+    let highestSpan = 0;
+    if (attemptsData && attemptsData.length > 0) {
         const correctAttempts = attemptsData.filter(a => a.correct);
         if (correctAttempts.length > 0) {
             highestSpan = Math.max(...correctAttempts.map(a => a.span));

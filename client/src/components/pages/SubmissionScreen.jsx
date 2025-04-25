@@ -13,18 +13,18 @@ const SubmissionScreen = ({ onSubmit, onBack, onReset, isSubmitting }) => {
             <div className="navigation-buttons"> 
                 <button
                     type="button"
-                    className="nav-button prev-button" //
-                    onClick={onBack} //
-                    disabled={isSubmitting} //
+                    className="nav-button prev-button" 
+                    onClick={onBack} 
+                    disabled={isSubmitting} 
                 >
                     Back to Questions 
                 </button>
 
                 <button
                     type="button"
-                    className="submit-button" //
-                    onClick={onSubmit} //
-                    disabled={isSubmitting} //
+                    className="submit-button" 
+                    onClick={onSubmit} 
+                    disabled={isSubmitting} 
                 >
                     {isSubmitting ? 'Submitting...' : 'Submit'} 
                 </button>
@@ -33,10 +33,10 @@ const SubmissionScreen = ({ onSubmit, onBack, onReset, isSubmitting }) => {
             <div style={{ marginTop: '20px', textAlign: 'center' }}> {/* Wrapper div for centering */}
                 <button
                     type="button"
-                    className="reset-button" //
-                    onClick={onReset} //
-                    disabled={isSubmitting} //
-                    style={{ width: 'auto', padding: '8px 15px' }} // Make reset button smaller
+                    className="reset-button" 
+                    onClick={onReset} 
+                    disabled={isSubmitting} 
+                    style={{ width: 'auto', padding: '8px 15px', display:'inline-block' }} // Make reset button smaller
                 >
                     Start Over 
                 </button>

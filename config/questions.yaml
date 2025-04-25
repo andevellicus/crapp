@@ -149,7 +149,7 @@ questions:
     description: Measures short-term memory. Remember the sequence of digits shown.
     type: digit_span 
     metrics_type: digit_span 
-    required: false 
+    required: true 
     # Optional settings can be added here later if needed
     options:
       # How many digits are shown initially
@@ -176,7 +176,7 @@ questions:
     description: This test measures your sustained attention and response control. You'll see letters appearing on screen and need to respond only to the target letter.
     type: cpt
     metrics_type: cpt
-    required: false 
+    required: true 
     options:
       - value: 30000 # Time in milliseconds
         label: testDuration
@@ -196,11 +196,11 @@ questions:
     description: This test measures visual attention and task switching. You'll connect a series of numbers (Part A) or alternate between numbers and letters (Part B) in ascending order.
     type: tmt
     metrics_type: tmt
-    required: false 
+    required: true 
     options:
-      - value: 30000 # Time limit for Part A
+      - value: 20000 # Time limit for Part A
         label: partATimeLimit
-      - value: 45000 # Time limit for Part B
+      - value: 30000 # Time limit for Part B
         label: partBTimeLimit
       - value: 15 # Number of items in Part A
         label: partAItems
