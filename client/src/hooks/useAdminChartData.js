@@ -200,7 +200,7 @@ export function useAdminChartData() {
         };
 
         updateCharts();
-    }, [selectedSymptom, selectedMetric, userId, allQuestions, currentMetricsType, errorMessage]); // Add allQuestions and currentMetricsType dependencies
+    }, [selectedSymptom, selectedMetric, userId, allQuestions, currentMetricsType]); // Add allQuestions and currentMetricsType dependencies
 
     // Group questions (memoized for performance)
     const questionGroups = useMemo(() => { 
