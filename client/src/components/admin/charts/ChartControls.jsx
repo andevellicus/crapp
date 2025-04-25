@@ -40,7 +40,7 @@ const ChartControls = ({
             
             {/* CPT questions */}
             {questionGroups.cpt.length > 0 && (
-              <optgroup label="Cognitive Test Questions">
+              <optgroup label="Continuous Performance Test">
                 {questionGroups.cpt.map(question => (
                   <option key={question.id} value={question.id}>
                     {question.title}
@@ -58,6 +58,16 @@ const ChartControls = ({
                 ))}
               </optgroup>
             )}
+          {/* Digit Span */}
+          {questionGroups.digit_span.length > 0 && (
+            <optgroup label="Digit Span Test">
+              {questionGroups.digit_span.map(question => (
+                <option key={question.id} value={question.id}>
+                  {question.title}
+                </option>
+              ))}
+            </optgroup>
+          )}
           </select>
         </div>
         

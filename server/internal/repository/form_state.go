@@ -106,16 +106,21 @@ func (r *FormStateRepository) Update(formState *models.FormState) error {
 	}
 
 	// Then update large JSON data separately (if they exist)
-	if len(formState.InteractionData) > 0 || len(formState.CPTData) > 0 || len(formState.TMTData) > 0 {
+	if len(formState.InteractionData) > 0 ||
+		len(formState.CPTData) > 0 ||
+		len(formState.TMTData) > 0 ||
+		len(formState.DigitSpanData) > 0 {
 		result = r.db.Exec(`
             UPDATE form_states 
             SET interaction_data = ?,
                 cpt_data = ?,
-                tmt_data = ?
+                tmt_data = ?,
+				digit_span_data = ?
             WHERE id = ? AND LOWER(user_email) = ?`,
 			formState.InteractionData,
 			formState.CPTData,
 			formState.TMTData,
+			formState.DigitSpanData,
 			formState.ID,
 			formState.UserEmail)
 

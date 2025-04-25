@@ -17,6 +17,7 @@ type FormState struct {
 	InteractionData []byte    `json:"interaction_data" gorm:"type:bytea"`
 	CPTData         []byte    `json:"cpt_data" gorm:"type:bytea"`
 	TMTData         []byte    `json:"tmt_data" gorm:"type:bytea"`
+	DigitSpanData   []byte    `json:"digit_span_data" gorm:"type:bytea"`
 
 	// Will be 0 until assessment is "completed"
 	AssessmentID *uint `json:"assessment_id" gorm:"index"`

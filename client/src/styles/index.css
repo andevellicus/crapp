@@ -30,3 +30,4 @@
 /* Cognitive tests */
 @import './cognitive/cpt.css';
 @import './cognitive/tmt.css';
+@import './cognitive/digit_span.css';

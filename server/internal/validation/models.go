@@ -53,12 +53,14 @@ type SaveAnswerRequest struct {
 	InteractionData json.RawMessage `json:"interaction_data,omitempty"`
 	CPTData         json.RawMessage `json:"cpt_data,omitempty"`
 	TMTData         json.RawMessage `json:"tmt_data,omitempty"`
+	DigitSpanData   json.RawMessage `json:"digit_span_data,omitempty"`
 }
 
 type SubmitFormRequest struct {
 	InteractionData    json.RawMessage `json:"interaction_data"`
 	CPTData            json.RawMessage `json:"cpt_data"`
 	TMTData            json.RawMessage `json:"tmt_data"`
+	DigitSpanData      json.RawMessage `json:"digit_span_data"`
 	LocationPermission string          `json:"location_permission"` // e.g., 'granted', 'denied', 'prompt', 'unavailable'
 	Latitude           *float64        `json:"latitude"`            // Use pointer for nullability
 	Longitude          *float64        `json:"longitude"`           // Use pointer for nullability

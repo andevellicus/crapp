@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import CPTest from '../cognitive/CPTest';
 import TMTest from '../cognitive/TMTest';
+import DigitSpanTest from '../cognitive/DigitSpanTest';
 import api from '../../services/api';
 
 export default function Form() {
@@ -12,19 +13,6 @@ export default function Form() {
   const [currentQuestion, setCurrentQuestion] = useState(null);
   const [previousAnswer, setPreviousAnswer] = useState(null);
   const [formAnswers, setFormAnswers] = useState({});
-  const [formData, setFormData] = useState({
-      answers: {},
-      interactionData: null,
-      cptResults: null,
-      tmtResults: null,
-      locationData: {
-        permission: 'prompt', // 'prompt', 'granted', 'denied'
-        latitude: null,
-        longitude: null,
-        error: null
-      }
-  });
-  const [cptResults, setCptResults] = useState(null);
   const [isComplete, setIsComplete] = useState(false);
   const [validationError, setValidationError] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -32,6 +20,20 @@ export default function Form() {
   const {isAuthenticated, loading } = useAuth();
   const nav = useNavigate();
    
+  const [tmtResults, setTmtResults] = useState(null);
+  const [digitSpanResults, setDigitSpanResults] = useState(null);
+  const [cptResults, setCptResults] = useState(null);
+  const [formData, setFormData] = useState({
+      answers: {},
+      interactionData: null,
+      locationData: {
+        permission: 'prompt', // 'prompt', 'granted', 'denied'
+        latitude: null,
+        longitude: null,
+        error: null
+      }
+  });
+
   // Initialize form on component mount
   useEffect(() => {
     // If we haven't checked auth yet, do nothing (show a loading spinner or something)
@@ -136,10 +138,10 @@ export default function Form() {
     setFormData({
       answers: {},
       interactionData: null,
-      cptResults: null,
-      tmtResults: null
     });
     setCptResults(null);
+    setTmtResults(null);
+    setDigitSpanResults(null);
     setIsComplete(false);
     setValidationError(null);
     
@@ -239,8 +241,9 @@ export default function Form() {
           direction: direction,
           // Include latest data with each navigation
           interaction_data: currentInteractionData,
-          cpt_data: formData.cptResults,
-          tmt_data: formData.tmtResults
+          cpt_data: cptResults,
+          tmt_data: tmtResults,
+          digit_span_data: digitSpanResults
         }
       )
 
@@ -299,7 +302,8 @@ export default function Form() {
       const data = await api.post(`/api/form/state/${stateId}/submit`, {
           interaction_data: finalInteractionData,
           cpt_data: cptResults,
-          tmt_data: formData.tmtResults,
+          tmt_data: tmtResults,
+          digit_span_data: digitSpanResults,
           location_permission: locationResults.permission,
           latitude: locationResults.latitude,
           longitude: locationResults.longitude,
@@ -391,13 +395,6 @@ export default function Form() {
         onTestEnd={(results) => {
           // Store CPT results
           setCptResults(results);
-          
-          // Also update formData for consistency
-          setFormData(prev => ({
-            ...prev,
-            cptResults: results
-          }));
-          
           setIsDoingCognitiveTest(false);
         }}
         onTestStart={() => {
@@ -443,12 +440,7 @@ export default function Form() {
         settings={testSettings}
         questionId={question.id}
         onTestEnd={(results) => {
-          // Store Trail Making Test results
-          setFormData(prev => ({
-            ...prev,
-            tmtResults: results
-          }));
-          
+          setTmtResults(results); 
           setIsDoingCognitiveTest(false);
         }}
         onTestStart={() => {
@@ -456,7 +448,52 @@ export default function Form() {
         }}
       />
     );
-  };    
+  };
+  
+  const renderDigitSpanTest = (question) => {
+    let testSettings = {
+        initialSpan: 3,
+        maxSpan: 10,
+        displayTimePerDigit: 1000,
+        interDigitInterval: 500,
+        recallTimeout: 10000,
+        trialsPerSpan: 2,
+    };
+    
+    if (question && question.options && Array.isArray(question.options)) {
+      question.options.forEach(option => {
+        if (option.label && option.value !== undefined) {
+          let value = option.value;
+          
+          if (typeof value === 'string') {
+            if (!isNaN(value) && !isNaN(parseFloat(value))) {
+              value = parseFloat(value);
+            } else if (value.toLowerCase() === 'true') {
+              value = true;
+            } else if (value.toLowerCase() === 'false') {
+              value = false;
+            }
+          }
+          
+          testSettings[option.label] = value;
+        }
+      });
+    }
+    
+    return (
+      <DigitSpanTest
+        settings={testSettings}
+        questionId={question.id}
+        onTestEnd={(results) => {
+          setDigitSpanResults(results);
+          setIsDoingCognitiveTest(false);
+        }}
+        onTestStart={() => {
+          setIsDoingCognitiveTest(true);
+        }}
+      />
+    );
+  }
   
   // Render radio question
   const renderRadioQuestion = (question) => {
@@ -532,7 +569,9 @@ export default function Form() {
       case 'cpt':
         return renderCPTest(question);
       case 'tmt':
-          return renderTrailTest(question);          
+        return renderTrailTest(question);          
+      case 'digit_span':
+        return renderDigitSpanTest(question);
       default:
         return <p>Unsupported question type: {question.type}</p>;
     }

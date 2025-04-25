@@ -2,6 +2,7 @@ package repository
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/andevellicus/crapp/internal/models"
 	"github.com/andevellicus/crapp/internal/utils"
@@ -35,11 +36,12 @@ func (r *TMTRepository) Create(results *models.TMTResult) error {
 }
 
 // GetTrailTimelineData retrieves Trail Making Test metrics in timeline format
-func (r *TMTRepository) GetTMTTimelineData(userEmail, metricKey string) ([]TimelineDataPoint, error) {
+func (r *TMTRepository) GetTMTTimelineData(email, metricKey string) ([]TimelineDataPoint, error) {
 	var results []models.TMTResult
 
-	// Query the database for Trail Making Test results for the user, ordered by date
-	err := r.db.Where("user_email = ?", userEmail).
+	normalizedEmail := strings.ToLower(email)
+	// Query the database for CPT results for the user, ordered by date
+	err := r.db.Where("LOWER(user_email) = ?", normalizedEmail).
 		Order("created_at ASC").
 		Find(&results).Error
 
@@ -88,10 +90,6 @@ func (r *TMTRepository) GetTMTTimelineData(userEmail, metricKey string) ([]Timel
 			timelinePoints[i].SymptomValue = 0
 		case "part_b_errors":
 			timelinePoints[i].MetricValue = float64(result.PartBErrors)
-			timelinePoints[i].SymptomValue = 0
-		default:
-			// Default to part A completion time
-			timelinePoints[i].MetricValue = result.PartACompletionTime
 			timelinePoints[i].SymptomValue = 0
 		}
 	}

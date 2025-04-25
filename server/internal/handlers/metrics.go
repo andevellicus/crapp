@@ -87,14 +87,14 @@ func (h *GinAPIHandler) GetChartTimelineData(c *gin.Context) {
 
 	var timelineData []repository.TimelineDataPoint
 	var err error
-	if questionType == "tmt" {
-		// Get Trail Making Test timeline data
+	switch questionType {
+	case "tmt":
 		timelineData, err = h.repo.TMTResults.GetTMTTimelineData(userID, metricKey)
-	} else if questionType == "cpt" {
-		// Get CPT timeline data
+	case "cpt":
 		timelineData, err = h.repo.CPTResults.GetCPTTimelineData(userID, metricKey)
-	} else {
-		// Get regular interaction metrics timeline data
+	case "digit_span":
+		timelineData, err = h.repo.DigitSpanResults.GetDigitSpanTimelineData(userID, metricKey)
+	default: // Assume interaction metrics for other question types
 		timelineData, err = h.repo.Assessments.GetMetricsTimeline(userID, symptomKey, metricKey)
 	}
 
@@ -111,11 +111,11 @@ func (h *GinAPIHandler) GetChartTimelineData(c *gin.Context) {
 
 	// Get question and metric labels
 	var questionLabel string
-	if questionType == "cpt" {
-		// For CPT metrics, use the metric name as the "question"
-		questionLabel = "Cognitive Test"
+	if questionType == "cpt" || questionType == "tmt" || questionType == "digit_span" {
+		// For cognitive tests, use a generic label or the test title
+		questionLabel = h.getQuestionLabel(symptomKey) // Get title from questions.yaml
 	} else {
-		questionLabel = h.getQuestionLabel(symptomKey)
+		questionLabel = h.getQuestionLabel(symptomKey) // Symptom question title
 	}
 	metricLabel := getMetricLabel(metricKey)
 
@@ -219,7 +219,10 @@ func formatTimelineDataForChart(data []repository.TimelineDataPoint, questionLab
 		Question: questionLabel,
 	}
 
-	if questionType == "cpt" || questionType == "text" || questionType == "tmt" {
+	if questionType == "cpt" ||
+		questionType == "text" ||
+		questionType == "tmt" ||
+		questionType == "digit_span" {
 		dataset := map[string]any{
 			"labels": labels,
 			"datasets": []LineDataset{
@@ -294,6 +297,10 @@ func getMetricLabel(metricKey string) string {
 		"b_to_a_ratio":  "B/A Ratio",
 		"part_a_errors": "Part A Errors",
 		"part_b_errors": "Part B Errors",
+		// Digit span test metrics
+		"highest_span":   "Highest Span Achieved",
+		"correct_trials": "Correct Trials",
+		"total_trials":   "Total Trials",
 	}
 
 	if label, ok := metricLabels[metricKey]; ok {

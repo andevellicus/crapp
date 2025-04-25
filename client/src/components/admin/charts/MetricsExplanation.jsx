@@ -45,6 +45,18 @@ const MetricsExplanation = ({ metricsType, selectedMetric }) => {
           </ul>
       </div>
       );
+  } else if (metricsType === 'digit_span') {
+    return (
+      <div className="metrics-help">
+        <h3>Understanding Digit Span Test Timeline Chart</h3>
+        <p>The Digit Span Test timeline shows performance over time. Each data point represents a completed test.</p>
+        <ul>
+          <li><strong>Highest Span Achieved:</strong> The maximum number of digits correctly recalled in sequence. Higher values indicate better short-term memory capacity.</li>
+          <li><strong>Correct Trials:</strong> The total number of sequences correctly recalled across all span lengths attempted.</li>
+          <li><strong>Total Trials:</strong> The total number of sequences presented to the user during the test.</li>
+        </ul>
+      </div>
+    );
   } else {
       // Default is mouse metrics
       return (

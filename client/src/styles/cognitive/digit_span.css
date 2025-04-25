@@ -1,0 +1,260 @@
+/* client/src/styles/cognitive/digit_span.css */
+/* Digit Span Test styles - designed to match the CPT test layout */
+
+.digit-span-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  min-height: 300px;
+  background-color: #f9f9f9;
+  border-radius: 8px;
+  padding: 20px;
+  margin-bottom: 30px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+/* Instructions Phase */
+.digit-span-intro {
+  max-width: 600px;
+  margin: 0 auto;
+}
+
+.digit-span-instructions {
+  background-color: #f0f5ff;
+  padding: 15px;
+  border-radius: 8px;
+  margin-bottom: 20px;
+  border-left: 4px solid #4a6fa5;
+  text-align: left;
+}
+
+.digit-span-instructions ul,
+.digit-span-results-interpretation ul {
+  margin-left: 20px;
+  margin-bottom: 10px;
+}
+
+.digit-span-instructions li,
+.digit-span-results-interpretation li {
+  margin-bottom: 8px;
+}
+
+/* Test container - similar to CPT */
+.digit-span-test-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-height: 300px;
+  width: 100%;
+}
+
+/* Header area with timer/span info */
+.digit-span-header {
+  width: 100%;
+  text-align: center;
+  margin-bottom: 20px;
+}
+
+.digit-span-timer {
+  font-size: 1.2rem;
+  margin-bottom: 10px;
+  font-weight: bold;
+  width: 100%;
+  text-align: center;
+  background-color: #333;
+  color: white;
+  padding: 10px;
+  border-radius: 4px;
+}
+
+.digit-span-info {
+  display: flex;
+  justify-content: space-between;
+  margin: 10px auto;
+  width: 80%;
+  max-width: 400px;
+  color: #555;
+}
+
+.digit-span-info span {
+  background-color: rgba(74, 111, 165, 0.1);
+  padding: 6px 12px;
+  border-radius: 4px;
+  font-weight: bold;
+}
+
+/* Stimulus container - similar to CPT */
+.digit-stimulus-container {
+  width: 200px;
+  height: 200px;
+  border: 2px solid #4a6fa5;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 30px;
+  background-color: white;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+}
+
+.digit-stimulus {
+  font-size: 6rem;
+  font-weight: bold;
+  color: #4a6fa5;
+  line-height: 1;
+  animation: fadeInOut 0.3s ease-in-out;
+}
+
+/* Recall phase */
+.digit-span-recall-area {
+  width: 100%;
+  max-width: 500px;
+  text-align: center;
+  margin-bottom: 20px;
+}
+
+.digit-input {
+  font-size: 1.8rem;
+  padding: 12px 15px;
+  text-align: center;
+  width: 80%;
+  max-width: 300px;
+  margin: 0 auto 20px auto;
+  display: block;
+  border: 2px solid #ccc;
+  border-radius: 4px;
+  transition: border-color 0.3s;
+}
+
+.digit-input:focus {
+  border-color: #4a6fa5;
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(74, 111, 165, 0.2);
+}
+
+.recall-submit-button {
+  width: auto; /* Don't make submit full width */
+  padding: 10px 30px;
+  margin: 0 auto;
+  display: block;
+  font-size: 1.1rem;
+}
+
+.digit-span-instructions-small {
+  color: #666;
+  font-style: italic;
+  margin-top: 10px;
+  text-align: center;
+}
+
+/* Feedback messages */
+.feedback {
+  margin-top: 15px;
+  font-weight: bold;
+  font-size: 1.2rem;
+  min-height: 1.5em; /* Reserve space */
+  text-align: center;
+  animation: fadeIn 0.3s ease-in-out;
+}
+
+.feedback.correct {
+  color: #38a169;
+}
+
+.feedback.incorrect {
+  color: #e53e3e;
+}
+
+/* Results completion message */
+.digit-span-completion-message {
+  margin-top: 20px;
+  padding: 20px;
+  background-color: #e8f4e9;
+  border-radius: 8px;
+  border-left: 4px solid #27ae60;
+  color: #2c3e50;
+  text-align: center;
+  animation: fadeIn 0.5s ease-in;
+  max-width: 600px;
+}
+
+.digit-span-completion-message h3 {
+  color: #27ae60;
+  margin-bottom: 15px;
+}
+
+.digit-span-completion-message p {
+  margin-bottom: 10px;
+}
+
+.digit-span-completion-message strong {
+  font-size: 1.5rem;
+  color: #4a6fa5;
+}
+
+/* Animations */
+@keyframes fadeInOut {
+  0% { opacity: 0; }
+  20% { opacity: 1; }
+  80% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* Mobile responsiveness */
+@media screen and (max-width: 768px) {
+  .digit-stimulus-container {
+    width: 150px;
+    height: 150px;
+  }
+  
+  .digit-stimulus {
+    font-size: 4.5rem;
+  }
+  
+  .digit-input {
+    font-size: 1.5rem;
+    width: 90%;
+  }
+  
+  .digit-span-info {
+    width: 95%;
+    flex-direction: column;
+    gap: 8px;
+  }
+}
+
+/* Smaller mobile devices */
+@media screen and (max-width: 480px) {
+  .digit-stimulus-container {
+    width: 120px;
+    height: 120px;
+  }
+  
+  .digit-stimulus {
+    font-size: 3.5rem;
+  }
+  
+  .digit-input {
+    font-size: 1.3rem;
+    padding: 10px;
+  }
+  
+  .recall-submit-button {
+    padding: 8px 20px;
+  }
+  
+  .digit-span-instructions ul li {
+    margin-bottom: 10px;
+  }
+}
+
+/* Prevent pull-to-refresh on mobile during tests */
+.digit-span-container {
+  overscroll-behavior: contain;
+}

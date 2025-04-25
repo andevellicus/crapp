@@ -29,12 +29,6 @@ type FormHandler struct {
 	validator      *validation.FormValidator
 }
 
-// CognitiveTestResult represents a cognitive test result within a form submission
-type CognitiveTestResult struct {
-	QuestionID string          `json:"question_id"`
-	Results    json.RawMessage `json:"results"`
-}
-
 func NewFormHandler(repo *repository.Repository, log *zap.SugaredLogger, questionLoader *utils.QuestionLoader) *FormHandler {
 	return &FormHandler{
 		questionLoader: questionLoader,
@@ -246,6 +240,17 @@ func (h *FormHandler) SaveAnswer(c *gin.Context) {
 		}
 	}
 
+	// If Trail Making Test data is provided, save it as raw data
+	if len(req.DigitSpanData) > 0 {
+		compressed, err := utils.CompressData(req.DigitSpanData)
+		if err != nil {
+			h.log.Warnw("Failed to compress digit span data", "error", err)
+			formState.DigitSpanData = req.DigitSpanData // Fallback to uncompressed
+		} else {
+			formState.DigitSpanData = compressed
+		}
+	}
+
 	// Parse the question order from JSON string
 	var questionOrder []int
 	if err := json.Unmarshal([]byte(formState.QuestionOrder), &questionOrder); err != nil {
@@ -348,157 +353,36 @@ func (h *FormHandler) SubmitForm(c *gin.Context) {
 
 		// Process interaction data if available
 		if len(formState.InteractionData) > 0 {
-			// Decompress the interaction data first
-			decompressedData, err := utils.DecompressData(formState.InteractionData)
+			err := h.processInteractionData(assessmentID, formState.InteractionData, tx)
 			if err != nil {
-				h.log.Warnw("Error decompressing interaction data", "error", err)
-				// Try to continue with potentially compressed data
-				decompressedData = formState.InteractionData
-			}
-
-			var interactionData metrics.InteractionData
-			if err := json.Unmarshal(decompressedData, &interactionData); err != nil {
-				h.log.Warnw("Error parsing interaction data", "error", err)
-			} else {
-				// Calculate metrics from the raw data
-				calculatedMetrics := metrics.CalculateInteractionMetrics(&interactionData)
-
-				// Set assessment ID for all metrics
-				for i := range calculatedMetrics.GlobalMetrics {
-					calculatedMetrics.GlobalMetrics[i].AssessmentID = assessmentID
-				}
-				for i := range calculatedMetrics.QuestionMetrics {
-					calculatedMetrics.QuestionMetrics[i].AssessmentID = assessmentID
-				}
-
-				// Combine all metrics for efficient batch insert
-				allMetrics := append(calculatedMetrics.GlobalMetrics, calculatedMetrics.QuestionMetrics...)
-
-				// Bulk insert metrics with PostgreSQL-optimized COPY approach
-				if len(allMetrics) > 0 {
-					metricsTable := "assessment_metrics"
-					columns := []string{"assessment_id", "question_id", "metric_key", "metric_value", "sample_size", "created_at"}
-
-					// Create value sets for bulk insert
-					valueStrings := make([]string, 0, len(allMetrics))
-					valueArgs := make([]interface{}, 0, len(allMetrics)*len(columns))
-
-					for i, metric := range allMetrics {
-						valueStrings = append(valueStrings, fmt.Sprintf("($%d, $%d, $%d, $%d, $%d, $%d)",
-							i*6+1, i*6+2, i*6+3, i*6+4, i*6+5, i*6+6))
-
-						valueArgs = append(valueArgs, metric.AssessmentID)
-						valueArgs = append(valueArgs, metric.QuestionID)
-						valueArgs = append(valueArgs, metric.MetricKey)
-						valueArgs = append(valueArgs, metric.MetricValue)
-						valueArgs = append(valueArgs, metric.SampleSize)
-						valueArgs = append(valueArgs, time.Now())
-					}
-
-					stmt := fmt.Sprintf("INSERT INTO %s (%s) VALUES %s",
-						metricsTable,
-						strings.Join(columns, ", "),
-						strings.Join(valueStrings, ", "))
-
-					if err := tx.Exec(stmt, valueArgs...).Error; err != nil {
-						h.log.Warnw("Error saving metrics", "error", err)
-						return err
-					}
-				}
+				h.log.Warnw("Error processing interaction data", "error", err)
+				return err
 			}
 		}
 
 		// Process CPT data if available
 		if len(formState.CPTData) > 0 {
-			// Decompress the CPT data first
-			decompressedData, err := utils.DecompressData(formState.CPTData)
+			err := h.processCPTData(assessmentID, userEmail.(string), deviceID, formState.CPTData, tx)
 			if err != nil {
-				h.log.Warnw("Error decompressing CPT data", "error", err)
-				// Try to continue with potentially compressed data
-				decompressedData = formState.CPTData
-			}
-
-			var cptData metrics.CPTData
-			if err := json.Unmarshal(decompressedData, &cptData); err != nil {
-				h.log.Warnw("Error parsing CPT data", "error", err)
-			} else {
-				// If these aren't set, then we haven't perfomed the test
-				if cptData.TestStartTime == 0.0 && cptData.TestEndTime == 0.0 {
-					h.log.Info("CPT data missing start or end time, skipping processing")
-				} else {
-					cptResults := metrics.CalculateCPTMetrics(&cptData)
-
-					// Set assessment ID and user info
-					cptResults.UserEmail = userEmail.(string)
-					cptResults.DeviceID = deviceID
-					cptResults.AssessmentID = assessmentID
-
-					// Save CPT results using direct SQL for better performance
-					if err := tx.Exec(`
-                        INSERT INTO cpt_results (
-                            user_email, device_id, assessment_id, 
-                            test_start_time, test_end_time,
-                            correct_detections, commission_errors, omission_errors,
-                            average_reaction_time, reaction_time_sd,
-                            detection_rate, omission_error_rate, commission_error_rate,
-                            raw_data, created_at
-                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-						cptResults.UserEmail, cptResults.DeviceID, cptResults.AssessmentID,
-						cptResults.TestStartTime, cptResults.TestEndTime,
-						cptResults.CorrectDetections, cptResults.CommissionErrors, cptResults.OmissionErrors,
-						cptResults.AverageReactionTime, cptResults.ReactionTimeSD,
-						cptResults.DetectionRate, cptResults.OmissionErrorRate, cptResults.CommissionErrorRate,
-						cptResults.RawData, time.Now()).Error; err != nil {
-						h.log.Warnw("Error saving CPT results", "error", err)
-						return err
-					}
-				}
+				h.log.Warnw("Error processing CPT data", "error", err)
+				return err
 			}
 		}
 
 		// Process Trail Making Test data if available
 		if len(formState.TMTData) > 0 {
-			// Decompress the TMT data first
-			decompressedData, err := utils.DecompressData(formState.TMTData)
+			err := h.processTMTData(assessmentID, userEmail.(string), deviceID, formState.TMTData, tx)
 			if err != nil {
-				h.log.Warnw("Error decompressing TMT data", "error", err)
-				// Try to continue with potentially compressed data
-				decompressedData = formState.TMTData
+				h.log.Warnw("Error processing TMT data", "error", err)
+				return err
 			}
+		}
 
-			var trailData metrics.TrailMakingData
-			if err := json.Unmarshal(decompressedData, &trailData); err != nil {
-				h.log.Warnw("Error parsing Trail Making Test data", "error", err)
-			} else {
-				// If these aren't set, then we haven't performed the test
-				if trailData.TestStartTime == 0.0 && trailData.TestEndTime == 0.0 {
-					h.log.Info("Trail Making Test data missing start or end time, skipping processing")
-				} else {
-					tmtResults := metrics.CalculateTrailMetrics(&trailData)
-
-					// Set assessment ID and user info
-					tmtResults.UserEmail = userEmail.(string)
-					tmtResults.DeviceID = deviceID
-					tmtResults.AssessmentID = assessmentID
-
-					// Save TMT results using direct SQL for better performance
-					if err := tx.Exec(`
-                INSERT INTO tmt_results (
-                    user_email, device_id, assessment_id, 
-                    test_start_time, test_end_time,
-                    part_a_completion_time, part_a_errors,
-                    part_b_completion_time, part_b_errors,
-                    b_to_a_ratio, raw_data, created_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-						tmtResults.UserEmail, tmtResults.DeviceID, tmtResults.AssessmentID,
-						tmtResults.TestStartTime, tmtResults.TestEndTime,
-						tmtResults.PartACompletionTime, tmtResults.PartAErrors,
-						tmtResults.PartBCompletionTime, tmtResults.PartBErrors,
-						tmtResults.BToARatio, tmtResults.RawData, time.Now()).Error; err != nil {
-						h.log.Warnw("Error saving TMT results", "error", err)
-						return err
-					}
-				}
+		if len(formState.DigitSpanData) > 0 {
+			err := h.processDigitSpanData(assessmentID, userEmail.(string), deviceID, formState.DigitSpanData, tx)
+			if err != nil {
+				h.log.Warnw("Error processing Digit Span data", "error", err)
+				return err
 			}
 		}
 
@@ -512,7 +396,7 @@ func (h *FormHandler) SubmitForm(c *gin.Context) {
 		if len(questionResponses) > 0 {
 			// Use batch insert with VALUES clause for better performance
 			valueStrings := make([]string, 0, len(questionResponses))
-			valueArgs := make([]interface{}, 0, len(questionResponses)*6)
+			valueArgs := make([]any, 0, len(questionResponses)*6)
 
 			for i, response := range questionResponses {
 				valueStrings = append(valueStrings, fmt.Sprintf("($%d, $%d, $%d, $%d, $%d, $%d)",
@@ -564,6 +448,198 @@ func (h *FormHandler) SubmitForm(c *gin.Context) {
 		"success":       true,
 		"assessment_id": assessmentID,
 	})
+}
+
+func (h *FormHandler) processInteractionData(assessmentID uint, data []byte, tx *gorm.DB) error {
+	// Decompress the interaction data first
+	decompressedData, err := utils.DecompressData(data)
+	if err != nil {
+		h.log.Warnw("Error decompressing interaction data", "error", err)
+		// Try to continue with potentially compressed data
+		decompressedData = data
+	}
+
+	var interactionData metrics.InteractionData
+	if err := json.Unmarshal(decompressedData, &interactionData); err != nil {
+		h.log.Warnw("Error parsing interaction data", "error", err)
+	} else {
+		// Calculate metrics from the raw data
+		calculatedMetrics := metrics.CalculateInteractionMetrics(&interactionData)
+
+		// Set assessment ID for all metrics
+		for i := range calculatedMetrics.GlobalMetrics {
+			calculatedMetrics.GlobalMetrics[i].AssessmentID = assessmentID
+		}
+		for i := range calculatedMetrics.QuestionMetrics {
+			calculatedMetrics.QuestionMetrics[i].AssessmentID = assessmentID
+		}
+
+		// Combine all metrics for efficient batch insert
+		allMetrics := append(calculatedMetrics.GlobalMetrics, calculatedMetrics.QuestionMetrics...)
+
+		// Bulk insert metrics with PostgreSQL-optimized COPY approach
+		if len(allMetrics) > 0 {
+			metricsTable := "assessment_metrics"
+			columns := []string{"assessment_id", "question_id", "metric_key", "metric_value", "sample_size", "created_at"}
+
+			// Create value sets for bulk insert
+			valueStrings := make([]string, 0, len(allMetrics))
+			valueArgs := make([]interface{}, 0, len(allMetrics)*len(columns))
+
+			for i, metric := range allMetrics {
+				valueStrings = append(valueStrings, fmt.Sprintf("($%d, $%d, $%d, $%d, $%d, $%d)",
+					i*6+1, i*6+2, i*6+3, i*6+4, i*6+5, i*6+6))
+
+				valueArgs = append(valueArgs, metric.AssessmentID)
+				valueArgs = append(valueArgs, metric.QuestionID)
+				valueArgs = append(valueArgs, metric.MetricKey)
+				valueArgs = append(valueArgs, metric.MetricValue)
+				valueArgs = append(valueArgs, metric.SampleSize)
+				valueArgs = append(valueArgs, time.Now())
+			}
+
+			stmt := fmt.Sprintf("INSERT INTO %s (%s) VALUES %s",
+				metricsTable,
+				strings.Join(columns, ", "),
+				strings.Join(valueStrings, ", "))
+
+			if err := tx.Exec(stmt, valueArgs...).Error; err != nil {
+				h.log.Warnw("Error saving metrics", "error", err)
+				return err
+			}
+		}
+	}
+
+	return nil
+}
+
+func (h *FormHandler) processCPTData(assessmentID uint, userEmail, deviceID string, data []byte, tx *gorm.DB) error {
+	// Decompress the CPT data first
+	decompressedData, err := utils.DecompressData(data)
+	if err != nil {
+		h.log.Warnw("Error decompressing CPT data", "error", err)
+		// Try to continue with potentially compressed data
+		decompressedData = data
+	}
+
+	var cptData metrics.CPTData
+	if err := json.Unmarshal(decompressedData, &cptData); err != nil {
+		h.log.Warnw("Error parsing CPT data", "error", err)
+	} else {
+		// If these aren't set, then we haven't perfomed the test
+		if cptData.TestStartTime == 0.0 && cptData.TestEndTime == 0.0 {
+			h.log.Info("CPT data missing start or end time, skipping processing")
+		} else {
+			cptResults := metrics.CalculateCPTMetrics(&cptData)
+
+			// Set assessment ID and user info
+			cptResults.UserEmail = userEmail
+			cptResults.DeviceID = deviceID
+			cptResults.AssessmentID = assessmentID
+
+			// Save CPT results using direct SQL for better performance
+			if err := tx.Exec(`
+                        INSERT INTO cpt_results (
+                            user_email, device_id, assessment_id, 
+                            test_start_time, test_end_time,
+                            correct_detections, commission_errors, omission_errors,
+                            average_reaction_time, reaction_time_sd,
+                            detection_rate, omission_error_rate, commission_error_rate,
+                            raw_data, created_at
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+				cptResults.UserEmail, cptResults.DeviceID, cptResults.AssessmentID,
+				cptResults.TestStartTime, cptResults.TestEndTime,
+				cptResults.CorrectDetections, cptResults.CommissionErrors, cptResults.OmissionErrors,
+				cptResults.AverageReactionTime, cptResults.ReactionTimeSD,
+				cptResults.DetectionRate, cptResults.OmissionErrorRate, cptResults.CommissionErrorRate,
+				cptResults.RawData, time.Now()).Error; err != nil {
+				h.log.Warnw("Error saving CPT results", "error", err)
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func (h *FormHandler) processTMTData(assessmentID uint, userEmail, deviceID string, data []byte, tx *gorm.DB) error {
+	// Decompress the TMT data first
+	decompressedData, err := utils.DecompressData(data)
+	if err != nil {
+		h.log.Warnw("Error decompressing TMT data", "error", err)
+		// Try to continue with potentially compressed data
+		decompressedData = data
+	}
+
+	var trailData metrics.TrailMakingData
+	if err := json.Unmarshal(decompressedData, &trailData); err != nil {
+		h.log.Warnw("Error parsing Trail Making Test data", "error", err)
+	} else {
+		// If these aren't set, then we haven't performed the test
+		if trailData.TestStartTime == 0.0 && trailData.TestEndTime == 0.0 {
+			h.log.Info("Trail Making Test data missing start or end time, skipping processing")
+		} else {
+			tmtResults := metrics.CalculateTrailMetrics(&trailData)
+
+			// Set assessment ID and user info
+			tmtResults.UserEmail = userEmail
+			tmtResults.DeviceID = deviceID
+			tmtResults.AssessmentID = assessmentID
+
+			// Save TMT results using direct SQL for better performance
+			if err := tx.Exec(`
+                INSERT INTO tmt_results (
+                    user_email, device_id, assessment_id, 
+                    test_start_time, test_end_time,
+                    part_a_completion_time, part_a_errors,
+                    part_b_completion_time, part_b_errors,
+                    b_to_a_ratio, raw_data, created_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+				tmtResults.UserEmail, tmtResults.DeviceID, tmtResults.AssessmentID,
+				tmtResults.TestStartTime, tmtResults.TestEndTime,
+				tmtResults.PartACompletionTime, tmtResults.PartAErrors,
+				tmtResults.PartBCompletionTime, tmtResults.PartBErrors,
+				tmtResults.BToARatio, tmtResults.RawData, time.Now()).Error; err != nil {
+				h.log.Warnw("Error saving TMT results", "error", err)
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func (h *FormHandler) processDigitSpanData(assessmentID uint, userEmail, deviceID string, data []byte, tx *gorm.DB) error {
+	decompressedData, err := utils.DecompressData(data)
+	if err != nil {
+		h.log.Warnw("Failed to decompress Digit Span data, proceeding with raw bytes", "error", err, "assessment_id", assessmentID)
+		decompressedData = data
+	}
+
+	// Unmarshal into temporary struct to calculate metrics
+	var rawDigitSpanData metrics.DigitSpanRawData
+	if err := json.Unmarshal(decompressedData, &rawDigitSpanData); err != nil {
+		h.log.Errorw("Error unmarshalling Digit Span raw data", "error", err, "assessment_id", assessmentID)
+		// Decide if this should fail the transaction or just skip saving digit span results
+		return fmt.Errorf("failed to parse digit span data: %w", err)
+	}
+
+	digitSpanResult, err := metrics.CalculateDigitSpanMetrics(&rawDigitSpanData)
+	if err != nil {
+		h.log.Errorw("Error calculating Digit Span metrics", "error", err, "assessment_id", assessmentID)
+		return fmt.Errorf("failed to calculate digit span metrics: %w", err)
+	}
+	digitSpanResult.UserEmail = userEmail
+	digitSpanResult.DeviceID = deviceID
+	digitSpanResult.AssessmentID = assessmentID
+	digitSpanResult.RawData = decompressedData // Save the raw data
+	digitSpanResult.CreatedAt = time.Now()
+
+	// --- Save using the transaction ---
+	if err := tx.Create(&digitSpanResult).Error; err != nil {
+		h.log.Errorw("Error saving Digit Span result", "error", err, "assessment_id", assessmentID)
+		return fmt.Errorf("failed to save digit span result: %w", err)
+	}
+	h.log.Infow("Successfully saved Digit Span result", "result_id", digitSpanResult.ID, "assessment_id", assessmentID)
+	return nil
 }
 
 // ProcessFormAnswers converts formState.Answers map to a slice of QuestionResponse structs

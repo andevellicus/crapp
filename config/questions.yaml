@@ -7,142 +7,169 @@ app_name: CRAPP
 
 # Questions definitions
 questions:
-  - id: headache
-    title: Headache
-    description: Head pressure, eye pressure, base of head pain
-    metric_key: headache  # Corresponds to the database field
-    type: radio
-    metrics_type: mouse
-    required: true
-    options:
-      - value: 0
-        label: SYMPTOMS WERE NOT PRESENT OR RARELY PRESENT
-        description: No noticeable symptoms
-      - value: 1
-        label: MILD SYMPTOMS PRESENT
-        description: Interfered slightly with activities of daily living but still able to function at high level
-      - value: 2
-        label: MODERATE SYMPTOMS PRESENT
-        description: Interfered with ability to work or carry out normal ADLs, but still able to function somewhat most of the day
-      - value: 3
-        label: SEVERE OR DEBILITATING SYMPTOMS PRESENT
-        description: Interfered with ability to function/work all day
+  # - id: headache
+  #   title: Headache
+  #   description: Head pressure, eye pressure, base of head pain
+  #   metric_key: headache  # Corresponds to the database field
+  #   type: radio
+  #   metrics_type: mouse
+  #   required: true
+  #   options:
+  #     - value: 0
+  #       label: SYMPTOMS WERE NOT PRESENT OR RARELY PRESENT
+  #       description: No noticeable symptoms
+  #     - value: 1
+  #       label: MILD SYMPTOMS PRESENT
+  #       description: Interfered slightly with activities of daily living but still able to function at high level
+  #     - value: 2
+  #       label: MODERATE SYMPTOMS PRESENT
+  #       description: Interfered with ability to work or carry out normal ADLs, but still able to function somewhat most of the day
+  #     - value: 3
+  #       label: SEVERE OR DEBILITATING SYMPTOMS PRESENT
+  #       description: Interfered with ability to function/work all day
 
-  - id: cognitive
-    title: Cognitive Dysfunction
-    description: Brain fog, poor memory, difficulty thinking, word finding difficulty
-    metric_key: cognitive
-    type: radio
-    metrics_type: mouse
-    required: true
-    options:
-      - value: 0
-        label: SYMPTOMS WERE NOT PRESENT OR RARELY PRESENT
-        description: No noticeable symptoms
-      - value: 1
-        label: MILD SYMPTOMS PRESENT
-        description: Interfered slightly with activities of daily living but still able to function at high level
-      - value: 2
-        label: MODERATE SYMPTOMS PRESENT
-        description: Interfered with ability to work or carry out normal ADLs, but still able to function somewhat most of the day
-      - value: 3
-        label: SEVERE OR DEBILITATING SYMPTOMS PRESENT
-        description: Interfered with ability to function/work all day
+  # - id: cognitive
+  #   title: Cognitive Dysfunction
+  #   description: Brain fog, poor memory, difficulty thinking, word finding difficulty
+  #   metric_key: cognitive
+  #   type: radio
+  #   metrics_type: mouse
+  #   required: true
+  #   options:
+  #     - value: 0
+  #       label: SYMPTOMS WERE NOT PRESENT OR RARELY PRESENT
+  #       description: No noticeable symptoms
+  #     - value: 1
+  #       label: MILD SYMPTOMS PRESENT
+  #       description: Interfered slightly with activities of daily living but still able to function at high level
+  #     - value: 2
+  #       label: MODERATE SYMPTOMS PRESENT
+  #       description: Interfered with ability to work or carry out normal ADLs, but still able to function somewhat most of the day
+  #     - value: 3
+  #       label: SEVERE OR DEBILITATING SYMPTOMS PRESENT
+  #       description: Interfered with ability to function/work all day
 
-  - id: tinnitus
-    title: Tinnitus
-    description: Sound in the ear, includes whooshing, high pitched ring
-    metric_key: tinnitus
-    type: radio
-    metrics_type: mouse
-    required: true
-    options:
-      - value: 0
-        label: SYMPTOMS WERE NOT PRESENT OR RARELY PRESENT
-        description: No noticeable symptoms
-      - value: 1
-        label: MILD SYMPTOMS PRESENT
-        description: Interfered slightly with activities of daily living but still able to function at high level
-      - value: 2
-        label: MODERATE SYMPTOMS PRESENT
-        description: Interfered with ability to work or carry out normal ADLs, but still able to function somewhat most of the day
-      - value: 3
-        label: SEVERE OR DEBILITATING SYMPTOMS PRESENT
-        description: Interfered with ability to function/work all day
+  # - id: tinnitus
+  #   title: Tinnitus
+  #   description: Sound in the ear, includes whooshing, high pitched ring
+  #   metric_key: tinnitus
+  #   type: radio
+  #   metrics_type: mouse
+  #   required: true
+  #   options:
+  #     - value: 0
+  #       label: SYMPTOMS WERE NOT PRESENT OR RARELY PRESENT
+  #       description: No noticeable symptoms
+  #     - value: 1
+  #       label: MILD SYMPTOMS PRESENT
+  #       description: Interfered slightly with activities of daily living but still able to function at high level
+  #     - value: 2
+  #       label: MODERATE SYMPTOMS PRESENT
+  #       description: Interfered with ability to work or carry out normal ADLs, but still able to function somewhat most of the day
+  #     - value: 3
+  #       label: SEVERE OR DEBILITATING SYMPTOMS PRESENT
+  #       description: Interfered with ability to function/work all day
 
-  - id: dizziness
-    title: Dizziness
-    description: Balance difficulties, vertigo, disequilibrium
-    metric_key: dizziness
-    type: radio
-    metrics_type: mouse
-    required: true
-    options:
-      - value: 0
-        label: SYMPTOMS WERE NOT PRESENT OR RARELY PRESENT
-        description: No noticeable symptoms
-      - value: 1
-        label: MILD SYMPTOMS PRESENT
-        description: Interfered slightly with activities of daily living but still able to function at high level
-      - value: 2
-        label: MODERATE SYMPTOMS PRESENT
-        description: Interfered with ability to work or carry out normal ADLs, but still able to function somewhat most of the day
-      - value: 3
-        label: SEVERE OR DEBILITATING SYMPTOMS PRESENT
-        description: Interfered with ability to function/work all day
+  # - id: dizziness
+  #   title: Dizziness
+  #   description: Balance difficulties, vertigo, disequilibrium
+  #   metric_key: dizziness
+  #   type: radio
+  #   metrics_type: mouse
+  #   required: true
+  #   options:
+  #     - value: 0
+  #       label: SYMPTOMS WERE NOT PRESENT OR RARELY PRESENT
+  #       description: No noticeable symptoms
+  #     - value: 1
+  #       label: MILD SYMPTOMS PRESENT
+  #       description: Interfered slightly with activities of daily living but still able to function at high level
+  #     - value: 2
+  #       label: MODERATE SYMPTOMS PRESENT
+  #       description: Interfered with ability to work or carry out normal ADLs, but still able to function somewhat most of the day
+  #     - value: 3
+  #       label: SEVERE OR DEBILITATING SYMPTOMS PRESENT
+  #       description: Interfered with ability to function/work all day
 
-  - id: visual
-    title: Visual Symptoms
-    description: Blurry or cloudy vision, visual spotting, loss of vision
-    metric_key: visual
-    type: radio
-    metrics_type: mouse
-    required: true
-    options:
-      - value: 0
-        label: SYMPTOMS WERE NOT PRESENT OR RARELY PRESENT
-        description: No noticeable symptoms
-      - value: 1
-        label: MILD SYMPTOMS PRESENT
-        description: Interfered slightly with activities of daily living but still able to function at high level
-      - value: 2
-        label: MODERATE SYMPTOMS PRESENT
-        description: Interfered with ability to work or carry out normal ADLs, but still able to function somewhat most of the day
-      - value: 3
-        label: SEVERE OR DEBILITATING SYMPTOMS PRESENT
-        description: Interfered with ability to function/work all day
+  # - id: visual
+  #   title: Visual Symptoms
+  #   description: Blurry or cloudy vision, visual spotting, loss of vision
+  #   metric_key: visual
+  #   type: radio
+  #   metrics_type: mouse
+  #   required: true
+  #   options:
+  #     - value: 0
+  #       label: SYMPTOMS WERE NOT PRESENT OR RARELY PRESENT
+  #       description: No noticeable symptoms
+  #     - value: 1
+  #       label: MILD SYMPTOMS PRESENT
+  #       description: Interfered slightly with activities of daily living but still able to function at high level
+  #     - value: 2
+  #       label: MODERATE SYMPTOMS PRESENT
+  #       description: Interfered with ability to work or carry out normal ADLs, but still able to function somewhat most of the day
+  #     - value: 3
+  #       label: SEVERE OR DEBILITATING SYMPTOMS PRESENT
+  #       description: Interfered with ability to function/work all day
 
-  - id: medication_changes
-    title: Medication Changes or New Therapies
-    description: Any medication changes or new therapies today?
-    metric_key: medication
-    type: dropdown
-    metrics_type: mouse
-    required: false
-    default_option: 0 # Corresponds to the value, NOT the label
-    options:
-      - value: 0
-        label: No changes
-      - value: 1
-        label: Medication change
-      - value: 2
-        label: Physical therapy
-      - value: 3
-        label: Chiropractor
-      - value: 4
-        label: Botox
-      - value: 5
-        label: Other
+  # - id: medication_changes
+  #   title: Medication Changes or New Therapies
+  #   description: Any medication changes or new therapies today?
+  #   metric_key: medication
+  #   type: dropdown
+  #   metrics_type: mouse
+  #   required: false
+  #   default_option: 0 # Corresponds to the value, NOT the label
+  #   options:
+  #     - value: 0
+  #       label: No changes
+  #     - value: 1
+  #       label: Medication change
+  #     - value: 2
+  #       label: Physical therapy
+  #     - value: 3
+  #       label: Chiropractor
+  #     - value: 4
+  #       label: Botox
+  #     - value: 5
+  #       label: Other
 
-  - id: emotional_events
-    title: Emotional or Traumatic Events
-    description: Any significant traumatic or emotional events happen today?
-    metric_key: emotional
-    type: text
-    metrics_type: keyboard
-    required: false
-    placeholder: Describe any significant events (optional)
-    max_length: 500
+  # - id: emotional_events
+  #   title: Emotional or Traumatic Events
+  #   description: Any significant traumatic or emotional events happen today?
+  #   metric_key: emotional
+  #   type: text
+  #   metrics_type: keyboard
+  #   required: false
+  #   placeholder: Describe any significant events (optional)
+  #   max_length: 500
+
+  - id: digit_span_test
+    title: Digit Span Test (Forward)
+    description: Measures short-term memory. Remember the sequence of digits shown.
+    type: digit_span 
+    metrics_type: digit_span 
+    required: false 
+    # Optional settings can be added here later if needed
+    options:
+      # How many digits are shown initially
+      - value: 3
+        label: initialSpan
+      # Maxium number of digits to show 
+      - value: 6
+        label: maxSpan
+      # How long to show each digit (ms)
+      - value: 1000
+        label: displayTimePerDigit
+      # How long to wait before showing the next digit (ms)
+      - value: 500
+        label: interDigitInterval
+      # How long does the recall portion take
+      - value: 10000
+        label: recallTimeout
+      # How many trials per span
+      - value: 2
+        label: trialsPerSpan
 
   - id: cpt_test
     title: Continuous Performance Test

@@ -162,6 +162,12 @@ func (r *UserRepository) Delete(email string) error {
 			return fmt.Errorf("error deleting assessment TMT results: %w", err)
 		}
 
+		// Delete digit span results linked to these assessments
+		if err := tx.Where("assessment_id IN (?)", assessmentIDs).Delete(&models.DigitSpanResult{}).Error; err != nil {
+			tx.Rollback()
+			return fmt.Errorf("error deleting assessment digit span results: %w", err)
+		}
+
 		// Delete form states
 		if err := tx.Delete(&models.FormState{}, "LOWER(user_email)  = ?", email).Error; err != nil {
 			tx.Rollback()

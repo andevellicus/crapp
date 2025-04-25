@@ -59,7 +59,12 @@ const AdminUserCharts = () => {
       { value: 'b_to_a_ratio', label: 'B/A Ratio' },
       { value: 'part_a_errors', label: 'Part A Errors' },
       { value: 'part_b_errors', label: 'Part B Errors' }
-    ]
+    ],
+    digit_span: [
+        { value: 'highest_span', label: 'Highest Span Achieved' },
+        { value: 'correct_trials', label: 'Correct Trials' },
+        { value: 'total_trials', label: 'Total Trials' },
+    ],
   };
   
   // 1. Load questions and check for CPT availability
@@ -121,6 +126,8 @@ const AdminUserCharts = () => {
       return 'cpt';
     } else if (question.type === 'tmt') {
       return 'tmt';
+    } else if (question.type === 'digit_span') {
+      return 'digit_span';
     } else {
       // Default to mouse interactions for radio, dropdown, etc.
       return 'mouse';
@@ -250,7 +257,8 @@ const AdminUserCharts = () => {
       mouse: [],
       keyboard: [],
       cpt: [],
-      tmt: []
+      tmt: [],
+      digit_span: [],
     };
 
     // Group questions based on their metrics_type
@@ -311,7 +319,7 @@ const AdminUserCharts = () => {
             const questionType = question.type;
             if (questionType === 'text') {
               return <p>Viewing keyboard metrics over time. These metrics track how you interact with text input fields.</p>;
-            } else if (questionType === 'cpt') {
+            } else if (questionType === 'cpt' || questionType === 'tmt' || questionType === 'digit_span') {
               return <p>Viewing cognitive test metrics over time. Select different metrics to see various aspects of test performance.</p>;
             } else {
               const metricsType = getQuestionMetricsType(question);
