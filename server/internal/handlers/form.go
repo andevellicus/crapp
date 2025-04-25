@@ -126,7 +126,7 @@ func (h *FormHandler) GetCurrentQuestion(c *gin.Context) {
 	var questionOrder []int
 	if err := json.Unmarshal([]byte(formState.QuestionOrder), &questionOrder); err != nil {
 		h.log.Errorw("Error parsing question order", "error", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Invalid form state"})
+		c.JSON(515, gin.H{"error": "Invalid form state"})
 		return
 	}
 
@@ -153,7 +153,8 @@ func (h *FormHandler) GetCurrentQuestion(c *gin.Context) {
 		h.log.Errorw("Invalid question index", //TODO Need to reset the form state here
 			"questionIndex", questionIndex,
 			"totalQuestions", len(questions))
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Invalid question configuration"})
+		// Add a custom error code here to signal a form state reset:
+		c.JSON(515, gin.H{"error": "Invalid question configuration"})
 		return
 	}
 

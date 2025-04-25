@@ -187,6 +187,11 @@ export default function Form() {
       }
     } catch (error) {
       console.error('Error loading question:', error);
+      if (error.status === 515)  // Reset form state and create a new form
+        resetFormState(true);
+        // Focus on top of page
+        window.scrollTo(0, 0); {
+      };
     }
   };
 
