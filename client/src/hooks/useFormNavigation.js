@@ -23,22 +23,26 @@ export function useFormNavigation() {
     if (!id) return;
     setIsLoading(true); // Set loading true when fetching
     try {
-      const data = await api.get(`/api/form/state/${id}`); //
-      if (!data) throw new Error('Error loading form state'); //
+      const data = await api.get(`/api/form/state/${id}`); 
+      if (!data) throw new Error('Error loading form state'); 
 
-      setCurrentQuestion(data.question); //
-      setCurrentStep(data.current_step); //
-      setTotalSteps(data.total_steps); //
-      setIsComplete(data.state === 'complete'); //
+      setCurrentQuestion(data.question); 
+      setCurrentStep(data.current_step); 
+      setTotalSteps(data.total_steps); 
+      setIsComplete(data.state === 'complete'); 
       setValidationError(null); // Clear previous errors
     } catch (error) {
       console.error('Error loading question:', error);
       setValidationError('Failed to load the current step.');
       // Handle specific errors like 515 if needed, potentially calling reset
+      if (error.status === 515) {
+        await resetFormState(true); // Force new form if specific error
+        window.scrollTo(0, 0); // Scroll to top on reset
+      }
     } finally {
       setIsLoading(false); // Set loading false after fetching
     }
-  }, []); // Add dependencies if needed, though `api` is stable
+  }, [resetFormState]); // Add dependencies if needed, though `api` is stable
 
   const resetFormState = useCallback(async (createNewForm = true) => {
     // Reset local state
@@ -50,17 +54,17 @@ export function useFormNavigation() {
     setIsLoading(true); // Start loading for init
 
     if (window.interactionTracker) {
-      window.interactionTracker.reset(); //
+      window.interactionTracker.reset(); 
     }
 
     if (createNewForm) {
       try {
-        const data = await api.post('/api/form/init', { force_new: true }); //
+        const data = await api.post('/api/form/init', { force_new: true }); 
         if (data) {
-          setStateId(data.id); //
-          await loadCurrentQuestion(data.id); //
+          setStateId(data.id); 
+          await loadCurrentQuestion(data.id); 
         } else {
-          throw new Error('Failed to initialize new form state'); //
+          throw new Error('Failed to initialize new form state'); 
         }
       } catch (error) {
         console.error('Error initializing form:', error);
@@ -108,7 +112,7 @@ export function useFormNavigation() {
 
   const handleNavigate = useCallback(async (direction, currentAnswerData) => {
     // Basic validation (can be expanded)
-    if (direction === 'next' && currentQuestion?.required && currentAnswerData.answer === undefined) { //
+    if (direction === 'next' && currentQuestion?.required && currentAnswerData.answer === undefined) { 
       setValidationError('This question is required'); //
       return;
     }
@@ -126,26 +130,26 @@ export function useFormNavigation() {
     try {
       let interactionData = null;
       if (window.interactionTracker) {
-        interactionData = window.interactionTracker.getData(); //
+        interactionData = window.interactionTracker.getData(); 
       }
 
       // Include cognitive results if available in currentAnswerData
       const payload = {
-        question_id: currentQuestion.id, //
-        answer: currentAnswerData.answer, //
-        direction: direction, //
-        interaction_data: interactionData, //
-        cpt_data: currentAnswerData.cptResults, //
-        tmt_data: currentAnswerData.tmtResults, //
-        digit_span_data: currentAnswerData.digitSpanResults, //
+        question_id: currentQuestion.id, 
+        answer: currentAnswerData.answer, 
+        direction: direction, 
+        interaction_data: interactionData, 
+        cpt_data: currentAnswerData.cptResults, 
+        tmt_data: currentAnswerData.tmtResults, 
+        digit_span_data: currentAnswerData.digitSpanResults, 
       };
 
-      const data = await api.post(`/api/form/state/${stateId}/answer`, payload); //
+      const data = await api.post(`/api/form/state/${stateId}/answer`, payload); 
 
-      if (!data) throw new Error('Failed to save answer'); //
+      if (!data) throw new Error('Failed to save answer'); 
 
       // Load the next/previous question state
-      await loadCurrentQuestion(stateId); //
+      await loadCurrentQuestion(stateId); 
 
     } catch (error) {
       console.error('Error navigating:', error);
@@ -166,26 +170,26 @@ export function useFormNavigation() {
     try {
         let finalInteractionData = null;
         if (window.interactionTracker) {
-            finalInteractionData = window.interactionTracker.getData(); //
+            finalInteractionData = window.interactionTracker.getData(); 
         }
 
         const payload = {
-            interaction_data: finalInteractionData, //
-            cpt_data: finalAnswerData.cptResults, //
-            tmt_data: finalAnswerData.tmtResults, //
-            digit_span_data: finalAnswerData.digitSpanResults, //
-            location_permission: locationResults.permission, //
-            latitude: locationResults.latitude, //
-            longitude: locationResults.longitude, //
-            location_error: locationResults.error, //
+            interaction_data: finalInteractionData, 
+            cpt_data: finalAnswerData.cptResults, 
+            tmt_data: finalAnswerData.tmtResults, 
+            digit_span_data: finalAnswerData.digitSpanResults, 
+            location_permission: locationResults.permission, 
+            latitude: locationResults.latitude, 
+            longitude: locationResults.longitude, 
+            location_error: locationResults.error, 
         };
 
-        const data = await api.post(`/api/form/state/${stateId}/submit`, payload); //
-        if (!data) throw new Error('Failed to submit form'); //
+        const data = await api.post(`/api/form/state/${stateId}/submit`, payload); 
+        if (!data) throw new Error('Failed to submit form'); 
 
-        if (window.showMessage) window.showMessage('Assessment submitted successfully!', 'success'); //
+        if (window.showMessage) window.showMessage('Assessment submitted successfully!', 'success'); 
         await resetFormState(true); // Start new form
-        window.scrollTo(0, 0); //
+        window.scrollTo(0, 0); 
 
     } catch (error) {
         console.error('Error submitting form:', error);
@@ -197,10 +201,10 @@ export function useFormNavigation() {
   }, [stateId, resetFormState]); // Add dependencies
 
   const handleReset = useCallback(() => {
-    if (window.confirm('Are you sure you want to start over? All answers will be lost.')) { //
-      if (window.showMessage) window.showMessage('Starting a new assessment...', 'success'); //
-      resetFormState(true); //
-      window.scrollTo(0, 0); //
+    if (window.confirm('Are you sure you want to start over? All answers will be lost.')) { 
+      if (window.showMessage) window.showMessage('Starting a new assessment...', 'success'); 
+      resetFormState(true); 
+      window.scrollTo(0, 0); 
     }
   }, [resetFormState]); // Add dependencies
 
