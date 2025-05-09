@@ -42,11 +42,6 @@ export default function Form() {
         if (!['cpt', 'tmt', 'digit_span'].includes(currentQuestion.type)) {
             setIsDoingCognitiveTest(false);
         }
-        // Reset specific cognitive test results when navigating away
-        // (optional, depends if you want to preserve results temporarily)
-        // setCptResults(null);
-        // setTmtResults(null);
-        // setDigitSpanResults(null);
       }
   }, [currentQuestion]);
 

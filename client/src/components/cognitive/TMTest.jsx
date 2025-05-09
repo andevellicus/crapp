@@ -127,8 +127,8 @@ const TMTest = ({ onTestEnd, onTestStart, settings, questionId }) => {
   // Generate test items (circles with numbers/letters)
   const generateItems = () => {
     const newItems = [];
-    const radius = isMobileDevice ? 15 : 20;
-    const minDistance = radius * 3; // Minimum distance between circles (3x radius)
+    const radius = 20; //isMobileDevice() ? 15 : 20;
+    const minDistance = radius * 2.5; // Minimum distance between circles (3x radius)
     const padding = minDistance; // Padding from edges
     const maxAttempts = 100; // Maximum attempts to find a non-overlapping position
 
