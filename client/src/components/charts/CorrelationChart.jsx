@@ -1,33 +1,31 @@
-// src/components/admin/charts/TimelineChart.jsx
-import { Line } from 'react-chartjs-2';
+// src/components/charts/CorrelationChart.jsx
+import { Scatter } from 'react-chartjs-2';
 import { 
-  Chart as ChartJS,
-  CategoryScale,
+  Chart as ChartJS, 
   LinearScale,
   PointElement,
-  LineElement,
   Title,
   Tooltip,
-  Legend
+  Legend,
+  ScatterController
 } from 'chart.js';
 
 // Register Chart.js components
 ChartJS.register(
-  CategoryScale,
   LinearScale,
   PointElement,
-  LineElement,
   Title,
   Tooltip,
-  Legend
+  Legend,
+  ScatterController
 );
 
-const TimelineChart = ({ data }) => {
+const CorrelationChart = ({ data }) => {
   if (!data) return null;
 
   return (
     <div className="chart-container">
-      <Line 
+      <Scatter 
         data={data.data}
         options={{
           responsive: true,
@@ -39,25 +37,16 @@ const TimelineChart = ({ data }) => {
             }
           },
           scales: {
+            x: {
+              title: {
+                display: true,
+                text: data.xLabel
+              }
+            },
             y: {
-              type: 'linear',
-              display: true,
-              position: 'left',
               title: {
                 display: true,
                 text: data.yLabel
-              }
-            },
-            y1: {
-              type: 'linear',
-              display: data.y2Label == "" ? true : false,
-              position: 'right',
-              title: {
-                display: true,
-                text: data.y2Label
-              },
-              grid: {
-                drawOnChartArea: false
               }
             }
           }
@@ -67,4 +56,4 @@ const TimelineChart = ({ data }) => {
   );
 };
 
-export default TimelineChart;
+export default CorrelationChart;

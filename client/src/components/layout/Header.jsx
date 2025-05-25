@@ -53,6 +53,7 @@ const Header = () => {
                 <span className="dropdown-arrow">▼</span>
               </div>
               <div className={`user-dropdown ${dropdownOpen ? 'show' : ''}`}>
+                <Link to="/my-data">My Data</Link>
                 <Link to="/profile">Profile</Link>
                 {user.is_admin && (
                   <Link to="/admin/users">Admin Dashboard</Link>

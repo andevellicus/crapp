@@ -1,17 +1,20 @@
-// src/components/admin/AdminUserCharts.jsx 
+// src/components/charts/UserCharts.jsx 
 import React from 'react';
 // Import the custom hook
-import { useAdminChartData } from '../../hooks/useAdminChartData'; // Adjust path if needed
+import { useChartData } from '../../hooks/useChartData'; // Adjust path if needed
+import { useAuth } from '../../context/AuthContext';
 
 // Import presentational components
-import ChartControls from './charts/ChartControls';
-import CorrelationChart from './charts/CorrelationChart';
-import TimelineChart from './charts/TimelineChart';
-import MetricsExplanation from './charts/MetricsExplanation'; 
+import ChartControls from './ChartControls';
+import CorrelationChart from './CorrelationChart';
+import TimelineChart from './TimelineChart';
+import MetricsExplanation from './MetricsExplanation'; 
 import LoadingSpinner from '../common/LoadingSpinner'; 
 import NoDataMessage from '../common/NoDataMessage'; 
 
-const AdminUserCharts = () => {
+const UserCharts = () => {
+    const { user } = useAuth(); 
+
     // Get all state and handlers from the custom hook
     const {
         userId,
@@ -29,14 +32,28 @@ const AdminUserCharts = () => {
         handleSymptomChange,
         handleMetricChange,
         allQuestions // Get allQuestions if needed for context display
-    } = useAdminChartData();
+    } = useChartData();
+    
+    const isAdminView = !!userId; // Check if viewing admin data
 
     // --- Render Logic ---
     return (
         <div>
             <div className="admin-header"> {/* */}
-                <h2>User Analytics</h2> {/* */}
-                {userId && <p>Viewing data for user: {userId}</p>} {/* */}
+                {/* Dynamic header based on view type */}
+                {isAdminView ? (
+                    <>
+                        <h2>User Analytics</h2>
+                        <p>Viewing data for user: {userId}</p>
+                    </>
+                ) : (
+                    <>
+                        <h2>My Data Analytics</h2>
+                        <p className="section-description">
+                            View your cognitive performance data and symptom patterns over time.
+                        </p>
+                    </>
+                )}
             </div>
 
              {/* Use ChartControls component with props from hook */}
@@ -58,12 +75,12 @@ const AdminUserCharts = () => {
                      if (metricsTypeForExplanation === 'keyboard') { // Simplified check
                          return <p>Viewing keyboard metrics over time...</p>; 
                      } else if (['cpt', 'tmt', 'digit_span'].includes(metricsTypeForExplanation)) { 
-                         return <p>Viewing cognitive test metrics over time...</p>; //
+                         return <p>Viewing {isAdminView ? '' : 'your '}cognitive test metrics over time...</p>;
                      } else { // Default to mouse
                          return ( 
                              <p> 
-                                This visualization shows the relationship between reported symptom severity and 
-                                <span id="metric-type-indicator"> {metricsTypeForExplanation} metrics</span> while answering... 
+                                This visualization shows the relationship between {isAdminView ? 'reported' : 'your reported'} symptom severity and 
+                                <span id="metric-type-indicator"> {metricsTypeForExplanation} metrics</span> while answering{isAdminView ? '...' : ' questions.'}
                             </p> 
                          ); 
                      } 
@@ -72,9 +89,15 @@ const AdminUserCharts = () => {
 
             {/* Conditional Rendering based on hook state */}
              {isLoading ? ( 
-                <LoadingSpinner message="Loading chart data..." /> 
+                <LoadingSpinner message={`Loading ${isAdminView ? 'chart' : 'your chart'} data...`} /> 
             ) : noData ? ( 
-                 <NoDataMessage message={errorMessage || "No data available for this selection."} /> // Show error message if available
+                 <NoDataMessage message={
+                     errorMessage || 
+                     (isAdminView 
+                         ? "No data available for this selection." 
+                         : "No data available for this selection. Complete more assessments to see patterns."
+                     )
+                 } />
             ) : ( 
                 <> 
                      {/* Use shouldShowCorrelationChart from hook */}
@@ -92,4 +115,4 @@ const AdminUserCharts = () => {
     );
 };
 
-export default AdminUserCharts;
+export default UserCharts;

@@ -1,4 +1,4 @@
-// src/components/admin/charts/ChartControls.jsx
+// src/components/charts/ChartControls.jsx
 const ChartControls = ({
     selectedSymptom,
     selectedMetric,

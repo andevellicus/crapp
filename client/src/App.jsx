@@ -21,7 +21,7 @@ import ForgotPassword from './components/auth/ForgotPassword';
 import ResetPassword from './components/auth/ResetPassword';
 import Profile from './components/pages/Profile';
 import AdminUsers from './components/admin/AdminUsers';
-import AdminUserCharts from './components/admin/AdminUserCharts';
+import UserCharts from './components/charts/UserCharts';
 import NotFound from './components/pages/NotFound';
 
 // Import styles 
@@ -47,13 +47,14 @@ const App = () => {
                   {/* Protected routes */}
                   <Route element={<ProtectedRouteLayout />}>
                     <Route path="/" element={<Form />} />
+                    <Route path="/my-data" element={<UserCharts />} />
                     <Route path="/profile" element={<Profile />} />
                   </Route>
 
                   {/* Admin routes */}
                   <Route element={<AdminRouteLayout />}>
                     <Route path="/admin/users" element={<AdminUsers />} />
-                    <Route path="/admin/charts" element={<AdminUserCharts />} />
+                    <Route path="/admin/charts" element={<UserCharts />} />
                   </Route>
 
                   {/* Catch-all route */}

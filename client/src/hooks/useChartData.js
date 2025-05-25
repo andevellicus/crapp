@@ -1,6 +1,7 @@
-// src/hooks/useAdminChartData.js
+// src/hooks/useChartData.js
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useLocation } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
 import api from '../services/api'; 
 
 // Define metricsByType outside the hook as it's constant
@@ -59,7 +60,8 @@ const getQuestionMetricsType = (question) => {
     return 'mouse'; // Default
 };
 
-export function useAdminChartData() {
+export function useChartData() {
+    const { user } = useAuth();
     const location = useLocation(); 
     const userId = useMemo(() => new URLSearchParams(location.search).get('user_id'), [location.search]); // Memoize userId extraction
 
@@ -153,7 +155,7 @@ export function useAdminChartData() {
 
 
             try {
-                const userIdToUse = userId || '';
+                const userIdToUse = userId || user?.email || '';
                 const question = allQuestions.find(q => q.id === selectedSymptom);
 
                  if (!question) { 

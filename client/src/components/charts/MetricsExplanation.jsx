@@ -1,4 +1,4 @@
-// src/components/admin/charts/MetricsExplanation.jsx
+// src/components/charts/MetricsExplanation.jsx
 const MetricsExplanation = ({ metricsType, selectedMetric }) => { 
   if (metricsType === 'tmt') {
     return (
